@@ -1,0 +1,30 @@
+# Generated artifacts
+generated/
+
+# OpenTofu / Terraform state
+*.tfstate
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+tofu/.terraform/
+tofu/*.tfstate
+tofu/*.tfstate.backup
+tofu/.terraform.lock.hcl
+
+# Dhall cache
+.dhall/
+
+# Environment files
+.env
+.env.*
+
+# Editor artifacts
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,34 @@
+[{
+	"src": ["tag:tsidp"],
+	"dst": ["group:dollhouse-admins"],
+	"app": {"tailscale.com/cap/tsidp": [{"admin": ["group:dollhouse-admins"]}]}
+}, {"src": ["tag:k8s-operator"], "dst": ["group:dollhouse-admins"], "app": {
+	"tailscale.com/cap/kubernetes": [{"impersonate": {"groups": ["system:masters"]}}]
+}}, {
+	"src": ["autogroup:member"],
+	"dst": ["tag:rj-gateway"],
+	"app": {"tinyland.dev/cap/rj-gateway": [{"role": "reader"}]}
+}, {
+	"src": ["autogroup:admin"],
+	"dst": ["tag:rj-gateway"],
+	"app": {"tinyland.dev/cap/rj-gateway": [{"role": "admin"}]}
+}, {
+	"src": ["tag:ci-agent"],
+	"dst": ["tag:rj-gateway"],
+	"app": {"tinyland.dev/cap/rj-gateway": [{
+		"role":    "reader",
+		"secrets": ["github-token", "gitlab-token", "neon-database-url"]
+	}]}
+}, {
+	"src": ["tag:rj-gateway"],
+	"dst": ["tag:setec"],
+	"app": {"tailscale.com/cap/secrets": [
+		{"action": ["get", "info", "put", "activate", "delete"], "secret": ["*"]}
+	]}
+}, {
+	"src": ["autogroup:admin"],
+	"dst": ["tag:setec"],
+	"app": {"tailscale.com/cap/secrets": [
+		{"action": ["get", "info", "put", "activate", "delete"], "secret": ["*"]}
+	]}
+}]
