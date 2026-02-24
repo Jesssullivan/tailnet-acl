@@ -1,5 +1,4 @@
 -- Aperture fragment: AI gateway access and host definitions.
-
 let T = ../types/ACL.dhall
 
 let C = ../constants.dhall

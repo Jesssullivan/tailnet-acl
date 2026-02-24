@@ -1,7 +1,6 @@
 -- SSH fragment: ALL SSH rules.
 -- CRITICAL: These rules control SSH access. Changes here can lock users out.
 -- Review carefully before applying.
-
 let T = ../types/ACL.dhall
 
 let C = ../constants.dhall
@@ -64,8 +63,7 @@ let ssh
         , users = [ "jess", "jsullivan2", C.autogroup.nonroot ]
         }
       , { action = "accept"
-        , src =
-          [ C.tag.tinyland_lab_ci_ephemeral, C.tag.tinyland_lab_deploy ]
+        , src = [ C.tag.tinyland_lab_ci_ephemeral, C.tag.tinyland_lab_deploy ]
         , dst = [ C.tag.dev, C.tag.tinyland_lab_common ]
         , users = [ "jsullivan2", "jess", C.autogroup.nonroot ]
         }

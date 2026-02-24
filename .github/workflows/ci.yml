@@ -1,0 +1,173 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  check:
+    name: Dhall type-check + build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Dhall type-check
+        run: nix develop --command dhall type --file policy.dhall > /dev/null
+        env:
+          XDG_CACHE_HOME: ${{ runner.temp }}/.cache
+
+      - name: Dhall format check
+        run: |
+          nix develop --command bash -c '
+            find . -name "*.dhall" -exec dhall format --check {} + 2>&1
+          '
+        env:
+          XDG_CACHE_HOME: ${{ runner.temp }}/.cache
+
+      - name: Build policy JSON
+        run: nix develop --command just build
+        env:
+          XDG_CACHE_HOME: ${{ runner.temp }}/.cache
+
+      - name: Structural validation
+        run: |
+          nix develop --command python3 -c "
+          import json, sys
+          p = json.load(open('generated/policy.json'))
+          required = {'groups','tagOwners','acls','grants','ssh','nodeAttrs','autoApprovers','hosts'}
+          missing = required - set(p.keys())
+          if missing:
+              print(f'Missing keys: {missing}', file=sys.stderr)
+              sys.exit(1)
+          for i, r in enumerate(p['acls']):
+              for f in ('action','src','dst'):
+                  assert f in r, f'ACL rule {i} missing {f}'
+          for i, r in enumerate(p['ssh']):
+              for f in ('action','src','dst','users'):
+                  assert f in r, f'SSH rule {i} missing {f}'
+          for i, g in enumerate(p['grants']):
+              assert 'src' in g, f'Grant {i} missing src'
+              assert 'dst' in g, f'Grant {i} missing dst'
+          print(f'Structural validation passed:')
+          print(f'  {len(p[\"acls\"])} ACL rules')
+          print(f'  {len(p[\"ssh\"])} SSH rules')
+          print(f'  {len(p[\"grants\"])} grants')
+          print(f'  {len(p[\"groups\"])} groups')
+          print(f'  {len(p[\"tagOwners\"])} tag owners')
+          "
+
+      - name: Upload policy artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: policy-json
+          path: generated/policy.json
+          retention-days: 30
+
+  validate:
+    name: Validate against live ACL
+    runs-on: ubuntu-latest
+    needs: check
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Build policy
+        run: nix develop --command just build
+        env:
+          XDG_CACHE_HOME: ${{ runner.temp }}/.cache
+
+      - name: Validate against live
+        id: validate
+        run: |
+          set +e
+          OUTPUT=$(nix develop --command python3 scripts/validate.py 2>&1)
+          EXIT_CODE=$?
+          echo "$OUTPUT"
+          # Save for PR comment
+          {
+            echo 'validation_output<<EOF'
+            echo "$OUTPUT"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+          echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
+          exit $EXIT_CODE
+        env:
+          TAILSCALE_API_KEY: ${{ secrets.TAILSCALE_API_KEY }}
+          XDG_CACHE_HOME: ${{ runner.temp }}/.cache
+
+      - name: Diff summary
+        if: always()
+        id: diff
+        run: |
+          set +e
+          OUTPUT=$(nix develop --command python3 scripts/push.py --dry-run 2>&1)
+          {
+            echo 'diff_output<<EOF'
+            echo "$OUTPUT"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+        env:
+          TAILSCALE_API_KEY: ${{ secrets.TAILSCALE_API_KEY }}
+          XDG_CACHE_HOME: ${{ runner.temp }}/.cache
+
+      - name: Comment on PR
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const validate = `${{ steps.validate.outputs.validation_output }}`;
+            const diff = `${{ steps.diff.outputs.diff_output }}`;
+            const exitCode = '${{ steps.validate.outputs.exit_code }}';
+            const icon = exitCode === '0' ? ':white_check_mark:' : ':warning:';
+
+            const body = [
+              `## ${icon} ACL Validation`,
+              '',
+              '### Validation',
+              '```',
+              validate,
+              '```',
+              '',
+              diff ? '### Diff against live' : '',
+              diff ? '```' : '',
+              diff || '',
+              diff ? '```' : '',
+            ].filter(Boolean).join('\n');
+
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('ACL Validation')
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }

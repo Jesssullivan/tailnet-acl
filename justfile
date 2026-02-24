@@ -33,7 +33,7 @@ push: build
 
 # Format all Dhall files
 fmt:
-    @find {{repo_root}} -name '*.dhall' -exec dhall format --inplace {} \;
+    @find {{repo_root}} -name '*.dhall' -exec dhall format --output {} {} \;
     @echo "Formatted all .dhall files"
 
 # Type-check all Dhall files without producing output

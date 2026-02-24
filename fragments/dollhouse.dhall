@@ -1,6 +1,5 @@
 -- Dollhouse fragment: home infrastructure rules.
 -- Covers tag:dollhouse and tag:services access patterns.
-
 let T = ../types/ACL.dhall
 
 let C = ../constants.dhall

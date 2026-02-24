@@ -1,0 +1,48 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: acl-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Build, validate, push ACL
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Build policy JSON
+        run: nix develop --command just build
+        env:
+          XDG_CACHE_HOME: ${{ runner.temp }}/.cache
+
+      - name: Validate against live ACL
+        run: |
+          nix develop --command python3 scripts/validate.py || true
+        env:
+          TAILSCALE_API_KEY: ${{ secrets.TAILSCALE_API_KEY }}
+          XDG_CACHE_HOME: ${{ runner.temp }}/.cache
+
+      - name: Show diff
+        run: |
+          nix develop --command python3 scripts/push.py --dry-run || true
+        env:
+          TAILSCALE_API_KEY: ${{ secrets.TAILSCALE_API_KEY }}
+          XDG_CACHE_HOME: ${{ runner.temp }}/.cache
+
+      - name: Push ACL to Tailscale
+        run: nix develop --command python3 scripts/push.py --confirm
+        env:
+          TAILSCALE_API_KEY: ${{ secrets.TAILSCALE_API_KEY }}
+          XDG_CACHE_HOME: ${{ runner.temp }}/.cache

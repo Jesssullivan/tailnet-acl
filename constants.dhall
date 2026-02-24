@@ -8,7 +8,6 @@ let user =
       , jess_sulliwood = "jess@sulliwood.org"
       }
 
--- Groups (with the "group:" prefix baked in)
 let group =
       { dollhouse_users = "group:dollhouse-users"
       , dollhouse_admins = "group:dollhouse-admins"
@@ -16,7 +15,6 @@ let group =
       , qa_engineers = "group:qa-engineers"
       }
 
--- Autogroups
 let autogroup =
       { admin = "autogroup:admin"
       , member = "autogroup:member"
@@ -24,7 +22,6 @@ let autogroup =
       , nonroot = "autogroup:nonroot"
       }
 
--- Tags (with the "tag:" prefix baked in)
 let tag =
       { dollhouse = "tag:dollhouse"
       , services = "tag:services"
@@ -51,7 +48,6 @@ let tag =
       , ci_agent = "tag:ci-agent"
       }
 
--- Hosts
 let host = { ai = "100.108.97.127" }
 
 in  { user, group, autogroup, tag, host }

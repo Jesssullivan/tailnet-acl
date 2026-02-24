@@ -1,17 +1,12 @@
 -- Kubernetes fragment: K8s cluster, operator, and tsidp access.
 -- Split into two groups to match live ACL ordering.
-
 let T = ../types/ACL.dhall
 
 let C = ../constants.dhall
 
--- Rules that appear after dollhouse block (k8s self-access, operator)
 let aclsEarly
     : List T.ACLRule
-    = [ { action = "accept"
-        , src = [ C.tag.k8s ]
-        , dst = [ "${C.tag.k8s}:*" ]
-        }
+    = [ { action = "accept", src = [ C.tag.k8s ], dst = [ "${C.tag.k8s}:*" ] }
       , { action = "accept"
         , src = [ C.tag.k8s_operator ]
         , dst =
@@ -25,7 +20,6 @@ let aclsEarly
         }
       ]
 
--- Rules that appear after network block (k8s port access, tsidp, operator access)
 let aclsLate
     : List T.ACLRule
     = [ { action = "accept"

@@ -1,6 +1,5 @@
 -- Core fragment: groups, tag owners, and base user access rules.
 -- This is the foundation that all other fragments build on.
-
 let T = ../types/ACL.dhall
 
 let C = ../constants.dhall
