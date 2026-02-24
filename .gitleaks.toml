@@ -1,0 +1,22 @@
+# Gitleaks configuration for tailnet-acl
+# https://github.com/gitleaks/gitleaks
+
+title = "tailnet-acl secret detection"
+
+[allowlist]
+  description = "Known safe patterns"
+  paths = [
+    '''flake\.lock''',
+  ]
+  regexTarget = "line"
+  regexes = [
+    # Tailscale 100.x.x.x internal IPs are not secrets
+    '''100\.\d+\.\d+\.\d+''',
+    # Variable references, not actual keys
+    '''var\.tailscale_api_key''',
+    '''TF_VAR_tailscale_api_key''',
+    '''TAILSCALE_API_KEY''',
+    # Secret names in grants (not values)
+    '''"secrets":\s*\[''',
+    '''"secret":\s*\[''',
+  ]

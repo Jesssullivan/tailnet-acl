@@ -1,0 +1,32 @@
+# Generated artifacts
+generated/
+
+# OpenTofu / Terraform state
+*.tfstate
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+tofu/.terraform/
+tofu/*.tfstate
+tofu/*.tfstate.backup
+tofu/.terraform.lock.hcl
+
+# Dhall cache
+.dhall/
+
+# Secrets and environment files -- NEVER commit these
+.env
+.env.*
+*.tfvars
+!terraform.tfvars.example
+
+# Nested gitignore files (this root one is the single source of truth)
+**/.gitignore
+!/.gitignore
+
+# Local git hooks and config (never commit these)
+.githooks/
+
+# AI assistant config (never commit)
+CLAUDE.md
+.claude/
