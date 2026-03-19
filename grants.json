@@ -31,4 +31,8 @@
 	"app": {"tailscale.com/cap/secrets": [
 		{"action": ["get", "info", "put", "activate", "delete"], "secret": ["*"]}
 	]}
+}, {
+	"src": ["tag:dollhouse"],
+	"dst": ["tag:dollhouse"],
+	"app": {"tailscale.com/cap/relay": [{}]}
 }]
