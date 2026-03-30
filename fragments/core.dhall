@@ -92,6 +92,9 @@ let tagOwners
       , { mapKey = C.tag.ci_agent
         , mapValue = [ C.autogroup.admin, C.group.dollhouse_admins ]
         }
+      , { mapKey = C.tag.kvm_proxy
+        , mapValue = [ C.autogroup.admin, C.group.dollhouse_admins ]
+        }
       ]
 
 let acls
