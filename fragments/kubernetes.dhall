@@ -43,6 +43,19 @@ let aclsLate
         , src = [ C.group.dollhouse_admins, C.group.dollhouse_users ]
         , dst = [ "${C.tag.k8s}:*" ]
         }
+      , { action = "accept"
+        , src =
+          [ C.tag.tinyland_lab_common
+          , C.tag.dollhouse
+          , C.group.dollhouse_admins
+          ]
+        , dst =
+          [ "${C.tag.k8s}:4222"
+          , "${C.tag.k8s}:8333"
+          , "${C.tag.k8s}:8888"
+          , "${C.tag.k8s}:9333"
+          ]
+        }
       ]
 
 in  { aclsEarly, aclsLate }
