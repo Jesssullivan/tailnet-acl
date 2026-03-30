@@ -23,7 +23,12 @@ let aclsEarly
         , dst = [ "${C.tag.switch}:80", "${C.tag.switch}:443" ]
         }
       , { action = "accept"
-        , src = [ C.group.dollhouse_admins, C.group.dollhouse_users ]
+        , src =
+          [ C.group.dollhouse_admins
+          , C.group.dollhouse_users
+          , C.tag.dollhouse
+          , C.tag.dev
+          ]
         , dst = [ "192.168.0.0/16:*" ]
         }
       ]
