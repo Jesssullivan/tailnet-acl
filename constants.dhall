@@ -46,6 +46,7 @@ let tag =
       , rj_gateway = "tag:rj-gateway"
       , setec = "tag:setec"
       , ci_agent = "tag:ci-agent"
+      , kvm_proxy = "tag:kvm-proxy"
       }
 
 let host = { ai = "100.108.97.127" }
