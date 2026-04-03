@@ -10,17 +10,17 @@ let ssh
     = [ { action = "accept"
         , src = [ C.user.jsullivan2_gmail ]
         , dst = [ C.tag.dollhouse, C.tag.dev ]
-        , users = [ "jsullivan2", "root", C.autogroup.nonroot ]
+        , users = [ "jess", "jsullivan2", "root", C.autogroup.nonroot ]
         }
       , { action = "accept"
         , src = [ C.group.dollhouse_admins, C.autogroup.admin ]
         , dst = [ C.tag.dollhouse, C.tag.dev ]
-        , users = [ "jsullivan2", "root", C.autogroup.nonroot ]
+        , users = [ "jess", "jsullivan2", "root", C.autogroup.nonroot ]
         }
       , { action = "accept"
         , src = [ C.group.dollhouse_users ]
         , dst = [ C.tag.dollhouse, C.tag.dev ]
-        , users = [ "jsullivan2", C.autogroup.nonroot ]
+        , users = [ "jess", "jsullivan2", C.autogroup.nonroot ]
         }
       , { action = "accept"
         , src = [ C.tag.dev ]
@@ -75,7 +75,7 @@ let ssh
       , { action = "accept"
         , src = [ C.tag.switch ]
         , dst = [ C.tag.dollhouse, C.tag.dev ]
-        , users = [ "admin", "root", "jsullivan2" ]
+        , users = [ "admin", "root", "jess", "jsullivan2" ]
         }
       ]
 
