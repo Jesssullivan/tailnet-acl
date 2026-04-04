@@ -12,7 +12,6 @@ let group =
       { dollhouse_users = "group:dollhouse-users"
       , dollhouse_admins = "group:dollhouse-admins"
       , developers = "group:developers"
-      , qa_engineers = "group:qa-engineers"
       }
 
 let autogroup =
@@ -39,7 +38,6 @@ let tag =
       , tinyland_lab_moonlight = "tag:tinyland-lab-moonlight"
       , tinyland_lab_crush = "tag:tinyland-lab-crush"
       , tinyland_lab_runner = "tag:tinyland-lab-runner"
-      , tinyland_lab_dev = "tag:tinyland-lab-dev"
       , tinyland_lab_deploy = "tag:tinyland-lab-deploy"
       , tinyland_lab_ci_ephemeral = "tag:tinyland-lab-ci-ephemeral"
       , tinyland_lab_nix_target = "tag:tinyland-lab-nix-target"

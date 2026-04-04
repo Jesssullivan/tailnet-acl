@@ -17,7 +17,6 @@
             pkgs.dhall
             pkgs.dhall-json
             pkgs.just
-            pkgs.opentofu
             pkgs.python3
           ];
 
@@ -26,7 +25,6 @@
             echo "  dhall:         $(dhall --version)"
             echo "  dhall-to-json: $(dhall-to-json --version)"
             echo "  just:          $(just --version)"
-            echo "  tofu:          $(tofu version | head -1)"
           '';
         };
       }

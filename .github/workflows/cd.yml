@@ -28,8 +28,8 @@ jobs:
           XDG_CACHE_HOME: ${{ runner.temp }}/.cache
 
       - name: Validate against live ACL
-        run: |
-          nix develop --command python3 scripts/validate.py || true
+        continue-on-error: true
+        run: nix develop --command python3 scripts/validate.py
         env:
           TAILSCALE_API_KEY: ${{ secrets.TAILSCALE_API_KEY }}
           XDG_CACHE_HOME: ${{ runner.temp }}/.cache
