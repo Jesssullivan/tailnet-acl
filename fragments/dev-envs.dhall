@@ -26,11 +26,11 @@ let aclsLate
         , dst = [ "${C.tag.dev}:*" ]
         }
       , { action = "accept"
-        , src = [ C.group.developers, C.group.qa_engineers ]
+        , src = [ C.group.developers ]
         , dst = [ "${C.tag.staging}:*" ]
         }
       , { action = "accept"
-        , src = [ C.group.developers, C.group.qa_engineers ]
+        , src = [ C.group.developers ]
         , dst = [ "${C.tag.qa}:*" ]
         }
       , { action = "accept"

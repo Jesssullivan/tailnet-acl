@@ -10,6 +10,14 @@ let aclsEarly
         , src = [ C.tag.rj_gateway ]
         , dst = [ "${C.tag.setec}:*" ]
         }
+      , { action = "accept"
+        , src = [ C.tag.ci_agent ]
+        , dst = [ "${C.tag.dev}:*", "${C.tag.k8s}:*", "${C.tag.rj_gateway}:*" ]
+        }
+      , { action = "accept"
+        , src = [ C.tag.ci_agent ]
+        , dst = [ "${C.autogroup.internet}:*" ]
+        }
       ]
 
 let aclsLate

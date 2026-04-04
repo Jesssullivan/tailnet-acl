@@ -34,6 +34,7 @@ let acls
           , "${C.tag.tinyland_lab_moonlight}:*"
           , "${C.tag.tinyland_lab_crush}:*"
           , "${C.tag.tinyland_lab_runner}:*"
+          , "${C.tag.tinyland_lab_nix_target}:*"
           ]
         }
       , { action = "accept"

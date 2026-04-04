@@ -15,7 +15,6 @@ let groups
       , { mapKey = C.group.developers
         , mapValue = [ C.user.jsullivan2_gmail, C.user.jess_sulliwood ]
         }
-      , { mapKey = C.group.qa_engineers, mapValue = [] : List Text }
       ]
 
 let tagOwners
@@ -44,8 +43,7 @@ let tagOwners
         , mapValue = [ C.autogroup.admin, C.group.developers ]
         }
       , { mapKey = C.tag.qa
-        , mapValue =
-          [ C.autogroup.admin, C.group.developers, C.group.qa_engineers ]
+        , mapValue = [ C.autogroup.admin, C.group.developers ]
         }
       , { mapKey = C.tag.exit_node
         , mapValue = [ C.autogroup.admin, C.group.dollhouse_admins ]
@@ -70,9 +68,6 @@ let tagOwners
         }
       , { mapKey = C.tag.tinyland_lab_runner
         , mapValue = [ C.autogroup.admin, C.group.dollhouse_admins ]
-        }
-      , { mapKey = C.tag.tinyland_lab_dev
-        , mapValue = [ C.autogroup.admin, C.group.developers ]
         }
       , { mapKey = C.tag.tinyland_lab_deploy
         , mapValue = [ C.autogroup.admin, C.group.dollhouse_admins ]

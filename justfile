@@ -52,15 +52,3 @@ compare snapshot:
 # Clean generated artifacts
 clean:
     rm -rf {{repo_root}}/generated/
-
-# Initialize OpenTofu (one-time setup)
-tofu-init:
-    cd {{repo_root}}/tofu && tofu init
-
-# Plan OpenTofu changes
-tofu-plan: build
-    cd {{repo_root}}/tofu && tofu plan
-
-# Apply OpenTofu changes
-tofu-apply: build
-    cd {{repo_root}}/tofu && tofu apply
