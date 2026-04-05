@@ -7,7 +7,15 @@ let C = ../constants.dhall
 
 let ssh
     : List T.SSHRule
-    = [ { action = "accept"
+    = [ -- Emergency admin access: allows SSH to ANY tailnet member, even
+        -- devices that have lost their tags. Prevents the lockout scenario
+        -- where a device drops tags and no SSH rule matches it as a dst.
+        { action = "accept"
+        , src = [ C.autogroup.admin ]
+        , dst = [ C.autogroup.member ]
+        , users = [ "jess", "jsullivan2", "root" ]
+        }
+      , { action = "accept"
         , src = [ C.group.dollhouse_admins, C.autogroup.admin ]
         , dst = [ C.tag.dollhouse, C.tag.dev ]
         , users = [ "jess", "jsullivan2", "root", C.autogroup.nonroot ]
