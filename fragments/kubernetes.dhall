@@ -26,6 +26,7 @@ let aclsLate
         , src = [ C.group.dollhouse_admins, C.tag.dollhouse ]
         , dst =
           [ "${C.tag.k8s}:6443"
+          , "${C.tag.k8s}:9345"
           , "${C.tag.k8s}:30443"
           , "${C.tag.k8s}:10250"
           , "${C.tag.k8s}:2379-2380"
