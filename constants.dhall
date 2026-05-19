@@ -47,6 +47,12 @@ let tag =
       , kvm_proxy = "tag:kvm-proxy"
       }
 
-let host = { ai = "100.108.97.127" }
+let host =
+      { ai = "100.108.97.127"
+      , honey = "100.113.89.12"
+      , bumble = "100.88.101.107"
+      , sting = "100.85.46.118"
+      , loki_observability = "100.64.15.87"
+      }
 
 in  { user, group, autogroup, tag, host }

@@ -57,6 +57,20 @@ let aclsLate
           , "${C.tag.k8s}:9333"
           ]
         }
+      , { action = "accept"
+        , src = [ "tinyland-honey", "tinyland-bumble", "tinyland-sting" ]
+        , dst = [ "tinyland-loki-observability:3100" ]
+        }
       ]
 
-in  { aclsEarly, aclsLate }
+let hosts
+    : List T.Host
+    = [ { mapKey = "tinyland-honey", mapValue = C.host.honey }
+      , { mapKey = "tinyland-bumble", mapValue = C.host.bumble }
+      , { mapKey = "tinyland-sting", mapValue = C.host.sting }
+      , { mapKey = "tinyland-loki-observability"
+        , mapValue = C.host.loki_observability
+        }
+      ]
+
+in  { aclsEarly, aclsLate, hosts }

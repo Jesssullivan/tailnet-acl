@@ -62,5 +62,5 @@ in  { groups = core.groups
     , ssh = ssh.ssh
     , nodeAttrs = allNodeAttrs
     , autoApprovers
-    , hosts = aperture.hosts
+    , hosts = aperture.hosts # kubernetes.hosts
     }
