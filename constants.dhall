@@ -53,6 +53,7 @@ let host =
       , bumble = "100.88.101.107"
       , sting = "100.85.46.118"
       , loki_observability = "100.64.15.87"
+      , grafana_observability = "100.74.127.80"
       }
 
 in  { user, group, autogroup, tag, host }
