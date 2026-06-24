@@ -61,6 +61,10 @@ let aclsLate
         , src = [ "tinyland-honey", "tinyland-bumble", "tinyland-sting" ]
         , dst = [ "tinyland-loki-observability:3100" ]
         }
+      , { action = "accept"
+        , src = [ "tinyland-honey" ]
+        , dst = [ "tinyland-grafana-observability:3000" ]
+        }
       ]
 
 let hosts
@@ -70,6 +74,9 @@ let hosts
       , { mapKey = "tinyland-sting", mapValue = C.host.sting }
       , { mapKey = "tinyland-loki-observability"
         , mapValue = C.host.loki_observability
+        }
+      , { mapKey = "tinyland-grafana-observability"
+        , mapValue = C.host.grafana_observability
         }
       ]
 
