@@ -13,6 +13,8 @@ import os
 import sys
 from pathlib import Path
 
+from ts_auth import resolve_bearer
+
 try:
     import urllib.request
     import urllib.error
@@ -90,6 +92,11 @@ def main() -> int:
     if not api_key:
         print("ERROR: TAILSCALE_API_KEY environment variable is required.", file=sys.stderr)
         print("Get an API key at: https://login.tailscale.com/admin/settings/keys", file=sys.stderr)
+        return 1
+    try:
+        api_key = resolve_bearer(api_key)
+    except Exception as e:
+        print(f"ERROR: failed to resolve Tailscale token: {e}", file=sys.stderr)
         return 1
 
     if not GENERATED_POLICY.exists():
