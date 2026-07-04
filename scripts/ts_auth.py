@@ -14,6 +14,7 @@ change to push.py / validate.py.
 """
 
 import json
+import os
 import urllib.parse
 import urllib.request
 
@@ -24,14 +25,24 @@ def resolve_bearer(secret: str) -> str:
     """Return a usable bearer token for the Tailscale API.
 
     Direct API keys are returned unchanged; OAuth client secrets are exchanged
-    for an access token.
+    for an access token. The exchange requires the (non-secret) client id in
+    TS_OAUTH_CLIENT_ID — Tailscale's token endpoint rejects requests without it.
     """
     if not secret or not secret.startswith("tskey-client-"):
         return secret
 
+    client_id = os.environ.get("TS_OAUTH_CLIENT_ID", "")
+    if not client_id:
+        raise RuntimeError(
+            "TAILSCALE_API_KEY holds an OAuth client secret (tskey-client-...) "
+            "but TS_OAUTH_CLIENT_ID is unset; the token exchange requires the "
+            "client id. Set the TS_OAUTH_CLIENT_ID Actions variable (it is not "
+            "a secret) alongside the client-secret swap."
+        )
+
     data = urllib.parse.urlencode(
         {
-            "client_id": "",
+            "client_id": client_id,
             "client_secret": secret,
             "grant_type": "client_credentials",
         }
