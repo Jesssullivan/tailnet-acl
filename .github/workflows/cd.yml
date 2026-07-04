@@ -32,6 +32,7 @@ jobs:
         run: nix develop --command python3 scripts/validate.py
         env:
           TAILSCALE_API_KEY: ${{ secrets.TAILSCALE_API_KEY }}
+          TS_OAUTH_CLIENT_ID: ${{ vars.TS_OAUTH_CLIENT_ID }}
           XDG_CACHE_HOME: ${{ runner.temp }}/.cache
 
       - name: Show diff
@@ -39,10 +40,12 @@ jobs:
           nix develop --command python3 scripts/push.py --dry-run || true
         env:
           TAILSCALE_API_KEY: ${{ secrets.TAILSCALE_API_KEY }}
+          TS_OAUTH_CLIENT_ID: ${{ vars.TS_OAUTH_CLIENT_ID }}
           XDG_CACHE_HOME: ${{ runner.temp }}/.cache
 
       - name: Push ACL to Tailscale
         run: nix develop --command python3 scripts/push.py --confirm
         env:
           TAILSCALE_API_KEY: ${{ secrets.TAILSCALE_API_KEY }}
+          TS_OAUTH_CLIENT_ID: ${{ vars.TS_OAUTH_CLIENT_ID }}
           XDG_CACHE_HOME: ${{ runner.temp }}/.cache
