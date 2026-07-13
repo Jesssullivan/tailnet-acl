@@ -54,7 +54,13 @@ let tagOwners
       , { mapKey = C.tag.subnet_router
         , mapValue = [ C.autogroup.admin, C.group.dollhouse_admins ]
         }
+      , { mapKey = C.tag.tinyland_lab
+        , mapValue = [ C.autogroup.admin, C.group.dollhouse_admins ]
+        }
       , { mapKey = C.tag.tinyland_lab_common
+        , mapValue = [ C.autogroup.admin, C.group.dollhouse_admins ]
+        }
+      , { mapKey = C.tag.tinyland_lab_storage
         , mapValue = [ C.autogroup.admin, C.group.dollhouse_admins ]
         }
       , { mapKey = C.tag.tinyland_lab_sunshine
