@@ -35,10 +35,6 @@ let aclsEarly
         , src = [ C.group.dollhouse_admins ]
         , dst = [ "${C.tag.kvm_proxy}:*" ]
         }
-      , { action = "accept"
-        , src = [ C.tag.exit_node ]
-        , dst = [ "${C.autogroup.internet}:*" ]
-        }
       ]
 
 let aclsLate

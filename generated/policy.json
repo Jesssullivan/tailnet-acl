@@ -1,0 +1,876 @@
+{
+	"groups": {
+		"group:developers": [
+			"jsullivan2@gmail.com",
+			"jess@sulliwood.org"
+		],
+		"group:dollhouse-admins": [
+			"jsullivan2@gmail.com",
+			"jess@sulliwood.org"
+		],
+		"group:dollhouse-users": [
+			"jsullivan2@gmail.com",
+			"jess@sulliwood.org"
+		],
+		"group:qa-engineers": []
+	},
+	"tagOwners": {
+		"tag:ci-agent": [
+			"autogroup:admin",
+			"group:dollhouse-admins"
+		],
+		"tag:dev": [
+			"autogroup:admin",
+			"group:developers"
+		],
+		"tag:dollhouse": [
+			"autogroup:admin",
+			"group:dollhouse-admins"
+		],
+		"tag:exit-node": [
+			"autogroup:admin",
+			"group:dollhouse-admins"
+		],
+		"tag:k8s": [
+			"tag:k8s-operator",
+			"autogroup:admin",
+			"group:dollhouse-admins"
+		],
+		"tag:k8s-operator": [
+			"tag:k8s-operator",
+			"autogroup:admin",
+			"group:dollhouse-admins"
+		],
+		"tag:kvm-proxy": [
+			"autogroup:admin",
+			"group:dollhouse-admins"
+		],
+		"tag:qa": [
+			"autogroup:admin",
+			"group:developers",
+			"group:qa-engineers"
+		],
+		"tag:rj-gateway": [
+			"autogroup:admin",
+			"group:dollhouse-admins"
+		],
+		"tag:services": [
+			"autogroup:admin",
+			"group:dollhouse-admins"
+		],
+		"tag:setec": [
+			"autogroup:admin",
+			"group:dollhouse-admins"
+		],
+		"tag:staging": [
+			"autogroup:admin",
+			"group:developers"
+		],
+		"tag:subnet-router": [
+			"autogroup:admin",
+			"group:dollhouse-admins"
+		],
+		"tag:switch": [
+			"autogroup:admin",
+			"group:dollhouse-admins"
+		],
+		"tag:tinyland-lab-ci-ephemeral": [
+			"tag:tinyland-lab-deploy",
+			"autogroup:admin"
+		],
+		"tag:tinyland-lab-common": [
+			"autogroup:admin",
+			"group:dollhouse-admins"
+		],
+		"tag:tinyland-lab-crush": [
+			"autogroup:admin",
+			"group:dollhouse-admins"
+		],
+		"tag:tinyland-lab-deploy": [
+			"autogroup:admin",
+			"group:dollhouse-admins"
+		],
+		"tag:tinyland-lab-dev": [
+			"autogroup:admin",
+			"group:developers"
+		],
+		"tag:tinyland-lab-moonlight": [
+			"autogroup:admin",
+			"group:dollhouse-admins"
+		],
+		"tag:tinyland-lab-nix-target": [
+			"autogroup:admin",
+			"group:dollhouse-admins"
+		],
+		"tag:tinyland-lab-runner": [
+			"autogroup:admin",
+			"group:dollhouse-admins"
+		],
+		"tag:tinyland-lab-sunshine": [
+			"autogroup:admin",
+			"group:dollhouse-admins"
+		],
+		"tag:tsidp": [
+			"autogroup:admin",
+			"group:dollhouse-admins"
+		]
+	},
+	"acls": [
+		{
+			"action": "accept",
+			"src": [
+				"group:dollhouse-users",
+				"group:dollhouse-admins"
+			],
+			"dst": [
+				"tag:dev:*",
+				"tag:dollhouse:*"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"tag:dev"
+			],
+			"dst": [
+				"tag:dollhouse:*",
+				"tag:services:*",
+				"tag:k8s:*",
+				"tag:tsidp:*",
+				"autogroup:internet:*"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"tag:dev"
+			],
+			"dst": [
+				"tag:dev:*"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"group:dollhouse-admins"
+			],
+			"dst": [
+				"tag:dollhouse:*"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"group:dollhouse-users"
+			],
+			"dst": [
+				"tag:dollhouse:8100",
+				"tag:dollhouse:6631",
+				"tag:dollhouse:8080",
+				"tag:dollhouse:80",
+				"tag:dollhouse:443",
+				"tag:dollhouse:3000",
+				"tag:dollhouse:40000"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"jsullivan2@gmail.com"
+			],
+			"dst": [
+				"tag:dollhouse:22"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"tag:dollhouse"
+			],
+			"dst": [
+				"tag:dollhouse:*"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"tag:services"
+			],
+			"dst": [
+				"tag:services:*"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"tag:k8s"
+			],
+			"dst": [
+				"tag:k8s:*"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"tag:k8s-operator"
+			],
+			"dst": [
+				"tag:k8s:*",
+				"tag:dollhouse:*",
+				"tag:services:*",
+				"tag:dev:*",
+				"tag:staging:*",
+				"tag:qa:*"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"tag:switch",
+				"tag:subnet-router"
+			],
+			"dst": [
+				"tag:dollhouse:*",
+				"tag:dev:*",
+				"autogroup:internet:*"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"group:dollhouse-admins"
+			],
+			"dst": [
+				"tag:switch:*",
+				"tag:subnet-router:*"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"group:dollhouse-users"
+			],
+			"dst": [
+				"tag:switch:80",
+				"tag:switch:443"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"group:dollhouse-admins",
+				"group:dollhouse-users",
+				"tag:dollhouse",
+				"tag:dev"
+			],
+			"dst": [
+				"192.168.0.0/16:*"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"group:dollhouse-admins"
+			],
+			"dst": [
+				"tag:kvm-proxy:*"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"group:dollhouse-admins",
+				"tag:dollhouse"
+			],
+			"dst": [
+				"tag:k8s:6443",
+				"tag:k8s:30443",
+				"tag:k8s:10250",
+				"tag:k8s:2379-2380"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"group:dollhouse-admins",
+				"tag:k8s"
+			],
+			"dst": [
+				"tag:tsidp:*"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"group:dollhouse-admins",
+				"group:dollhouse-users"
+			],
+			"dst": [
+				"tag:k8s-operator:*"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"group:dollhouse-admins",
+				"group:dollhouse-users"
+			],
+			"dst": [
+				"tag:k8s:*"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"tag:tinyland-lab-common",
+				"tag:dollhouse",
+				"group:dollhouse-admins"
+			],
+			"dst": [
+				"tag:k8s:4222",
+				"tag:k8s:8333",
+				"tag:k8s:8888",
+				"tag:k8s:9333"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"group:developers"
+			],
+			"dst": [
+				"tag:dev:*"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"group:developers",
+				"group:qa-engineers"
+			],
+			"dst": [
+				"tag:staging:*"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"group:developers",
+				"group:qa-engineers"
+			],
+			"dst": [
+				"tag:qa:*"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"group:dollhouse-admins"
+			],
+			"dst": [
+				"tag:dev:*",
+				"tag:staging:*",
+				"tag:qa:*"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"tag:tinyland-lab-common",
+				"tag:tinyland-lab-runner"
+			],
+			"dst": [
+				"tag:tinyland-lab-common:22",
+				"tag:tinyland-lab-runner:22"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"tag:tinyland-lab-moonlight",
+				"tag:tinyland-lab-sunshine"
+			],
+			"dst": [
+				"tag:tinyland-lab-sunshine:47984-47990",
+				"tag:tinyland-lab-sunshine:47998-48010"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"tag:tinyland-lab-sunshine",
+				"tag:tinyland-lab-moonlight"
+			],
+			"dst": [
+				"tag:tinyland-lab-sunshine:*",
+				"tag:tinyland-lab-moonlight:*"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"group:dollhouse-admins"
+			],
+			"dst": [
+				"tag:tinyland-lab-common:*",
+				"tag:tinyland-lab-sunshine:*",
+				"tag:tinyland-lab-moonlight:*",
+				"tag:tinyland-lab-crush:*",
+				"tag:tinyland-lab-runner:*"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"tag:tinyland-lab-crush"
+			],
+			"dst": [
+				"autogroup:internet:*"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"tag:tinyland-lab-ci-ephemeral",
+				"tag:tinyland-lab-deploy"
+			],
+			"dst": [
+				"tag:dev:22",
+				"tag:tinyland-lab-common:22"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"tag:tinyland-lab-ci-ephemeral"
+			],
+			"dst": [
+				"tag:dev:*"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"tag:tinyland-lab-nix-target"
+			],
+			"dst": [
+				"autogroup:internet:443",
+				"autogroup:internet:80"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"group:dollhouse-users",
+				"group:dollhouse-admins"
+			],
+			"dst": [
+				"autogroup:internet:*"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"tag:rj-gateway"
+			],
+			"dst": [
+				"tag:setec:*"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"group:dollhouse-admins",
+				"group:dollhouse-users",
+				"tag:dev",
+				"tag:dollhouse",
+				"tag:rj-gateway",
+				"tag:ci-agent",
+				"tag:k8s-operator",
+				"tag:k8s"
+			],
+			"dst": [
+				"ai:*"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"group:dollhouse-admins"
+			],
+			"dst": [
+				"tag:rj-gateway:*",
+				"tag:setec:*"
+			]
+		}
+	],
+	"grants": [
+		{
+			"src": [
+				"tag:tsidp"
+			],
+			"dst": [
+				"group:dollhouse-admins"
+			],
+			"app": {
+				"tailscale.com/cap/tsidp": [
+					{
+						"admin": [
+							"group:dollhouse-admins"
+						]
+					}
+				]
+			}
+		},
+		{
+			"src": [
+				"tag:k8s-operator"
+			],
+			"dst": [
+				"group:dollhouse-admins"
+			],
+			"app": {
+				"tailscale.com/cap/kubernetes": [
+					{
+						"impersonate": {
+							"groups": [
+								"system:masters"
+							]
+						}
+					}
+				]
+			}
+		},
+		{
+			"src": [
+				"autogroup:member"
+			],
+			"dst": [
+				"tag:rj-gateway"
+			],
+			"app": {
+				"tinyland.dev/cap/rj-gateway": [
+					{
+						"role": "reader"
+					}
+				]
+			}
+		},
+		{
+			"src": [
+				"autogroup:admin"
+			],
+			"dst": [
+				"tag:rj-gateway"
+			],
+			"app": {
+				"tinyland.dev/cap/rj-gateway": [
+					{
+						"role": "admin"
+					}
+				]
+			}
+		},
+		{
+			"src": [
+				"tag:ci-agent"
+			],
+			"dst": [
+				"tag:rj-gateway"
+			],
+			"app": {
+				"tinyland.dev/cap/rj-gateway": [
+					{
+						"role": "reader",
+						"secrets": [
+							"github-token",
+							"gitlab-token",
+							"neon-database-url"
+						]
+					}
+				]
+			}
+		},
+		{
+			"src": [
+				"tag:rj-gateway"
+			],
+			"dst": [
+				"tag:setec"
+			],
+			"app": {
+				"tailscale.com/cap/secrets": [
+					{
+						"action": [
+							"get",
+							"info",
+							"put",
+							"activate",
+							"delete"
+						],
+						"secret": [
+							"*"
+						]
+					}
+				]
+			}
+		},
+		{
+			"src": [
+				"autogroup:admin"
+			],
+			"dst": [
+				"tag:setec"
+			],
+			"app": {
+				"tailscale.com/cap/secrets": [
+					{
+						"action": [
+							"get",
+							"info",
+							"put",
+							"activate",
+							"delete"
+						],
+						"secret": [
+							"*"
+						]
+					}
+				]
+			}
+		},
+		{
+			"src": [
+				"tag:dollhouse"
+			],
+			"dst": [
+				"tag:dollhouse"
+			],
+			"app": {
+				"tailscale.com/cap/relay": [
+					{}
+				]
+			}
+		}
+	],
+	"ssh": [
+		{
+			"action": "accept",
+			"src": [
+				"jsullivan2@gmail.com"
+			],
+			"dst": [
+				"tag:dollhouse",
+				"tag:dev"
+			],
+			"users": [
+				"jess",
+				"jsullivan2",
+				"root",
+				"autogroup:nonroot"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"group:dollhouse-admins",
+				"autogroup:admin"
+			],
+			"dst": [
+				"tag:dollhouse",
+				"tag:dev"
+			],
+			"users": [
+				"jess",
+				"jsullivan2",
+				"root",
+				"autogroup:nonroot"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"group:dollhouse-users"
+			],
+			"dst": [
+				"tag:dollhouse",
+				"tag:dev"
+			],
+			"users": [
+				"jess",
+				"jsullivan2",
+				"autogroup:nonroot"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"tag:dev"
+			],
+			"dst": [
+				"tag:dev"
+			],
+			"users": [
+				"jess",
+				"jsullivan2",
+				"root",
+				"autogroup:nonroot"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"tag:dev"
+			],
+			"dst": [
+				"tag:dollhouse"
+			],
+			"users": [
+				"jess",
+				"jsullivan2",
+				"root",
+				"autogroup:nonroot"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"tag:dollhouse"
+			],
+			"dst": [
+				"tag:dollhouse"
+			],
+			"users": [
+				"jess",
+				"jsullivan2",
+				"root",
+				"autogroup:nonroot"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"tag:dollhouse"
+			],
+			"dst": [
+				"tag:dev"
+			],
+			"users": [
+				"jess",
+				"jsullivan2",
+				"root",
+				"autogroup:nonroot"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"group:dollhouse-admins"
+			],
+			"dst": [
+				"tag:tinyland-lab-common",
+				"tag:tinyland-lab-sunshine",
+				"tag:tinyland-lab-moonlight",
+				"tag:tinyland-lab-crush",
+				"tag:tinyland-lab-runner"
+			],
+			"users": [
+				"jess",
+				"jsullivan2",
+				"root",
+				"autogroup:nonroot"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"tag:tinyland-lab-common",
+				"tag:tinyland-lab-runner"
+			],
+			"dst": [
+				"tag:tinyland-lab-common",
+				"tag:tinyland-lab-sunshine",
+				"tag:tinyland-lab-moonlight"
+			],
+			"users": [
+				"jess",
+				"jsullivan2",
+				"autogroup:nonroot"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"tag:tinyland-lab-ci-ephemeral",
+				"tag:tinyland-lab-deploy"
+			],
+			"dst": [
+				"tag:dev",
+				"tag:tinyland-lab-common"
+			],
+			"users": [
+				"jsullivan2",
+				"jess",
+				"autogroup:nonroot"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"group:dollhouse-admins",
+				"tag:dev",
+				"tag:dollhouse"
+			],
+			"dst": [
+				"tag:switch"
+			],
+			"users": [
+				"admin"
+			]
+		},
+		{
+			"action": "accept",
+			"src": [
+				"tag:switch"
+			],
+			"dst": [
+				"tag:dollhouse",
+				"tag:dev"
+			],
+			"users": [
+				"admin",
+				"root",
+				"jess",
+				"jsullivan2"
+			]
+		}
+	],
+	"nodeAttrs": [
+		{
+			"attr": [
+				"funnel"
+			],
+			"target": [
+				"tag:dollhouse"
+			]
+		}
+	],
+	"autoApprovers": {
+		"exitNode": [
+			"tag:exit-node"
+		],
+		"routes": {
+			"10.0.0.0/8": [
+				"tag:dollhouse",
+				"tag:k8s"
+			],
+			"192.168.0.0/16": [
+				"tag:subnet-router",
+				"tag:dollhouse"
+			]
+		}
+	},
+	"hosts": {
+		"ai": "100.108.97.127"
+	}
+}
