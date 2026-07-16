@@ -32,6 +32,10 @@
 		{"action": ["get", "info", "put", "activate", "delete"], "secret": ["*"]}
 	]}
 }, {
+	"src": ["tinyland-honey"],
+	"dst": ["tag:mcp-proxy"],
+	"ip": ["tcp:8080"]
+}, {
 	"src": ["tag:dollhouse"],
 	"dst": ["tag:dollhouse"],
 	"app": {"tailscale.com/cap/relay": [{}]}
