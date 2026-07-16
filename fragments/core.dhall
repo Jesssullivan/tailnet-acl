@@ -33,6 +33,10 @@ let tagOwners
         , mapValue =
           [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
         }
+      , { mapKey = C.tag.mcp_proxy
+        , mapValue =
+          [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
+        }
       , { mapKey = C.tag.tsidp
         , mapValue = [ C.autogroup.admin, C.group.dollhouse_admins ]
         }
