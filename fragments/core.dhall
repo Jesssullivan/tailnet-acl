@@ -20,52 +20,70 @@ let groups
 let tagOwners
     : List T.TagOwner
     = [ { mapKey = C.tag.dollhouse
-        , mapValue = [ C.tag.tag_authority, C.autogroup.admin, C.group.dollhouse_admins ]
+        , mapValue =
+          [ C.tag.tag_authority, C.autogroup.admin, C.group.dollhouse_admins ]
         }
       , { mapKey = C.tag.services
-        , mapValue = [ C.tag.tag_authority, C.autogroup.admin, C.group.dollhouse_admins ]
+        , mapValue =
+          [ C.tag.tag_authority, C.autogroup.admin, C.group.dollhouse_admins ]
         }
       , { mapKey = C.tag.k8s
         , mapValue =
-          [ C.tag.tag_authority, C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
+          [ C.tag.tag_authority
+          , C.tag.k8s_operator
+          , C.autogroup.admin
+          , C.group.dollhouse_admins
+          ]
         }
       , { mapKey = C.tag.k8s_operator
         , mapValue =
-          [ C.tag.tag_authority, C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
+          [ C.tag.tag_authority
+          , C.tag.k8s_operator
+          , C.autogroup.admin
+          , C.group.dollhouse_admins
+          ]
         }
       , { mapKey = C.tag.mcp_proxy
         , mapValue =
           [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
         }
       , { mapKey = C.tag.tsidp
-        , mapValue = [ C.tag.tag_authority, C.autogroup.admin, C.group.dollhouse_admins ]
+        , mapValue =
+          [ C.tag.tag_authority, C.autogroup.admin, C.group.dollhouse_admins ]
         }
       , { mapKey = C.tag.dev
-        , mapValue = [ C.tag.tag_authority, C.autogroup.admin, C.group.developers ]
+        , mapValue =
+          [ C.tag.tag_authority, C.autogroup.admin, C.group.developers ]
         }
       , { mapKey = C.tag.staging
-        , mapValue = [ C.tag.tag_authority, C.autogroup.admin, C.group.developers ]
+        , mapValue =
+          [ C.tag.tag_authority, C.autogroup.admin, C.group.developers ]
         }
       , { mapKey = C.tag.qa
-        , mapValue = [ C.tag.tag_authority, C.autogroup.admin, C.group.developers ]
+        , mapValue =
+          [ C.tag.tag_authority, C.autogroup.admin, C.group.developers ]
         }
       , { mapKey = C.tag.exit_node
         , mapValue = [ C.autogroup.admin, C.group.dollhouse_admins ]
         }
       , { mapKey = C.tag.switch
-        , mapValue = [ C.tag.tag_authority, C.autogroup.admin, C.group.dollhouse_admins ]
+        , mapValue =
+          [ C.tag.tag_authority, C.autogroup.admin, C.group.dollhouse_admins ]
         }
       , { mapKey = C.tag.subnet_router
-        , mapValue = [ C.tag.tag_authority, C.autogroup.admin, C.group.dollhouse_admins ]
+        , mapValue =
+          [ C.tag.tag_authority, C.autogroup.admin, C.group.dollhouse_admins ]
         }
       , { mapKey = C.tag.tinyland_lab_common
         , mapValue = [ C.autogroup.admin, C.group.dollhouse_admins ]
         }
       , { mapKey = C.tag.tinyland_lab_sunshine
-        , mapValue = [ C.tag.tag_authority, C.autogroup.admin, C.group.dollhouse_admins ]
+        , mapValue =
+          [ C.tag.tag_authority, C.autogroup.admin, C.group.dollhouse_admins ]
         }
       , { mapKey = C.tag.tinyland_lab_moonlight
-        , mapValue = [ C.tag.tag_authority, C.autogroup.admin, C.group.dollhouse_admins ]
+        , mapValue =
+          [ C.tag.tag_authority, C.autogroup.admin, C.group.dollhouse_admins ]
         }
       , { mapKey = C.tag.tinyland_lab_crush
         , mapValue = [ C.autogroup.admin, C.group.dollhouse_admins ]
@@ -83,10 +101,12 @@ let tagOwners
         , mapValue = [ C.autogroup.admin, C.group.dollhouse_admins ]
         }
       , { mapKey = C.tag.rj_gateway
-        , mapValue = [ C.tag.tag_authority, C.autogroup.admin, C.group.dollhouse_admins ]
+        , mapValue =
+          [ C.tag.tag_authority, C.autogroup.admin, C.group.dollhouse_admins ]
         }
       , { mapKey = C.tag.setec
-        , mapValue = [ C.tag.tag_authority, C.autogroup.admin, C.group.dollhouse_admins ]
+        , mapValue =
+          [ C.tag.tag_authority, C.autogroup.admin, C.group.dollhouse_admins ]
         }
       , { mapKey = C.tag.ci_agent
         , mapValue = [ C.autogroup.admin, C.group.dollhouse_admins ]
