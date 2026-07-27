@@ -46,6 +46,7 @@ let tag =
       , setec = "tag:setec"
       , ci_agent = "tag:ci-agent"
       , kvm_proxy = "tag:kvm-proxy"
+      , tag_authority = "tag:tag-authority"
       }
 
 let host =
