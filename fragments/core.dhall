@@ -43,6 +43,13 @@ let tagOwners
           , C.group.dollhouse_admins
           ]
         }
+      , { mapKey = C.tag.rke2_egress
+        , mapValue =
+          [ C.tag.k8s_operator
+          , C.autogroup.admin
+          , C.group.dollhouse_admins
+          ]
+        }
       , { mapKey = C.tag.mcp_proxy
         , mapValue =
           [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]

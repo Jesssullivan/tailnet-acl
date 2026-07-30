@@ -36,6 +36,10 @@
 	"dst": ["tag:mcp-proxy"],
 	"ip": ["tcp:8080"]
 }, {
+	"src": ["tag:rke2-egress"],
+	"dst": ["tinyland-honey"],
+	"ip": ["tcp:6443", "tcp:9345"]
+}, {
 	"src": ["tag:dollhouse"],
 	"dst": ["tag:dollhouse"],
 	"app": {"tailscale.com/cap/relay": [{}]}

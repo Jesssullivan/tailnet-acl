@@ -5,7 +5,9 @@
 #   just build        # compile Dhall + merge grants
 #   just validate     # compare to live ACL
 #   just diff         # show what would change
-#   just push         # push to live (requires --confirm)
+#   SOURCE_SHA=... RECEIPT=... EXPECTED_LIVE_POLICY_SHA256=... \
+#     EXPECTED_POLICY_SHA256=... just push
+#                     # attended push bound to source, receipt, and plan digests
 #   just fmt          # format all Dhall files
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
@@ -27,9 +29,14 @@ validate: build
 diff: build
     @python3 {{repo_root}}/scripts/push.py --dry-run
 
-# Push generated policy to live Tailscale ACL
+# Push the generated policy only when both accepted plan digests still match.
 push: build
-    @python3 {{repo_root}}/scripts/push.py --confirm
+    @python3 {{repo_root}}/scripts/push.py \
+        --confirm \
+        --expect-live-sha256 "${EXPECTED_LIVE_POLICY_SHA256:?required}" \
+        --expect-policy-sha256 "${EXPECTED_POLICY_SHA256:?required}" \
+        --source-sha "${SOURCE_SHA:?required}" \
+        --receipt "${RECEIPT:?required}"
 
 # Format all Dhall files
 fmt:

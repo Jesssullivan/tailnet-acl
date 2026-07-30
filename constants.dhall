@@ -26,6 +26,7 @@ let tag =
       , services = "tag:services"
       , k8s = "tag:k8s"
       , k8s_operator = "tag:k8s-operator"
+      , rke2_egress = "tag:rke2-egress"
       , mcp_proxy = "tag:mcp-proxy"
       , tsidp = "tag:tsidp"
       , dev = "tag:dev"
