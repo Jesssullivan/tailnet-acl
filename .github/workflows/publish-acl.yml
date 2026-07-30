@@ -1,0 +1,245 @@
+name: Publish Tailnet ACL (attended)
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Plan against live policy or apply an accepted exact plan."
+        required: true
+        default: plan
+        type: choice
+        options:
+          - plan
+          - apply
+      expected_source_sha:
+        description: "Exact current main commit to build and bind."
+        required: true
+        type: string
+      expected_live_policy_sha256:
+        description: "Apply only: accepted live-policy digest from the plan receipt."
+        required: false
+        default: ""
+        type: string
+      expected_policy_sha256:
+        description: "Apply only: accepted generated-policy digest from the plan receipt."
+        required: false
+        default: ""
+        type: string
+      confirmation:
+        description: "Enter plan-tailnet-acl-<SHA> or apply-tailnet-acl-<SHA>."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tailnet-acl-publish
+  cancel-in-progress: false
+
+jobs:
+  validate-request:
+    name: Validate exact attended request without secrets
+    runs-on: tinyland-nix
+    timeout-minutes: 5
+    steps:
+      - name: Fail closed before protected environment access
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REPOSITORY: ${{ github.repository }}
+          REF: ${{ github.ref }}
+          RUN_SHA: ${{ github.sha }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          ACTION: ${{ inputs.action }}
+          EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
+          EXPECTED_LIVE_POLICY_SHA256: ${{ inputs.expected_live_policy_sha256 }}
+          EXPECTED_POLICY_SHA256: ${{ inputs.expected_policy_sha256 }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          if [ "${EVENT_NAME}" != "workflow_dispatch" ] ||
+            [ "${REPOSITORY}" != "Jesssullivan/tailnet-acl" ] ||
+            [ "${REF}" != "refs/heads/main" ] ||
+            [ "${RUN_ATTEMPT}" != "1" ]; then
+            echo "::error::ACL publication requires a fresh workflow_dispatch from current main"
+            exit 1
+          fi
+          if ! [[ "${EXPECTED_SOURCE_SHA}" =~ ^[0-9a-f]{40}$ ]] ||
+            [[ "${EXPECTED_SOURCE_SHA}" =~ ^0+$ ]] ||
+            [ "${RUN_SHA}" != "${EXPECTED_SOURCE_SHA}" ]; then
+            echo "::error::expected_source_sha must equal the exact dispatched main SHA"
+            exit 1
+          fi
+
+          case "${ACTION}" in
+            plan)
+              if [ -n "${EXPECTED_LIVE_POLICY_SHA256}" ] ||
+                [ -n "${EXPECTED_POLICY_SHA256}" ] ||
+                [ "${CONFIRMATION}" != "plan-tailnet-acl-${EXPECTED_SOURCE_SHA}" ]; then
+                echo "::error::plan forbids accepted digests and requires an exact source-bound confirmation"
+                exit 1
+              fi
+              ;;
+            apply)
+              if ! [[ "${EXPECTED_LIVE_POLICY_SHA256}" =~ ^[0-9a-f]{64}$ ]] ||
+                [[ "${EXPECTED_LIVE_POLICY_SHA256}" =~ ^0+$ ]] ||
+                ! [[ "${EXPECTED_POLICY_SHA256}" =~ ^[0-9a-f]{64}$ ]] ||
+                [[ "${EXPECTED_POLICY_SHA256}" =~ ^0+$ ]] ||
+                [ "${CONFIRMATION}" != "apply-tailnet-acl-${EXPECTED_SOURCE_SHA}" ]; then
+                echo "::error::apply requires exact accepted digests and source-bound confirmation"
+                exit 1
+              fi
+              ;;
+            *)
+              echo "::error::action must be plan or apply"
+              exit 1
+              ;;
+          esac
+
+  plan:
+    name: Produce exact live-policy plan
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'plan'
+    needs: validate-request
+    environment: tailnet-acl-production
+    runs-on: tinyland-nix
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+          ref: main
+
+      - name: Build exact policy
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${EXPECTED_SOURCE_SHA}"
+          nix develop --command just build
+        env:
+          EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
+          XDG_CACHE_HOME: ${{ runner.temp }}/.cache
+
+      - name: Validate least-authority credential shape
+        env:
+          TAILSCALE_API_KEY: ${{ secrets.TAILSCALE_ACL_READ_OAUTH_CLIENT_SECRET }}
+          TS_OAUTH_CLIENT_ID: ${{ vars.TAILSCALE_ACL_READ_OAUTH_CLIENT_ID }}
+        run: |
+          set -euo pipefail
+          case "${TAILSCALE_API_KEY:-}" in
+            tskey-client-*) ;;
+            *)
+              echo "::error::protected environment must provide the read-only policy OAuth client secret"
+              exit 1
+              ;;
+          esac
+          test -n "${TS_OAUTH_CLIENT_ID:-}"
+
+      - name: Plan and record exact policy digests
+        env:
+          EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
+          TAILSCALE_API_KEY: ${{ secrets.TAILSCALE_ACL_READ_OAUTH_CLIENT_SECRET }}
+          TS_OAUTH_CLIENT_ID: ${{ vars.TAILSCALE_ACL_READ_OAUTH_CLIENT_ID }}
+          XDG_CACHE_HOME: ${{ runner.temp }}/.cache
+        run: |
+          set -euo pipefail
+          nix develop --command python3 scripts/push.py \
+            --dry-run \
+            --source-sha "${EXPECTED_SOURCE_SHA}" \
+            --receipt "${RUNNER_TEMP}/tailnet-acl-plan.json"
+
+      - name: Record non-secret plan receipt
+        if: always()
+        env:
+          EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
+        run: |
+          set -euo pipefail
+          {
+            echo "### Tailnet ACL plan"
+            echo
+            printf -- "- source SHA: \`%s\`\n" "${EXPECTED_SOURCE_SHA}"
+            if [ -s "${RUNNER_TEMP}/tailnet-acl-plan.json" ]; then
+              python3 - "${RUNNER_TEMP}/tailnet-acl-plan.json" <<'PY'
+          import json
+          import sys
+
+          with open(sys.argv[1], encoding="utf-8") as handle:
+              receipt = json.load(handle)
+          print(f"- live policy SHA-256: `{receipt['pre_policy_sha256']}`")
+          print(f"- generated policy SHA-256: `{receipt['local_policy_sha256']}`")
+          print(f"- live policy ETag: `{receipt['pre_write_etag']}`")
+          print(f"- outcome: `{receipt['outcome']}`")
+          print(f"- changed: `{str(receipt['changed']).lower()}`")
+          PY
+            fi
+          } >>"${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload non-secret plan receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: tailnet-acl-plan-${{ github.run_id }}
+          path: ${{ runner.temp }}/tailnet-acl-plan.json
+          if-no-files-found: error
+          retention-days: 30
+
+  apply:
+    name: Apply accepted exact policy and prove zero diff
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
+    needs: validate-request
+    environment: tailnet-acl-production
+    runs-on: tinyland-nix
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+          ref: main
+
+      - name: Build exact policy
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${EXPECTED_SOURCE_SHA}"
+          nix develop --command just build
+        env:
+          EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
+          XDG_CACHE_HOME: ${{ runner.temp }}/.cache
+
+      - name: Validate least-authority credential shape
+        env:
+          TAILSCALE_API_KEY: ${{ secrets.TAILSCALE_ACL_WRITE_OAUTH_CLIENT_SECRET }}
+          TS_OAUTH_CLIENT_ID: ${{ vars.TAILSCALE_ACL_WRITE_OAUTH_CLIENT_ID }}
+        run: |
+          set -euo pipefail
+          case "${TAILSCALE_API_KEY:-}" in
+            tskey-client-*) ;;
+            *)
+              echo "::error::protected environment must provide the policy-write OAuth client secret"
+              exit 1
+              ;;
+          esac
+          test -n "${TS_OAUTH_CLIENT_ID:-}"
+
+      - name: Apply only the accepted exact plan
+        env:
+          EXPECTED_LIVE_POLICY_SHA256: ${{ inputs.expected_live_policy_sha256 }}
+          EXPECTED_POLICY_SHA256: ${{ inputs.expected_policy_sha256 }}
+          EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
+          TAILSCALE_API_KEY: ${{ secrets.TAILSCALE_ACL_WRITE_OAUTH_CLIENT_SECRET }}
+          TS_OAUTH_CLIENT_ID: ${{ vars.TAILSCALE_ACL_WRITE_OAUTH_CLIENT_ID }}
+          XDG_CACHE_HOME: ${{ runner.temp }}/.cache
+        run: |
+          set -euo pipefail
+          nix develop --command python3 scripts/push.py \
+            --confirm \
+            --expect-live-sha256 "${EXPECTED_LIVE_POLICY_SHA256}" \
+            --expect-policy-sha256 "${EXPECTED_POLICY_SHA256}" \
+            --source-sha "${EXPECTED_SOURCE_SHA}" \
+            --receipt "${RUNNER_TEMP}/tailnet-acl-apply.json"
+
+      - name: Upload non-secret apply receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: tailnet-acl-apply-${{ github.run_id }}
+          path: ${{ runner.temp }}/tailnet-acl-apply.json
+          if-no-files-found: error
+          retention-days: 30

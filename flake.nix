@@ -14,6 +14,7 @@
       {
         devShells.default = pkgs.mkShell {
           packages = [
+            pkgs.actionlint
             pkgs.dhall
             pkgs.dhall-json
             pkgs.just
