@@ -59,12 +59,26 @@ class PolicyContractTest(unittest.TestCase):
             "dst": ["tag:gf-reapi-darwin-worker"],
             "ip": ["tcp:8981"],
         }
-        matching_source = [
-            grant
-            for grant in self.policy["grants"]
-            if grant.get("src") == ["tag:gf-reapi-cell-egress"]
-        ]
-        self.assertEqual(matching_source, [expected])
+        route_tags = {
+            "tag:gf-reapi-cell-egress",
+            "tag:gf-reapi-darwin-worker",
+        }
+        references = []
+        for surface in ("acls", "grants"):
+            for rule in self.policy[surface]:
+                endpoints = [
+                    endpoint
+                    for key in ("src", "dst")
+                    for endpoint in rule.get(key, [])
+                ]
+                if any(
+                    endpoint == tag or endpoint.startswith(f"{tag}:")
+                    for endpoint in endpoints
+                    for tag in route_tags
+                ):
+                    references.append((surface, rule))
+
+        self.assertEqual(references, [("grants", expected)])
 
 
 if __name__ == "__main__":
