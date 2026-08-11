@@ -47,6 +47,8 @@ let tag =
       , ci_agent = "tag:ci-agent"
       , kvm_proxy = "tag:kvm-proxy"
       , tag_authority = "tag:tag-authority"
+      , gf_reapi_cell_egress = "tag:gf-reapi-cell-egress"
+      , gf_reapi_darwin_worker = "tag:gf-reapi-darwin-worker"
       }
 
 let host =

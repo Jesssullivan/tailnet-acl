@@ -31,6 +31,41 @@ class PolicyContractTest(unittest.TestCase):
         }
         self.assertNotIn(broad_rule, self.policy["acls"])
 
+    def test_gf_reapi_route_tags_have_exact_owners(self) -> None:
+        self.assertCountEqual(
+            self.policy["tagOwners"]["tag:gf-reapi-cell-egress"],
+            [
+                "tag:k8s-operator",
+                "autogroup:admin",
+                "group:dollhouse-admins",
+            ],
+        )
+        self.assertCountEqual(
+            self.policy["tagOwners"]["tag:gf-reapi-darwin-worker"],
+            [
+                "tag:tag-authority",
+                "autogroup:admin",
+                "group:dollhouse-admins",
+            ],
+        )
+        self.assertNotIn(
+            "tag:k8s-operator",
+            self.policy["tagOwners"]["tag:gf-reapi-darwin-worker"],
+        )
+
+    def test_gf_reapi_darwin_route_is_single_port_and_tag_scoped(self) -> None:
+        expected = {
+            "src": ["tag:gf-reapi-cell-egress"],
+            "dst": ["tag:gf-reapi-darwin-worker"],
+            "ip": ["tcp:8981"],
+        }
+        matching_source = [
+            grant
+            for grant in self.policy["grants"]
+            if grant.get("src") == ["tag:gf-reapi-cell-egress"]
+        ]
+        self.assertEqual(matching_source, [expected])
+
 
 if __name__ == "__main__":
     unittest.main()
