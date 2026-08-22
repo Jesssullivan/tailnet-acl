@@ -36,6 +36,10 @@
 	"dst": ["tag:mcp-proxy"],
 	"ip": ["tcp:8080"]
 }, {
+	"src": ["tag:k8s-egress-nodeexporter"],
+	"dst": ["tinyland-relay-1", "tinyland-petting-zoo-mini", "tinyland-neo"],
+	"ip": ["tcp:9100"]
+}, {
 	"src": ["tag:dollhouse"],
 	"dst": ["tag:dollhouse"],
 	"app": {"tailscale.com/cap/relay": [{}]}

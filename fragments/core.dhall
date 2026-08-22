@@ -1,5 +1,12 @@
 -- Core fragment: groups, tag owners, and base user access rules.
 -- This is the foundation that all other fragments build on.
+--
+-- tag:k8s-egress-nodeexporter is the dedicated identity for the operator's
+-- node_exporter egress proxies. It lists tag:k8s-operator as an owner so the
+-- operator can mint it for the proxies it creates, mirroring tag:mcp-proxy
+-- (TIN-2940). Without a dedicated tag these proxies inherit PROXY_TAGS
+-- (tag:k8s), which 85 devices hold -- far too broad to grant scrape access.
+-- Provenance: TIN-2626 / TIN-3970, 2026-08-22.
 let T = ../types/ACL.dhall
 
 let C = ../constants.dhall
@@ -44,6 +51,10 @@ let tagOwners
           ]
         }
       , { mapKey = C.tag.mcp_proxy
+        , mapValue =
+          [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
+        }
+      , { mapKey = C.tag.k8s_egress_nodeexporter
         , mapValue =
           [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
         }

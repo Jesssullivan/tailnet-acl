@@ -31,6 +31,37 @@ class PolicyContractTest(unittest.TestCase):
         }
         self.assertNotIn(broad_rule, self.policy["acls"])
 
+    def test_operator_owns_node_exporter_egress_tag(self) -> None:
+        owners = self.policy["tagOwners"]["tag:k8s-egress-nodeexporter"]
+        self.assertIn("tag:k8s-operator", owners)
+
+    def test_node_exporter_egress_grant_is_tcp_9100_and_host_scoped(self) -> None:
+        expected = {
+            "src": ["tag:k8s-egress-nodeexporter"],
+            "dst": [
+                "tinyland-relay-1",
+                "tinyland-petting-zoo-mini",
+                "tinyland-neo",
+            ],
+            "ip": ["tcp:9100"],
+        }
+        self.assertEqual(self.policy["grants"].count(expected), 1)
+
+    def test_node_exporter_egress_targets_resolve_to_pinned_hosts(self) -> None:
+        hosts = self.policy["hosts"]
+        self.assertEqual(hosts["tinyland-relay-1"], "100.102.229.122")
+        self.assertEqual(hosts["tinyland-petting-zoo-mini"], "100.111.5.80")
+        self.assertEqual(hosts["tinyland-neo"], "100.67.93.34")
+
+    def test_node_exporter_egress_tag_gets_no_broad_acl_access(self) -> None:
+        """The dedicated egress tag must never appear as an ACL src.
+
+        Reachability for these proxies is expressed only as a port-scoped
+        grant; a bare ACL rule would widen it past tcp:9100.
+        """
+        srcs = [r["src"] for r in self.policy["acls"]]
+        self.assertNotIn(["tag:k8s-egress-nodeexporter"], srcs)
+
 
 if __name__ == "__main__":
     unittest.main()
