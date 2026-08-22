@@ -15,37 +15,42 @@ jobs:
   deploy:
     name: Build, validate, push ACL
     runs-on: ubuntu-latest
+    # The CI `validate` job declares this same environment, so both jobs read
+    # one set of credentials from one scope. See docs/ci-credentials.md.
     environment: production
+    env:
+      TAILSCALE_API_KEY: ${{ secrets.TAILSCALE_API_KEY }}
+      TS_OAUTH_CLIENT_ID: ${{ vars.TS_OAUTH_CLIENT_ID }}
     steps:
       - uses: actions/checkout@v4
+
+      # The runner context is unavailable in job-level env, so export the Nix
+      # cache dir once here instead of repeating it on every step.
+      - name: Configure cache dir
+        run: echo "XDG_CACHE_HOME=$RUNNER_TEMP/.cache" >> "$GITHUB_ENV"
+
+      # Runs before the Nix install so a dead credential fails in seconds with
+      # a message naming the secret, the scope, and the fix.
+      - name: Preflight Tailscale credential wiring
+        run: python3 scripts/ci_preflight.py
 
       - uses: DeterminateSystems/nix-installer-action@main
       - uses: DeterminateSystems/magic-nix-cache-action@main
 
       - name: Build policy JSON
         run: nix develop --command just build
-        env:
-          XDG_CACHE_HOME: ${{ runner.temp }}/.cache
+
+      # Hard gate: never push a policy the API would reject.
+      - name: Server-side policy validation
+        run: python3 scripts/acl_validate.py --prove
 
       - name: Validate against live ACL
         continue-on-error: true
         run: nix develop --command python3 scripts/validate.py
-        env:
-          TAILSCALE_API_KEY: ${{ secrets.TAILSCALE_API_KEY }}
-          TS_OAUTH_CLIENT_ID: ${{ vars.TS_OAUTH_CLIENT_ID }}
-          XDG_CACHE_HOME: ${{ runner.temp }}/.cache
 
       - name: Show diff
         run: |
           nix develop --command python3 scripts/push.py --dry-run || true
-        env:
-          TAILSCALE_API_KEY: ${{ secrets.TAILSCALE_API_KEY }}
-          TS_OAUTH_CLIENT_ID: ${{ vars.TS_OAUTH_CLIENT_ID }}
-          XDG_CACHE_HOME: ${{ runner.temp }}/.cache
 
       - name: Push ACL to Tailscale
         run: nix develop --command python3 scripts/push.py --confirm
-        env:
-          TAILSCALE_API_KEY: ${{ secrets.TAILSCALE_API_KEY }}
-          TS_OAUTH_CLIENT_ID: ${{ vars.TS_OAUTH_CLIENT_ID }}
-          XDG_CACHE_HOME: ${{ runner.temp }}/.cache
