@@ -92,16 +92,37 @@ jobs:
     runs-on: ubuntu-latest
     needs: [check, secrets]
     if: github.event_name == 'pull_request'
+    # Deliberately the same environment the CD deploy job uses, so this job
+    # reads the *same* TAILSCALE_API_KEY and TS_OAUTH_CLIENT_ID values the push
+    # will read. Without it, a green run here says nothing about the deploy
+    # path. See docs/ci-credentials.md.
+    environment: production
+    env:
+      TAILSCALE_API_KEY: ${{ secrets.TAILSCALE_API_KEY }}
+      TS_OAUTH_CLIENT_ID: ${{ vars.TS_OAUTH_CLIENT_ID }}
     steps:
       - uses: actions/checkout@v4
+
+      # The runner context is unavailable in job-level env, so export the Nix
+      # cache dir once here instead of repeating it on every step.
+      - name: Configure cache dir
+        run: echo "XDG_CACHE_HOME=$RUNNER_TEMP/.cache" >> "$GITHUB_ENV"
+
+      # Runs before the Nix install so a dead credential fails in seconds with
+      # a message naming the secret, the scope, and the fix.
+      - name: Preflight Tailscale credential wiring
+        run: python3 scripts/ci_preflight.py
 
       - uses: DeterminateSystems/nix-installer-action@main
       - uses: DeterminateSystems/magic-nix-cache-action@main
 
       - name: Build policy
         run: nix develop --command just build
-        env:
-          XDG_CACHE_HOME: ${{ runner.temp }}/.cache
+
+      # Server-side grammar check. push.py --dry-run only diffs locally; this
+      # asks Tailscale whether the policy would be accepted at all.
+      - name: Server-side policy validation
+        run: python3 scripts/acl_validate.py --prove
 
       - name: Validate against live
         id: validate
@@ -127,9 +148,6 @@ jobs:
           fi
 
           exit "$EXIT_CODE"
-        env:
-          TAILSCALE_API_KEY: ${{ secrets.TAILSCALE_API_KEY }}
-          XDG_CACHE_HOME: ${{ runner.temp }}/.cache
 
       - name: Diff summary
         if: always()
@@ -142,9 +160,6 @@ jobs:
             echo "$OUTPUT"
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
-        env:
-          TAILSCALE_API_KEY: ${{ secrets.TAILSCALE_API_KEY }}
-          XDG_CACHE_HOME: ${{ runner.temp }}/.cache
 
       - name: Comment on PR
         if: always()
