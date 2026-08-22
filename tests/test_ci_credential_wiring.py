@@ -189,6 +189,15 @@ class WorkflowScopeTest(unittest.TestCase):
             with self.subTest(workflow=name):
                 self.assertIn("scripts/acl_validate.py --prove", text)
 
+    def test_pr_comment_steps_are_gated_on_a_successful_build(self) -> None:
+        # A bare `if: always()` here posts a PR comment whose whole content is
+        # "nix: command not found" whenever the preflight fails before Nix is
+        # installed, which is now the common failure mode.
+        self.assertEqual(
+            len(re.findall(r"steps\.build\.outcome == 'success'", self.ci_text)), 2
+        )
+        self.assertNotIn("        if: always()\n", self.ci_text)
+
     def test_preflight_scope_string_matches_the_declared_environment(self) -> None:
         import ci_preflight
 
