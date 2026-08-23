@@ -117,6 +117,14 @@ let tagOwners
       , { mapKey = C.tag.tag_authority
         , mapValue = [ C.autogroup.admin, C.group.dollhouse_admins ]
         }
+      , { mapKey = C.tag.gf_reapi_cell_egress
+        , mapValue =
+          [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
+        }
+      , { mapKey = C.tag.gf_reapi_darwin_worker
+        , mapValue =
+          [ C.tag.tag_authority, C.autogroup.admin, C.group.dollhouse_admins ]
+        }
       ]
 
 let acls

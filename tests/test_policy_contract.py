@@ -31,6 +31,55 @@ class PolicyContractTest(unittest.TestCase):
         }
         self.assertNotIn(broad_rule, self.policy["acls"])
 
+    def test_gf_reapi_route_tags_have_exact_owners(self) -> None:
+        self.assertCountEqual(
+            self.policy["tagOwners"]["tag:gf-reapi-cell-egress"],
+            [
+                "tag:k8s-operator",
+                "autogroup:admin",
+                "group:dollhouse-admins",
+            ],
+        )
+        self.assertCountEqual(
+            self.policy["tagOwners"]["tag:gf-reapi-darwin-worker"],
+            [
+                "tag:tag-authority",
+                "autogroup:admin",
+                "group:dollhouse-admins",
+            ],
+        )
+        self.assertNotIn(
+            "tag:k8s-operator",
+            self.policy["tagOwners"]["tag:gf-reapi-darwin-worker"],
+        )
+
+    def test_gf_reapi_darwin_route_is_single_port_and_tag_scoped(self) -> None:
+        expected = {
+            "src": ["tag:gf-reapi-cell-egress"],
+            "dst": ["tag:gf-reapi-darwin-worker"],
+            "ip": ["tcp:8981"],
+        }
+        route_tags = {
+            "tag:gf-reapi-cell-egress",
+            "tag:gf-reapi-darwin-worker",
+        }
+        references = []
+        for surface in ("acls", "grants"):
+            for rule in self.policy[surface]:
+                endpoints = [
+                    endpoint
+                    for key in ("src", "dst")
+                    for endpoint in rule.get(key, [])
+                ]
+                if any(
+                    endpoint == tag or endpoint.startswith(f"{tag}:")
+                    for endpoint in endpoints
+                    for tag in route_tags
+                ):
+                    references.append((surface, rule))
+
+        self.assertEqual(references, [("grants", expected)])
+
 
 if __name__ == "__main__":
     unittest.main()

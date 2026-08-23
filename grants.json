@@ -39,4 +39,8 @@
 	"src": ["tag:dollhouse"],
 	"dst": ["tag:dollhouse"],
 	"app": {"tailscale.com/cap/relay": [{}]}
+}, {
+	"src": ["tag:gf-reapi-cell-egress"],
+	"dst": ["tag:gf-reapi-darwin-worker"],
+	"ip": ["tcp:8981"]
 }]
