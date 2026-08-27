@@ -1,5 +1,11 @@
 -- Kubernetes fragment: K8s cluster, operator, and tsidp access.
 -- Split into two groups to match live ACL ordering.
+--
+-- The tinyland-neo / tinyland-relay-1 / tinyland-petting-zoo-mini host
+-- aliases are node_exporter scrape targets reached through the operator's
+-- egress proxies. They are consumed by the tag:k8s-egress-nodeexporter
+-- grant in grants.json, which is scoped to tcp:9100 on these hosts only.
+-- Provenance: TIN-2626 / TIN-3970, proxy-log verification 2026-08-22.
 let T = ../types/ACL.dhall
 
 let C = ../constants.dhall
@@ -62,6 +68,10 @@ let aclsLate
         , dst = [ "tinyland-loki-observability:3100" ]
         }
       , { action = "accept"
+        , src = [ "tinyland-honey", "tinyland-bumble", "tinyland-sting" ]
+        , dst = [ "tinyland-pyroscope-observability:4040" ]
+        }
+      , { action = "accept"
         , src = [ "tinyland-honey" ]
         , dst = [ "tinyland-grafana-observability:3000" ]
         }
@@ -77,6 +87,14 @@ let hosts
         }
       , { mapKey = "tinyland-grafana-observability"
         , mapValue = C.host.grafana_observability
+        }
+      , { mapKey = "tinyland-pyroscope-observability"
+        , mapValue = C.host.pyroscope_observability
+        }
+      , { mapKey = "tinyland-neo", mapValue = C.host.neo }
+      , { mapKey = "tinyland-relay-1", mapValue = C.host.relay_1 }
+      , { mapKey = "tinyland-petting-zoo-mini"
+        , mapValue = C.host.petting_zoo_mini
         }
       ]
 
