@@ -68,6 +68,10 @@ let aclsLate
         , dst = [ "tinyland-loki-observability:3100" ]
         }
       , { action = "accept"
+        , src = [ "tinyland-honey", "tinyland-bumble", "tinyland-sting" ]
+        , dst = [ "tinyland-pyroscope-observability:4040" ]
+        }
+      , { action = "accept"
         , src = [ "tinyland-honey" ]
         , dst = [ "tinyland-grafana-observability:3000" ]
         }
@@ -83,6 +87,9 @@ let hosts
         }
       , { mapKey = "tinyland-grafana-observability"
         , mapValue = C.host.grafana_observability
+        }
+      , { mapKey = "tinyland-pyroscope-observability"
+        , mapValue = C.host.pyroscope_observability
         }
       , { mapKey = "tinyland-neo", mapValue = C.host.neo }
       , { mapKey = "tinyland-relay-1", mapValue = C.host.relay_1 }

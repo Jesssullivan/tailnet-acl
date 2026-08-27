@@ -62,6 +62,36 @@ class PolicyContractTest(unittest.TestCase):
         srcs = [r["src"] for r in self.policy["acls"]]
         self.assertNotIn(["tag:k8s-egress-nodeexporter"], srcs)
 
+    def test_voters_reach_pyroscope_ingest_port_scoped(self) -> None:
+        """All three voters may push profiles, and only to tcp/4040.
+
+        Mirrors the loki-observability rule: an explicit, port-scoped
+        host-alias rule rather than a tag widening. Before this rule only
+        sting could reach the ingest (measured 2026-08-27: /ready 200 from
+        sting, 000 from honey and bumble), which is what kept host
+        profiling dark on two of three voters (blahaj host_profiling
+        mechanism, estate O6 lane).
+        """
+        expected = {
+            "action": "accept",
+            "src": ["tinyland-honey", "tinyland-bumble", "tinyland-sting"],
+            "dst": ["tinyland-pyroscope-observability:4040"],
+        }
+        self.assertEqual(self.policy["acls"].count(expected), 1)
+
+    def test_pyroscope_ingest_resolves_to_pinned_host(self) -> None:
+        hosts = self.policy["hosts"]
+        self.assertEqual(hosts["tinyland-pyroscope-observability"], "100.87.88.47")
+
+    def test_pyroscope_ingest_has_no_wildcard_port_rule(self) -> None:
+        """No rule may open the pyroscope ingest device beyond tcp/4040."""
+        for rule in self.policy["acls"]:
+            for dst in rule["dst"]:
+                if dst.startswith("tinyland-pyroscope-observability"):
+                    self.assertEqual(
+                        dst, "tinyland-pyroscope-observability:4040"
+                    )
+
 
 if __name__ == "__main__":
     unittest.main()
