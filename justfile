@@ -5,7 +5,7 @@
 #   just build        # compile Dhall + merge grants
 #   just validate     # compare to live ACL
 #   just diff         # show what would change
-#   just push         # push to live (requires --confirm)
+#   just push <baseline-sha256> <candidate-sha256> # reviewed conditional apply
 #   just fmt          # format all Dhall files
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
@@ -19,17 +19,18 @@ default: build
 build:
     @python3 {{repo_root}}/scripts/build.py
 
-# Validate generated policy against live Tailscale ACL
-validate: build
+# Compare committed HEAD with live Tailscale ACL, using public-safe summaries
+validate:
     @python3 {{repo_root}}/scripts/validate.py
 
-# Show diff between local and live ACL (dry-run push)
-diff: build
+# Compare freshly compiled committed HEAD with live ACL; no raw policy output
+diff:
     @python3 {{repo_root}}/scripts/push.py --dry-run
 
-# Push generated policy to live Tailscale ACL
-push: build
-    @python3 {{repo_root}}/scripts/push.py --confirm
+# Apply committed HEAD only when both reviewed digests and the live ETag match
+[positional-arguments]
+push baseline_sha256 candidate_sha256:
+    @python3 {{repo_root}}/scripts/push.py --confirm --expected-live-sha256 "$1" --expected-policy-sha256 "$2"
 
 # Format all Dhall files
 fmt:

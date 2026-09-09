@@ -21,8 +21,12 @@ jobs:
     env:
       TAILSCALE_API_KEY: ${{ secrets.TAILSCALE_API_KEY }}
       TS_OAUTH_CLIENT_ID: ${{ vars.TS_OAUTH_CLIENT_ID }}
+      BASELINE_SHA: ${{ github.event.before }}
+      CANDIDATE_SHA: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # The runner context is unavailable in job-level env, so export the Nix
       # cache dir once here instead of repeating it on every step.
@@ -37,20 +41,7 @@ jobs:
       - uses: DeterminateSystems/nix-installer-action@main
       - uses: DeterminateSystems/magic-nix-cache-action@main
 
-      - name: Build policy JSON
-        run: nix develop --command just build
-
-      # Hard gate: never push a policy the API would reject.
-      - name: Server-side policy validation
-        run: python3 scripts/acl_validate.py --prove
-
-      - name: Validate against live ACL
-        continue-on-error: true
-        run: nix develop --command python3 scripts/validate.py
-
-      - name: Show diff
-        run: |
-          nix develop --command python3 scripts/push.py --dry-run || true
-
-      - name: Push ACL to Tailscale
-        run: nix develop --command python3 scripts/push.py --confirm
+      # Compile both exact git objects, require baseline parity, then issue one
+      # If-Match-protected POST and prove the result with a fresh policy GET.
+      - name: Apply from verified source baseline
+        run: nix develop --command python3 scripts/push.py --confirm --baseline-ref "$BASELINE_SHA" --candidate-ref "$CANDIDATE_SHA"
