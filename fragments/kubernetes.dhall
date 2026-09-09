@@ -72,6 +72,11 @@ let hosts
     = [ { mapKey = "tinyland-honey", mapValue = C.host.honey }
       , { mapKey = "tinyland-bumble", mapValue = C.host.bumble }
       , { mapKey = "tinyland-sting", mapValue = C.host.sting }
+      , { mapKey = "tinyland-relay-1", mapValue = C.host.relay_1 }
+      , { mapKey = "tinyland-petting-zoo-mini"
+        , mapValue = C.host.petting_zoo_mini
+        }
+      , { mapKey = "tinyland-neo", mapValue = C.host.neo }
       , { mapKey = "tinyland-loki-observability"
         , mapValue = C.host.loki_observability
         }
