@@ -27,6 +27,7 @@ let tag =
       , k8s = "tag:k8s"
       , k8s_operator = "tag:k8s-operator"
       , mcp_proxy = "tag:mcp-proxy"
+      , k8s_egress_nodeexporter = "tag:k8s-egress-nodeexporter"
       , tsidp = "tag:tsidp"
       , dev = "tag:dev"
       , staging = "tag:staging"
@@ -56,6 +57,9 @@ let host =
       , sting = "100.85.46.118"
       , loki_observability = "100.64.15.87"
       , grafana_observability = "100.74.127.80"
+      , relay_1 = "100.102.229.122"
+      , petting_zoo_mini = "100.111.5.80"
+      , neo = "100.67.93.34"
       }
 
 in  { user, group, autogroup, tag, host }

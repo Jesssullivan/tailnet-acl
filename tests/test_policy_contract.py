@@ -31,6 +31,24 @@ class PolicyContractTest(unittest.TestCase):
         }
         self.assertNotIn(broad_rule, self.policy["acls"])
 
+    def test_exporter_egress_identity_has_only_the_three_tcp_metrics_targets(self) -> None:
+        tag = "tag:k8s-egress-nodeexporter"
+        self.assertEqual(
+            self.policy["tagOwners"][tag],
+            ["tag:k8s-operator", "autogroup:admin", "group:dollhouse-admins"],
+        )
+        self.assertEqual(
+            [grant for grant in self.policy["grants"] if tag in grant["src"]],
+            [{"src": [tag], "dst": ["tinyland-relay-1", "tinyland-petting-zoo-mini", "tinyland-neo"], "ip": ["tcp:9100"]}],
+        )
+        self.assertFalse(any(tag in rule["src"] for rule in self.policy["acls"]))
+        for name, address in {
+            "tinyland-relay-1": "100.102.229.122",
+            "tinyland-petting-zoo-mini": "100.111.5.80",
+            "tinyland-neo": "100.67.93.34",
+        }.items():
+            self.assertEqual(self.policy["hosts"][name], address)
+
 
 if __name__ == "__main__":
     unittest.main()
