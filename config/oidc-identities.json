@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "identities": {
+    "reader": {
+      "keyType": "federated",
+      "description": "tailnet-acl trusted main PR policy validator",
+      "scopes": ["policy_file:read", "devices:posture_attributes:read", "devices:core:read"],
+      "tags": [],
+      "issuer": "https://token.actions.githubusercontent.com",
+      "subject": "repo:Jesssullivan/tailnet-acl:environment:production",
+      "customClaimRules": {
+        "repository": "Jesssullivan/tailnet-acl",
+        "repository_id": "1165961732",
+        "repository_owner_id": "37297218",
+        "ref": "refs/heads/main",
+        "event_name": "pull_request_target",
+        "workflow_ref": "Jesssullivan/tailnet-acl/.github/workflows/policy-validate.yml@refs/heads/main"
+      }
+    },
+    "writer": {
+      "keyType": "federated",
+      "description": "tailnet-acl main conditional policy publisher",
+      "scopes": ["policy_file", "devices:posture_attributes", "devices:core:read"],
+      "tags": [],
+      "issuer": "https://token.actions.githubusercontent.com",
+      "subject": "repo:Jesssullivan/tailnet-acl:environment:production",
+      "customClaimRules": {
+        "repository": "Jesssullivan/tailnet-acl",
+        "repository_id": "1165961732",
+        "repository_owner_id": "37297218",
+        "ref": "refs/heads/main",
+        "event_name": "push",
+        "workflow_ref": "Jesssullivan/tailnet-acl/.github/workflows/cd.yml@refs/heads/main"
+      }
+    }
+  }
+}

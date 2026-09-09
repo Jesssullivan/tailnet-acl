@@ -1,56 +1,29 @@
-"""Resolve a Tailscale API bearer token from the TAILSCALE_API_KEY value.
+"""Resolve the existing production direct API key or OAuth pair without logging values."""
 
-Accepts either form in TAILSCALE_API_KEY:
-
-- A direct admin API key (``tskey-api-...``) — used as the bearer token as-is.
-  These expire (max 90 days), so they are only suitable as an interim.
-- An OAuth client secret (``tskey-client-...``) — non-expiring. Tailscale does
-  NOT accept the client secret directly as a bearer token (HTTP 403), so it is
-  exchanged for a short-lived access token via the ``client_credentials`` grant.
-  Prefer an ACL-scoped OAuth client for least privilege.
-
-This lets CD use a non-expiring, least-privilege OAuth client without any other
-change to push.py / validate.py.
-"""
-
-import json
 import os
 import urllib.parse
 import urllib.request
 
+from policy_api import parse_object, request_bytes
+from policy_source import PolicyError
+
 OAUTH_TOKEN_URL = "https://api.tailscale.com/api/v2/oauth/token"
 
 
-def resolve_bearer(secret: str) -> str:
-    """Return a usable bearer token for the Tailscale API.
-
-    Direct API keys are returned unchanged; OAuth client secrets are exchanged
-    for an access token. The exchange requires the (non-secret) client id in
-    TS_OAUTH_CLIENT_ID — Tailscale's token endpoint rejects requests without it.
-    """
-    if not secret or not secret.startswith("tskey-client-"):
+def resolve_bearer(secret):
+    if secret.startswith("tskey-api-"):
         return secret
-
+    if not secret.startswith("tskey-client-"):
+        raise PolicyError("TAILSCALE_API_KEY is missing or has an unsupported credential class")
     client_id = os.environ.get("TS_OAUTH_CLIENT_ID", "")
     if not client_id:
-        raise RuntimeError(
-            "TAILSCALE_API_KEY holds an OAuth client secret (tskey-client-...) "
-            "but TS_OAUTH_CLIENT_ID is unset; the token exchange requires the "
-            "client id. Set the TS_OAUTH_CLIENT_ID Actions variable (it is not "
-            "a secret) alongside the client-secret swap."
-        )
-
-    data = urllib.parse.urlencode(
-        {
-            "client_id": client_id,
-            "client_secret": secret,
-            "grant_type": "client_credentials",
-        }
-    ).encode()
-    req = urllib.request.Request(OAUTH_TOKEN_URL, data=data)
-    req.add_header("Content-Type", "application/x-www-form-urlencoded")
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        token = json.loads(resp.read().decode()).get("access_token")
-    if not token:
-        raise RuntimeError("OAuth token exchange returned no access_token")
+        raise PolicyError("production TS_OAUTH_CLIENT_ID is missing")
+    data = urllib.parse.urlencode({"client_id": client_id, "client_secret": secret, "grant_type": "client_credentials"}).encode()
+    request = urllib.request.Request(OAUTH_TOKEN_URL, data=data, headers={"Content-Type": "application/x-www-form-urlencoded"})
+    status, body, _etag = request_bytes(request)
+    if status != 200:
+        raise PolicyError(f"OAuth exchange failed (HTTP {status})")
+    token = parse_object(body).get("access_token")
+    if not isinstance(token, str) or not token:
+        raise PolicyError("OAuth response has no access token")
     return token

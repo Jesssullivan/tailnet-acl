@@ -1,15 +1,17 @@
-import json
 import unittest
+import sys
 from pathlib import Path
 
 
-POLICY = Path(__file__).resolve().parents[1] / "generated" / "policy.json"
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+from policy_source import compile_revision, head_revision
 
 
 class PolicyContractTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.policy = json.loads(POLICY.read_text(encoding="utf-8"))
+        cls.policy = compile_revision(head_revision())
 
     def test_kubernetes_operator_owns_mcp_proxy_tag(self) -> None:
         owners = self.policy["tagOwners"]["tag:mcp-proxy"]

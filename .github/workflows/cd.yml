@@ -14,43 +14,29 @@ permissions:
 jobs:
   deploy:
     name: Build, validate, push ACL
+    if: github.repository_id == '1165961732' && github.repository_owner_id == '37297218'
     runs-on: ubuntu-latest
-    # The CI `validate` job declares this same environment, so both jobs read
-    # one set of credentials from one scope. See docs/ci-credentials.md.
+    timeout-minutes: 15
     environment: production
+    permissions:
+      contents: read
+      id-token: write
     env:
-      TAILSCALE_API_KEY: ${{ secrets.TAILSCALE_API_KEY }}
-      TS_OAUTH_CLIENT_ID: ${{ vars.TS_OAUTH_CLIENT_ID }}
+      TS_FEDERATED_CLIENT_ID: ${{ vars.TS_POLICY_WRITER_CLIENT_ID }}
+      TS_FEDERATED_AUDIENCE: ${{ vars.TS_POLICY_WRITER_AUDIENCE }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.workflow_sha }}
+          fetch-depth: 1
+          persist-credentials: false
 
-      # The runner context is unavailable in job-level env, so export the Nix
-      # cache dir once here instead of repeating it on every step.
-      - name: Configure cache dir
-        run: echo "XDG_CACHE_HOME=$RUNNER_TEMP/.cache" >> "$GITHUB_ENV"
+      - name: Verify trusted context before installing tools or requesting a token
+        run: python3 scripts/policy_ci.py writer --check-context
 
-      # Runs before the Nix install so a dead credential fails in seconds with
-      # a message naming the secret, the scope, and the fix.
-      - name: Preflight Tailscale credential wiring
-        run: python3 scripts/ci_preflight.py
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa
 
-      - uses: DeterminateSystems/nix-installer-action@main
-      - uses: DeterminateSystems/magic-nix-cache-action@main
-
-      - name: Build policy JSON
-        run: nix develop --command just build
-
-      # Hard gate: never push a policy the API would reject.
-      - name: Server-side policy validation
-        run: python3 scripts/acl_validate.py --prove
-
-      - name: Validate against live ACL
-        continue-on-error: true
-        run: nix develop --command python3 scripts/validate.py
-
-      - name: Show diff
-        run: |
-          nix develop --command python3 scripts/push.py --dry-run || true
-
-      - name: Push ACL to Tailscale
-        run: nix develop --command python3 scripts/push.py --confirm
+      - name: Apply from verified source baseline with the writer identity
+        run: nix develop --no-write-lock-file --command python3 scripts/policy_ci.py writer
+        env:
+          XDG_CACHE_HOME: ${{ runner.temp }}/trusted-policy-cache
