@@ -43,14 +43,14 @@ class ValidateResponseContractTest(unittest.TestCase):
             200, '{"message": "line 3, column 5: unknown action"}'
         )
         self.assertFalse(ok)
-        self.assertIn("line 3, column 5: unknown action", problems)
+        self.assertEqual(problems, ["validation response contains a rejection message"])
 
     def test_data_errors_on_http_200_are_a_failure(self) -> None:
         ok, problems = acl_validate.interpret(
             200, '{"data": [{"user": "alice", "errors": ["cannot reach tag:x"]}]}'
         )
         self.assertFalse(ok)
-        self.assertIn("user alice: error: cannot reach tag:x", problems)
+        self.assertEqual(problems, ["validation response contains rejected checks"])
 
     def test_data_warnings_on_http_200_are_a_failure(self) -> None:
         # Parity with tailscale.com/cmd/gitops-pusher, which fails on any
@@ -59,12 +59,12 @@ class ValidateResponseContractTest(unittest.TestCase):
             200, '{"data": [{"user": "bob", "warnings": ["unused group"]}]}'
         )
         self.assertFalse(ok)
-        self.assertIn("user bob: warning: unused group", problems)
+        self.assertEqual(problems, ["validation response contains rejected checks"])
 
     def test_unauthorized_is_a_failure(self) -> None:
         ok, problems = acl_validate.interpret(401, '{"message": "API token invalid"}')
         self.assertFalse(ok)
-        self.assertIn("API token invalid", problems)
+        self.assertNotIn("API token invalid", problems)
         self.assertIn("HTTP 401", problems)
 
     def test_non_2xx_with_empty_body_is_still_a_failure(self) -> None:
@@ -96,19 +96,18 @@ class ProveGateTest(unittest.TestCase):
             calls["n"] += 1
             return response
 
-        with tempfile.TemporaryDirectory() as tmp:
-            policy_path = Path(tmp) / "policy.json"
-            policy_path.write_text(json.dumps({"acls": []}), encoding="utf-8")
-            with mock.patch.object(acl_validate, "post_validate", fake_post), mock.patch.object(
-                acl_validate, "resolve_bearer", lambda secret: "bearer"
-            ), mock.patch.object(
-                acl_validate, "GENERATED_POLICY", policy_path
-            ), mock.patch.dict(
-                os.environ, {"TAILSCALE_API_KEY": "tskey-api-stub"}, clear=False
-            ), mock.patch.object(
-                sys, "argv", ["acl_validate.py", "--prove"]
-            ):
-                return acl_validate.main(), calls["n"]
+        with mock.patch.object(acl_validate, "post_validate", fake_post), mock.patch.object(
+            acl_validate, "resolve_bearer", lambda secret: "bearer"
+        ), mock.patch.object(
+            acl_validate, "compile_revision", return_value={"acls": []}
+        ), mock.patch.object(
+            acl_validate, "head_revision", return_value="a" * 40
+        ), mock.patch.dict(
+            os.environ, {"TAILSCALE_API_KEY": "tskey-api-stub"}, clear=False
+        ), mock.patch.object(
+            sys, "argv", ["acl_validate.py", "--prove"]
+        ):
+            return acl_validate.main(), calls["n"]
 
     def test_known_bad_rejected_then_real_policy_clean_passes(self) -> None:
         code, calls = self._run(
@@ -124,9 +123,24 @@ class ProveGateTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertEqual(calls, 1, "must not go on to validate the real policy")
 
-    def test_endpoint_absent_skips_without_failing(self) -> None:
+    def test_endpoint_absent_fails_without_grammar_proof(self) -> None:
         code, calls = self._run([(404, '{"message": "404 page not found"}')])
-        self.assertEqual(code, 0)
+        self.assertEqual(code, 1)
+        self.assertEqual(calls, 1)
+
+    def test_malformed_self_test_response_does_not_prove_rejection(self) -> None:
+        code, calls = self._run([(200, "<html>gateway</html>")])
+        self.assertEqual(code, 1)
+        self.assertEqual(calls, 1)
+
+    def test_rejection_message_does_not_mask_malformed_self_test_data(self) -> None:
+        code, calls = self._run([(200, '{"message":"rejected", "data":false}')])
+        self.assertEqual(code, 1)
+        self.assertEqual(calls, 1)
+
+    def test_malformed_utf8_canary_does_not_reach_candidate_validation(self) -> None:
+        code, calls = self._run([(200, b'{"message":"\xff"}')])
+        self.assertEqual(code, 1)
         self.assertEqual(calls, 1)
 
     def test_auth_failure_during_self_test_fails(self) -> None:
@@ -184,17 +198,17 @@ class WorkflowScopeTest(unittest.TestCase):
             with self.subTest(workflow=name):
                 self.assertIn("scripts/ci_preflight.py", text)
 
-    def test_server_side_validation_runs_with_prove_in_both_workflows(self) -> None:
-        for name, text in (("ci.yml", self.ci_text), ("cd.yml", self.cd_text)):
-            with self.subTest(workflow=name):
-                self.assertIn("scripts/acl_validate.py --prove", text)
+    def test_ci_has_standalone_proof_and_cd_uses_shared_promotion(self) -> None:
+        self.assertIn("scripts/acl_validate.py --prove", self.ci_text)
+        self.assertIn("scripts/push.py --confirm", self.cd_text)
+        self.assertNotIn("scripts/acl_validate.py", self.cd_text)
 
     def test_pr_comment_steps_are_gated_on_a_successful_build(self) -> None:
         # A bare `if: always()` here posts a PR comment whose whole content is
         # "nix: command not found" whenever the preflight fails before Nix is
         # installed, which is now the common failure mode.
         self.assertEqual(
-            len(re.findall(r"steps\.build\.outcome == 'success'", self.ci_text)), 2
+            len(re.findall(r"steps\.build\.outcome == 'success'", self.ci_text)), 1
         )
         self.assertNotIn("        if: always()\n", self.ci_text)
 

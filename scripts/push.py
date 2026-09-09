@@ -1,156 +1,78 @@
 #!/usr/bin/env python3
-"""Push the generated policy to the live Tailscale ACL.
-
-Compares the generated policy with the live ACL, shows the diff,
-and pushes only if --confirm is passed.
-
-Requires: TAILSCALE_API_KEY environment variable
-Tailnet: taila4c78d.ts.net
-"""
+"""Conditionally apply fresh committed policy after exact baseline proof."""
 
 import argparse
 import json
 import os
 import sys
-from pathlib import Path
 
+from acl_validate import validate_candidate
+from policy_api import fetch_live_acl, push_acl, strong_etag
+from policy_source import PolicyError, canonical_digest, compile_revision, head_revision, public_summary, require_digest, require_revision
 from ts_auth import resolve_bearer
 
-try:
-    import urllib.request
-    import urllib.error
-except ImportError:
-    pass
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-GENERATED_POLICY = REPO_ROOT / "generated" / "policy.json"
-TAILNET = "taila4c78d.ts.net"
-API_BASE = f"https://api.tailscale.com/api/v2/tailnet/{TAILNET}"
-
-
-def fetch_live_acl(api_key: str) -> dict:
-    """Fetch the current ACL from the Tailscale API."""
-    url = f"{API_BASE}/acl"
-    req = urllib.request.Request(url)
-    req.add_header("Authorization", f"Bearer {api_key}")
-    req.add_header("Accept", "application/json")
-
+def promote(bearer, candidate, expected_live, expected_candidate, dry_run=False):
+    require_digest(expected_live)
+    require_digest(expected_candidate)
+    if canonical_digest(candidate) != expected_candidate:
+        raise PolicyError("fresh candidate differs from the reviewed candidate digest")
+    live, etag = fetch_live_acl(bearer)
+    print(json.dumps(public_summary(live, candidate), sort_keys=True))
+    if canonical_digest(live) == expected_candidate:
+        print("No changes: live policy already equals the candidate.")
+        return
+    if canonical_digest(live) != expected_live:
+        raise PolicyError("live policy differs from the expected baseline; reconciliation review required")
+    strong_etag(etag)
+    if dry_run:
+        print("Baseline verified; dry run made no changes.")
+        return
+    validate_candidate(bearer, candidate, prove=True)
+    # One conditional write only. A timeout or 412 never retries the POST.
     try:
-        with urllib.request.urlopen(req) as resp:
-            return json.loads(resp.read().decode())
-    except urllib.error.HTTPError as e:
-        print(f"API error {e.code}: {e.read().decode()}", file=sys.stderr)
-        sys.exit(1)
+        push_acl(bearer, candidate, etag)
+        after, _etag = fetch_live_acl(bearer)
+    except PolicyError as exc:
+        raise PolicyError("update not verified; inspect with a fresh read before retry: " + str(exc)) from None
+    if canonical_digest(after) != expected_candidate:
+        raise PolicyError("post-write policy differs from the candidate; outcome requires review")
+    print("Push verified by a fresh policy read.")
 
 
-def push_acl(api_key: str, policy: dict) -> bool:
-    """Push an ACL policy to the Tailscale API."""
-    url = f"{API_BASE}/acl"
-    data = json.dumps(policy).encode("utf-8")
-
-    req = urllib.request.Request(url, data=data, method="POST")
-    req.add_header("Authorization", f"Bearer {api_key}")
-    req.add_header("Content-Type", "application/json")
-
-    try:
-        with urllib.request.urlopen(req) as resp:
-            result = json.loads(resp.read().decode())
-            return True
-    except urllib.error.HTTPError as e:
-        body = e.read().decode()
-        print(f"Push failed (HTTP {e.code}):\n{body}", file=sys.stderr)
-        return False
-
-
-def summarize_diff(live: dict, local: dict) -> list[str]:
-    """Produce a human-readable diff summary."""
-    lines = []
-    all_keys = sorted(set(list(live.keys()) + list(local.keys())))
-
-    for key in all_keys:
-        lv = live.get(key)
-        dv = local.get(key)
-
-        if lv == dv:
-            continue
-
-        if lv is None:
-            lines.append(f"+ {key}: NEW (not in live)")
-        elif dv is None:
-            lines.append(f"- {key}: REMOVED (not in local)")
-        elif isinstance(lv, list) and isinstance(dv, list):
-            added = len(dv) - len(lv)
-            if added > 0:
-                lines.append(f"~ {key}: {len(lv)} -> {len(dv)} (+{added})")
-            elif added < 0:
-                lines.append(f"~ {key}: {len(lv)} -> {len(dv)} ({added})")
-            else:
-                lines.append(f"~ {key}: {len(lv)} entries changed")
-        else:
-            lines.append(f"~ {key}: changed")
-
-    return lines
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Push Tailscale ACL policy")
-    parser.add_argument(
-        "--confirm",
-        action="store_true",
-        help="Actually push the policy (without this flag, only shows diff)",
-    )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Show what would change without pushing",
-    )
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    operation = parser.add_mutually_exclusive_group()
+    operation.add_argument("--confirm", action="store_true")
+    operation.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--baseline-ref", help="exact previous source commit; required for CD")
+    parser.add_argument("--candidate-ref", help="exact candidate commit; defaults to HEAD")
+    parser.add_argument("--expected-live-sha256", help="manual reviewed baseline digest")
+    parser.add_argument("--expected-policy-sha256", help="manual reviewed candidate digest")
     args = parser.parse_args()
-
-    api_key = os.environ.get("TAILSCALE_API_KEY")
-    if not api_key:
-        print("ERROR: TAILSCALE_API_KEY environment variable is required.", file=sys.stderr)
-        return 1
     try:
-        api_key = resolve_bearer(api_key)
-    except Exception as e:
-        print(f"ERROR: failed to resolve Tailscale token: {e}", file=sys.stderr)
-        return 1
-
-    if not GENERATED_POLICY.exists():
-        print(f"ERROR: {GENERATED_POLICY} does not exist. Run 'just build' first.", file=sys.stderr)
-        return 1
-
-    with open(GENERATED_POLICY) as f:
-        local = json.load(f)
-
-    print("Fetching live ACL ...", file=sys.stderr)
-    live = fetch_live_acl(api_key)
-
-    if live == local:
-        print("No changes: local policy matches live ACL.", file=sys.stderr)
+        revision = require_revision(args.candidate_ref) if args.candidate_ref is not None else head_revision()
+        candidate = compile_revision(revision)
+        if args.baseline_ref is not None:
+            if args.expected_live_sha256 or args.expected_policy_sha256:
+                raise PolicyError("choose source revisions or explicit digests, not both")
+            baseline = compile_revision(require_revision(args.baseline_ref))
+            expected_live, expected_candidate = canonical_digest(baseline), canonical_digest(candidate)
+        else:
+            expected_live, expected_candidate = args.expected_live_sha256, args.expected_policy_sha256
+        if args.confirm or expected_live or expected_candidate:
+            require_digest(expected_live)
+            require_digest(expected_candidate)
+        bearer = resolve_bearer(os.environ.get("TAILSCALE_API_KEY", ""))
+        if expected_live and expected_candidate:
+            promote(bearer, candidate, expected_live, expected_candidate, dry_run=not args.confirm)
+        else:
+            live, _etag = fetch_live_acl(bearer)
+            print(json.dumps(public_summary(live, candidate), sort_keys=True))
+            print("Assessment only; apply requires explicit baseline and candidate proof.")
         return 0
-
-    print("\nChanges to apply:", file=sys.stderr)
-    diff_lines = summarize_diff(live, local)
-    for line in diff_lines:
-        print(f"  {line}", file=sys.stderr)
-
-    if args.dry_run:
-        print("\n(dry run, no changes made)", file=sys.stderr)
-        return 0
-
-    if not args.confirm:
-        print(
-            "\nTo apply these changes, run again with --confirm.",
-            file=sys.stderr,
-        )
-        return 2
-
-    print("\nPushing policy to Tailscale API ...", file=sys.stderr)
-    if push_acl(api_key, local):
-        print("Push successful.", file=sys.stderr)
-        return 0
-    else:
+    except PolicyError as exc:
+        print("ERROR: " + str(exc), file=sys.stderr)
         return 1
 
 
