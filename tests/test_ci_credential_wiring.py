@@ -1,15 +1,4 @@
-"""Contract tests for the CI/CD credential wiring.
-
-Two things are pinned here:
-
-1.  The response contract of Tailscale's ``POST /acl/validate`` endpoint, which
-    reports policy errors with **HTTP 200**. A status-code check alone passes
-    everything, so ``acl_validate.interpret`` is the load-bearing logic and it
-    cannot be exercised live from a test.
-2.  That ``validate`` (ci.yml) and ``deploy`` (cd.yml) read their credentials
-    from one scope and one variable set. Splitting them again is the specific
-    regression this repo already suffered.
-"""
+"""Validator response contracts and the reviewed split-identity workflow boundary."""
 
 import json
 import os
@@ -160,62 +149,34 @@ class ProveGateTest(unittest.TestCase):
 
 
 class WorkflowScopeTest(unittest.TestCase):
-    CI = REPO_ROOT / ".github" / "workflows" / "ci.yml"
-    CD = REPO_ROOT / ".github" / "workflows" / "cd.yml"
+    def test_unprivileged_ci_cannot_request_oidc_or_access_production(self):
+        text = (REPO_ROOT / ".github/workflows/ci.yml").read_text()
+        for forbidden in ("environment:", "id-token:", "pull-requests: write", "TAILSCALE_API_KEY", "upload-artifact"):
+            self.assertNotIn(forbidden, text)
+        self.assertIn("nix develop --command just test", text)
 
-    @classmethod
-    def setUpClass(cls) -> None:
-        cls.ci_text = cls.CI.read_text(encoding="utf-8")
-        cls.cd_text = cls.CD.read_text(encoding="utf-8")
-
-    def test_both_jobs_declare_the_production_environment(self) -> None:
-        for name, text in (("ci.yml", self.ci_text), ("cd.yml", self.cd_text)):
-            with self.subTest(workflow=name):
+    def test_trusted_workflows_pin_main_code_and_separate_variables(self):
+        for name, role in (("policy-validate.yml", "READER"), ("cd.yml", "WRITER")):
+            with self.subTest(name=name):
+                text = (REPO_ROOT / ".github/workflows" / name).read_text()
                 self.assertIn("environment: production", text)
+                self.assertIn("id-token: write", text)
+                self.assertIn("ref: ${{ github.workflow_sha }}", text)
+                self.assertIn("persist-credentials: false", text)
+                self.assertIn("vars.TS_POLICY_" + role + "_CLIENT_ID", text)
+                self.assertIn("vars.TS_POLICY_" + role + "_AUDIENCE", text)
+                self.assertIn("scripts/policy_ci.py " + role.lower(), text)
+                for forbidden in ("secrets.", "@main", "magic-nix-cache", "upload-artifact", "download-artifact", "pull_request.head.sha", "pull-requests: write"):
+                    self.assertNotIn(forbidden, text)
+                for action in re.findall(r"uses: (\S+)", text):
+                    self.assertRegex(action, r"@[0-9a-f]{40}$")
 
-    def test_both_jobs_map_the_same_credential_pair(self) -> None:
-        secret = "TAILSCALE_API_KEY: ${{ secrets.TAILSCALE_API_KEY }}"
-        client_id = "TS_OAUTH_CLIENT_ID: ${{ vars.TS_OAUTH_CLIENT_ID }}"
-        for name, text in (("ci.yml", self.ci_text), ("cd.yml", self.cd_text)):
-            with self.subTest(workflow=name):
-                self.assertIn(secret, text)
-                self.assertIn(client_id, text)
-
-    def test_credentials_are_mapped_exactly_once_per_workflow(self) -> None:
-        # Job-level env only. A per-step remap is how the two scopes drifted
-        # apart in the first place.
-        for name, text in (("ci.yml", self.ci_text), ("cd.yml", self.cd_text)):
-            with self.subTest(workflow=name):
-                self.assertEqual(
-                    len(re.findall(r"secrets\.TAILSCALE_API_KEY", text)), 1
-                )
-                self.assertEqual(
-                    len(re.findall(r"vars\.TS_OAUTH_CLIENT_ID", text)), 1
-                )
-
-    def test_preflight_runs_in_both_workflows(self) -> None:
-        for name, text in (("ci.yml", self.ci_text), ("cd.yml", self.cd_text)):
-            with self.subTest(workflow=name):
-                self.assertIn("scripts/ci_preflight.py", text)
-
-    def test_ci_has_standalone_proof_and_cd_uses_shared_promotion(self) -> None:
-        self.assertIn("scripts/acl_validate.py --prove", self.ci_text)
-        self.assertIn("scripts/push.py --confirm", self.cd_text)
-        self.assertNotIn("scripts/acl_validate.py", self.cd_text)
-
-    def test_pr_comment_steps_are_gated_on_a_successful_build(self) -> None:
-        # A bare `if: always()` here posts a PR comment whose whole content is
-        # "nix: command not found" whenever the preflight fails before Nix is
-        # installed, which is now the common failure mode.
-        self.assertEqual(
-            len(re.findall(r"steps\.build\.outcome == 'success'", self.ci_text)), 1
-        )
-        self.assertNotIn("        if: always()\n", self.ci_text)
-
-    def test_preflight_scope_string_matches_the_declared_environment(self) -> None:
-        import ci_preflight
-
-        self.assertIn("production", ci_preflight.SCOPE)
+    def test_reader_rejects_fork_job_before_any_oidc_capability(self):
+        text = (REPO_ROOT / ".github/workflows/policy-validate.yml").read_text()
+        self.assertIn("pull_request_target:", text)
+        for clause in ("github.repository_id == '1165961732'", "github.repository_owner_id == '37297218'", "github.event.pull_request.head.repo.id == 1165961732", "github.event.pull_request.base.repo.id == 1165961732", "github.event.pull_request.base.ref == 'main'"):
+            self.assertIn(clause, text)
+        self.assertLess(text.index("    if:"), text.index("      id-token: write"))
 
 
 if __name__ == "__main__":

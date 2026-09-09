@@ -1,158 +1,138 @@
-# CI/CD credentials for the tailnet policy
+# Federated CI/CD policy identities
 
-This repo pushes the live tailnet policy for `taila4c78d.ts.net`. Two GitHub
-Actions jobs talk to the Tailscale API:
+The production Actions credential migration uses two independent Tailscale
+federated identities. Both retain the existing `production` environment;
+its protection rules are unchanged. This source does not create an identity,
+set an Actions variable, delete or rotate a credential, or apply an ACL.
 
-| Job | Workflow | Trigger | What it does |
+| Lane | Trusted workflow/event | Scopes | Production variables |
 | --- | --- | --- | --- |
-| `validate` | `.github/workflows/ci.yml` | `pull_request` | Checks exact source baseline/candidate digests and asks Tailscale to validate the candidate |
-| `deploy` | `.github/workflows/cd.yml` | `push` to `main` | Same checks, then one ETag-protected `POST /acl` and fresh GET verification |
+| Reader | `policy-validate.yml`, `pull_request_target` targeting main | `policy_file:read`, `devices:posture_attributes:read`, `devices:core:read` | `TS_POLICY_READER_CLIENT_ID`, `TS_POLICY_READER_AUDIENCE` |
+| Writer | `cd.yml`, push to main | `policy_file`, `devices:posture_attributes`, `devices:core:read` | `TS_POLICY_WRITER_CLIENT_ID`, `TS_POLICY_WRITER_AUDIENCE` |
 
-## One scope, one credential set
+Client IDs and audiences are nonsecret variables. No Tailscale credential is
+mapped from `secrets` into either workflow. The CI driver uses OIDC exclusively;
+missing or incorrect variables fail closed, without a legacy credential fallback.
+The existing local direct-key/OAuth interface remains for separately authorized
+attended operations. Existing secrets remain untouched and must not be deleted,
+rotated, or replaced without per-item operator direction.
 
-Both jobs declare `environment: production`. That is deliberate, and it is the
-whole point of this document.
+The exact creation requests are in [oidc-identities.json](../config/oidc-identities.json).
+Each identity trusts issuer `https://token.actions.githubusercontent.com`,
+subject `repo:Jesssullivan/tailnet-acl:environment:production`, repository ID
+`1165961732`, owner ID `37297218`, repository `Jesssullivan/tailnet-acl`, and
+`refs/heads/main`. The reader additionally requires `pull_request_target` and
+`Jesssullivan/tailnet-acl/.github/workflows/policy-validate.yml@refs/heads/main`;
+the writer requires `push` and the corresponding exact `cd.yml` workflow ref.
+There are no wildcard claims or node enrollment tags.
 
-GitHub resolves `secrets.X` from the job's environment first and falls back to
-the repository scope, so a repository secret and an environment secret with the
-**same name** are two different values with no visible sign that they differ.
-Before this was unified, `validate` read the repository-scoped
-`TAILSCALE_API_KEY` and `deploy` read the `production`-scoped one. A red
-`validate` therefore said nothing about whether the deploy would work, and a
-rotation applied to one scope silently left the other dead.
+These scope dependencies and read-only validation authority follow the
+[official scope reference](https://tailscale.com/docs/reference/trust-credentials).
+The [GitHub OIDC reference](https://docs.github.com/en/actions/reference/security/oidc)
+defines the repository, event, workflow and environment claims.
 
-The rule now: **the `production` environment is the only scope that matters.**
-A repository-level secret of the same name is not the intended custody. Do not
-delete, rotate, or replace either value without explicit per-item operator direction.
+## Public PR execution boundary
 
-| Name | Type | Scope | Required |
-| --- | --- | --- | --- |
-| `TAILSCALE_API_KEY` | Environment **secret** | `production` | always |
-| `TS_OAUTH_CLIENT_ID` | Environment **variable** | `production` | only when the secret is an OAuth client secret |
+`ci.yml` is unprivileged: contents read only, no production environment and no
+OIDC permission. It can execute PR code for ordinary build/tests. It publishes
+no policy artifact. Its existing required checks remain Dhall type-check/build
+and secret detection.
 
-`TS_OAUTH_CLIENT_ID` is a *variable*, not a secret — the client id is not
-sensitive, and storing it as a secret makes it unreadable in logs for no gain.
-Environment variables live under
-*Settings → Environments → production → Environment variables*.
+The separate reader workflow uses `pull_request_target`. Its job condition
+rejects forks and wrong repository/owner/base identities before granting an
+OIDC-capable job. It checks out exactly `github.workflow_sha`, with checkout
+credentials disabled. Trusted Python verifies that checkout and the platform
+event again before tool installation and before requesting a JWT. It fetches
+only exact validated commit IDs from the fixed public origin; it never checks
+out PR commits. The guarded compiler reconstructs only committed `.dhall`
+files and `grants.json` as data, checks local imports, and strips credentials
+from subprocess environments. PR scripts, workflows, flakes, caches, artifacts,
+submodules and hooks are never executed by the credentialed path.
 
-## Two kinds of credential
+Both trusted jobs use commit-pinned checkout and Nix installer actions and the
+main checkout's locked Nix toolchain, with no shared Actions cache. Their
+15-minute job limit bounds aggregate work; compiler subprocesses have 45-second
+limits. Main is the executable trust boundary, so executable or trust changes
+must receive independent source review before merging. This source does not
+change branch protection or add a new required check automatically.
 
-`scripts/ts_auth.py` accepts either form in `TAILSCALE_API_KEY` and branches on
-the prefix:
+## Memory-only exchange
 
-- **`tskey-api-…`** — a direct admin API key. Used as the bearer token as-is.
-  Needs no client id. **Expires after at most 90 days**, so it guarantees a
-  future outage on a timer.
-- **`tskey-client-…`** — an OAuth client secret. Tailscale rejects it as a
-  bearer token (HTTP 403); it is exchanged for a short-lived access token via
-  the `client_credentials` grant. **Does not expire.** The exchange requires the
-  client id, so `TS_OAUTH_CLIENT_ID` becomes mandatory.
+`scripts/github_oidc.py` verifies platform context, requests a GitHub JWT for
+the configured audience, checks its claim consistency locally, then submits
+`client_id` and `jwt` to Tailscale's `/api/v2/oauth/token-exchange`. Tailscale
+performs signature, expiry and issuer/trust verification. Local claim decoding
+is an additional consistency check, not cryptographic authentication.
 
-The shared CI/CD credential needs `policy_file`, including its documented
-`devices:posture_attributes` and `devices:core:read` dependencies. A separate
-read-only validator would use `policy_file:read` with the corresponding posture
-read and core read dependencies. These are distinct from the lab device
-management OAuth client. See the [current scope contract](https://tailscale.com/docs/reference/trust-credentials).
+JWT retrieval accepts only HTTPS GitHub Actions token-service subdomains, with
+no redirect, credentials in the URL, fragment or preexisting audience override.
+Both token responses are limited to 64 KiB and each request to 20 elapsed
+seconds. JWTs and access tokens stay in the Python process; they are never
+printed, written to files, passed in argv, or published through `GITHUB_ENV`,
+step outputs, comments or artifacts. Logs contain fixed categories, public
+policy digests and known section counts only.
 
-The existing loader supports a direct key or an OAuth pair. A future federated
-identity migration requires its own reviewed trust configuration; this flow
-correction does not select or provision that migration.
+## Reviewed bootstrap and attended provisioning
 
-## Rotation runbook
+1. The guarded-source prerequisite #25 merged normally on September 9 at
+   `6548a9c0faba909c5a10fc2f701a1ec5a3438e30`. Both required checks passed;
+   the old nonrequired live-validation check failed with legacy custody.
+2. Independently review the OIDC source and exact identity manifest digest.
+   `just identity-review reader` and `just identity-review writer` render the
+   nonsecret request bodies and manifest SHA256 without API access.
+3. Only after explicit per-item root review, create each identity once using
+   `scripts/oidc_identity.py ROLE --create --manifest-sha256 DIGEST`. The
+   attended caller supplies its authorized admin bearer on stdin from targeted
+   encrypted custody held in RAM, never from shell substitution, argv,
+   environment exports, a plaintext file, or a CI secret. Library callers can
+   pass the in-memory bearer to `manage_identity` and retain the nonsecret
+   creation callback receipt directly. No existing credential is changed.
+4. Creation makes one POST to this tailnet's `/keys`, emits a JSON receipt with
+   a validated **nonsecret created ID immediately**, then verifies the complete
+   returned metadata and a fresh exact-ID GET. The early receipt is marked
+   `metadata_verified: false`; only the final receipt proves metadata parity.
+   No retry, enumeration, update, delete or revoke operation exists. If a POST
+   response is lost or its ID is invalid, creation is uncertain: do not retry;
+   inspect the attended admin console for the exact description. If an ID was
+   received, `ROLE --readback CLIENT_ID --manifest-sha256 DIGEST` checks only
+   that item using the same bounded stdin interface.
+5. Record the two verified client IDs/audiences as their respective production
+   variables. Preserve the generated `api.tailscale.com/<client-id>` audience;
+   no wildcard or hand-chosen audience is accepted. Setting these variables
+   does not change environment protections or retire old secrets.
+6. Merge the reviewed OIDC source normally after its required checks pass.
+   Its first main CD should perform a bounded OIDC exchange and idempotent
+   live/source comparison, because this change modifies no Dhall/grants.
+   Reader proof requires a subsequent same-repository PR event after the
+   trusted workflow exists on main; a fork must receive no reader job.
+7. Separately review and promote any actual policy grant. Required acceptance
+   is known-bad rejection, candidate grammar acceptance, baseline parity,
+   one strong-ETag conditional POST if needed, and fresh post-read parity.
+   An uncertain write is never retried automatically.
 
-### Existing OAuth client pair interface
+The official [federation documentation](https://tailscale.com/docs/features/workload-identity-federation)
+provides the create and token-exchange endpoints. The
+[official Go client's Key response](https://github.com/tailscale/tailscale-client-go-v2/blob/main/keys.go)
+contains top-level identity fields for create and GET. The
+[official provider](https://github.com/tailscale/terraform-provider-tailscale/blob/main/tailscale/resource_federated_identity.go)
+explicitly identifies `id` as the client/key ID, uses that same ID for reads,
+and normalizes nil tags to empty. The
+[client's create test](https://github.com/tailscale/tailscale-client-go-v2/blob/main/keys_test.go)
+uses HTTP 200. The utility accepts 200 or 201 for POST only, with full metadata
+and GET verification in either case; 201 is compatibility behavior, not a
+claimed live observation. No token response `key` field is exposed.
 
-1. Tailscale admin console → **Settings → OAuth clients → Generate OAuth
-   client**. Grant `policy_file` and its required scope dependencies (the CD
-   job pushes). This creation requires an attended operator decision.
-2. Copy both halves. The secret (`tskey-client-…`) is shown once.
-3. GitHub → **Settings → Environments → production**:
-   - **Environment secrets** → update `TAILSCALE_API_KEY` to the client secret.
-   - **Environment variables** → add/update `TS_OAUTH_CLIENT_ID` to the client
-     id.
-4. Preserve the old credential until its retirement is separately authorized
-   and the replacement has read, validation, conditional-write, and post-read proof.
-5. Re-run CI on any open PR. `Preflight Tailscale credential wiring` proves the
-   new pair before anything else runs.
+## Dated evidence and remaining acceptance
 
-### Interim: direct API key
+Earlier September 9 observations found the existing projected legacy API key
+rejected with HTTP 401, its encrypted source matching the projection, and the
+lab device OAuth pair exchanging successfully but receiving HTTP 403 for ACL
+read. These did not prove Actions custody or justify widening that device pair.
 
-1. Tailscale admin console → **Settings → Keys → Generate access token**.
-2. GitHub → **Settings → Environments → production → Environment secrets** →
-   update `TAILSCALE_API_KEY`.
-3. `TS_OAUTH_CLIENT_ID` is not used by the direct-key path; the preflight does
-   not issue an unused-variable warning.
-4. Diary the 90-day expiry, or move to the OAuth pair.
-
-Use the `production` environment for intended custody. GitHub can fall back to
-a repository-scoped `TAILSCALE_API_KEY` if the environment value is absent; the
-script cannot distinguish which scope supplied the resolved `secrets` value.
-
-## What the preflight tells you
-
-`scripts/ci_preflight.py` runs first in both jobs, on the runner's system
-python3, before the Nix toolchain is installed — a dead credential costs
-seconds, not a full dev-shell build followed by an opaque `API error 401`. It
-prints only fixed status categories. It never prints a credential value, API
-response body, or live policy.
-
-| Report | Meaning | Next step |
-| --- | --- | --- |
-| `TAILSCALE_API_KEY is missing or has an unsupported credential class` | Intended production custody is absent or malformed | Inspect that environment's exact secret interface |
-| `production TS_OAUTH_CLIENT_ID is missing` | An OAuth secret has no matching client ID variable | Supply the matching ID through the attended custody workflow |
-| `API request failed (HTTP 401)` | Existing credential was rejected | Review and provision a working identity through an attended decision |
-| `API request failed (HTTP 403)` | Existing grant does not authorize this API read | Review the intended policy scopes; do not widen a device client implicitly |
-| `API request failed (transport or timeout)` | No completed read proof | Investigate connectivity; do not infer authentication success |
-
-## Server-side policy validation
-
-`scripts/acl_validate.py` POSTs the built policy to
-`POST /api/v2/tailnet/{tailnet}/acl/validate`, which type-checks fresh committed source without
-applying anything. This is the only pre-merge check that can catch a policy
-Tailscale will refuse — `push.py --dry-run` merely diffs the local build against
-the live ACL and never asks whether the result is legal.
-
-The endpoint has a trap: **policy errors are returned with HTTP 200** and a
-JSON body carrying `message` / `data`, matching
-`tailscale.com/cmd/gitops-pusher`. A naive status-code check passes everything.
-So the script treats a non-empty `message` or `data` as failure, and `--prove`
-first submits a policy that must be rejected (unknown action plus an undefined
-group reference). If that known-bad policy comes back clean, the checker is
-blind and the step fails rather than reporting a pass it cannot justify.
-
-Missing credentials and unavailable validation fail closed, including locally.
-No raw rejection or HTTP error body is published. The detailed conditional
-source/baseline and ETag contract is in [policy-delivery.md](policy-delivery.md).
-
-## Caveats of `environment:` on a pull-request job
-
-- **Fork PRs get no secrets.** This is GitHub behaviour for any scope, not a
-  consequence of using an environment. Policy changes have to come from a
-  branch on this repository.
-- **Adding required reviewers to the `production` environment would gate every
-  PR**, because the `validate` job would then wait for a deployment approval.
-  If that protection is ever wanted for deploys only, split the environments and
-  update the `environment:` key plus the `SCOPE` string in
-  `scripts/ci_preflight.py` together.
-- **A deployment-branch policy restricting `production` to `main` would break
-  PR validation** for the same reason.
-- Each PR run records a `production` deployment in the Environments UI. That is
-  cosmetic noise; `validate` applies nothing.
-
-## Observed custody failure (2026-09-09)
-
-The existing projected legacy API credential returned HTTP 401 on a bounded
-policy GET at 20:06:38 UTC. Targeted in-memory SOPS leaf comparison at 20:11:52
-UTC proved that source and runtime projection were identical; the read was not
-repeated. This is not evidence of a stale local projection. No policy was
-retrieved, no secret value or credential digest was recorded, and no credential
-was changed. The production Actions secret was last updated June 24 at the
-metadata inspection, and its earlier August 27 preflight also returned 401.
-Live baseline parity and conditional-write acceptance remain unproven until
-working policy-scoped custody is provisioned and reviewed.
-
-The existing lab OAuth pair was then tested directly from its targeted SOPS
-leaves at 20:21:54 UTC: token exchange returned HTTP 200, the relevant returned
-scopes were `devices:core` and `devices:posture_attributes`, and the policy GET
-returned HTTP 403. Its existing grant therefore does not provide policy-read
-authority; no scope was added and no credential was replaced.
+A separately authorized attended read at **22:25:38 UTC** proved canonical
+current-main/live policy parity. At **22:31:12 UTC**, the guarded validator
+rejected its known-bad canary and accepted the separately reviewed grant
+candidate (both HTTP 200). Neither observation applied a policy or repaired the
+Actions credential. Conditional-write behavior and the new federated identities
+remain unproven until their explicit live acceptance steps complete. The
+existing generated artifact is preserved and excluded from all delivery.

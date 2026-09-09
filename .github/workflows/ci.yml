@@ -8,16 +8,17 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
 
 jobs:
   secrets:
     name: Secret detection
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - uses: gitleaks/gitleaks-action@v2
         env:
@@ -25,12 +26,12 @@ jobs:
 
   check:
     name: Dhall type-check + build
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: DeterminateSystems/nix-installer-action@main
-      - uses: DeterminateSystems/magic-nix-cache-action@main
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa
 
       - name: Dhall type-check
         run: nix develop --command dhall type --file policy.dhall > /dev/null
@@ -78,107 +79,4 @@ jobs:
           "
 
       - name: Policy contract tests
-        run: nix develop --command python3 -m unittest discover -s tests -p 'test_*.py'
-
-      - name: Upload policy artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: policy-json
-          path: generated/policy.json
-          retention-days: 30
-
-  validate:
-    name: Validate against live ACL
-    runs-on: ubuntu-latest
-    needs: [check, secrets]
-    if: github.event_name == 'pull_request'
-    environment: production
-    env:
-      TAILSCALE_API_KEY: ${{ secrets.TAILSCALE_API_KEY }}
-      TS_OAUTH_CLIENT_ID: ${{ vars.TS_OAUTH_CLIENT_ID }}
-      BASELINE_SHA: ${{ github.event.pull_request.base.sha }}
-      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
-
-      - name: Configure cache dir
-        run: echo "XDG_CACHE_HOME=$RUNNER_TEMP/.cache" >> "$GITHUB_ENV"
-
-      - name: Preflight Tailscale credential wiring
-        run: python3 scripts/ci_preflight.py
-
-      - uses: DeterminateSystems/nix-installer-action@main
-      - uses: DeterminateSystems/magic-nix-cache-action@main
-
-      - name: Compile committed candidate
-        id: build
-        run: nix develop --command python3 scripts/policy_source.py --revision "$CANDIDATE_SHA"
-
-      - name: Server-side policy validation
-        run: nix develop --command python3 scripts/acl_validate.py --prove --candidate-ref "$CANDIDATE_SHA"
-
-      - name: Verify live baseline and summarize candidate
-        id: validate
-        run: |
-          # Expansion intentionally occurs inside the Nix-provided shell.
-          # shellcheck disable=SC2016
-          nix develop --command bash -euo pipefail -c '
-            set +e
-            OUTPUT=$(python3 scripts/validate.py --baseline-ref "$BASELINE_SHA" --candidate-ref "$CANDIDATE_SHA" 2>&1)
-            EXIT_CODE=$?
-            set -e
-            printf "%s\n" "$OUTPUT"
-            {
-              echo "validation_output<<ACL_SUMMARY_END"
-              printf "%s\n" "$OUTPUT"
-              echo "ACL_SUMMARY_END"
-              echo "exit_code=$EXIT_CODE"
-            } >> "$GITHUB_OUTPUT"
-            exit "$EXIT_CODE"
-          '
-
-      - name: Comment on PR
-        if: always() && steps.build.outcome == 'success'
-        uses: actions/github-script@v7
-        env:
-          VALIDATION_SUMMARY: ${{ steps.validate.outputs.validation_output }}
-          VALIDATION_EXIT_CODE: ${{ steps.validate.outputs.exit_code }}
-        with:
-          script: |
-            const validate = process.env.VALIDATION_SUMMARY || 'Comparison did not run; no live baseline proof.';
-            const exitCode = process.env.VALIDATION_EXIT_CODE;
-            const icon = exitCode === '0' ? ':white_check_mark:' : ':warning:';
-            const body = [
-              `## ${icon} ACL Validation`,
-              '',
-              'Public-safe digests, section counts, and status only.',
-              '```',
-              validate,
-              '```',
-            ].join('\n');
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-            });
-            const existing = comments.find(c =>
-              c.user.type === 'Bot' && c.body.includes('ACL Validation')
-            );
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existing.id,
-                body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body,
-              });
-            }
+        run: nix develop --command just test

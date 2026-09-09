@@ -43,16 +43,20 @@ def elapsed_deadline(seconds):
         signal.signal(signal.SIGALRM, previous)
 
 
-def request_bytes(request, allow_error=False):
+def request_bytes(request, allow_error=False, max_response_bytes=None):
+    if max_response_bytes is None:
+        max_response_bytes = MAX_RESPONSE_BYTES
+    if type(max_response_bytes) is not int or not 0 < max_response_bytes <= MAX_RESPONSE_BYTES:
+        raise PolicyError("API response limit is invalid")
     try:
         with elapsed_deadline(TIMEOUT_SECONDS), OPENER.open(request, timeout=TIMEOUT_SECONDS) as response:
             chunks, size = [], 0
             while True:
-                chunk = response.read(min(65536, MAX_RESPONSE_BYTES + 1 - size))
+                chunk = response.read(min(65536, max_response_bytes + 1 - size))
                 if not chunk:
                     break
                 size += len(chunk)
-                if size > MAX_RESPONSE_BYTES:
+                if size > max_response_bytes:
                     raise PolicyError("API response exceeds the size limit")
                 chunks.append(chunk)
             body = b"".join(chunks)

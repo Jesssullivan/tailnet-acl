@@ -1,7 +1,7 @@
 # Tailnet ACL management for taila4c78d.ts.net (sulliwood.org)
 #
 # Usage:
-#   just              # build + validate (default)
+#   just              # build only (default)
 #   just build        # compile Dhall + merge grants
 #   just validate     # compare to live ACL
 #   just diff         # show what would change
@@ -12,7 +12,7 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 
 repo_root := justfile_directory()
 
-# Default: build and validate
+# Default: build only; no live API call
 default: build
 
 # Compile Dhall to JSON and merge with grants
@@ -53,3 +53,11 @@ compare snapshot:
 # Clean generated artifacts
 clean:
     rm -rf {{repo_root}}/generated/
+
+# Registered offline contracts; requires the repo's Dhall tools (nix develop).
+test:
+    python3 -m unittest discover -s tests -p 'test_*.py'
+
+# Render one nonsecret federation request for exact review; no API calls.
+identity-review role:
+    python3 scripts/oidc_identity.py {{quote(role)}}
