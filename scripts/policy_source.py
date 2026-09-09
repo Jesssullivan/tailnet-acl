@@ -44,7 +44,7 @@ def strict_json_loads(value):
         return result
     try:
         return json.loads(value, object_pairs_hook=pairs, parse_constant=nonfinite, parse_float=finite_float)
-    except (ValueError, UnicodeError):
+    except (ValueError, UnicodeError, RecursionError):
         raise PolicyError("JSON is malformed, duplicated, or nonfinite") from None
 
 

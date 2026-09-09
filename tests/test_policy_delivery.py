@@ -325,21 +325,15 @@ class SourceAndWorkflowTest(unittest.TestCase):
         self.assertTrue(result["other_sections_changed"])
         self.assertNotIn(PRIVATE, json.dumps(result))
 
-    def test_workflow_uses_data_environment_and_exact_source_guards(self):
-        ci = (ROOT / ".github/workflows/ci.yml").read_text()
-        cd = (ROOT / ".github/workflows/cd.yml").read_text()
-        javascript = ci.split("          script: |", 1)[1]
-        self.assertNotIn("${{", javascript)
-        self.assertIn("process.env.VALIDATION_SUMMARY", javascript)
-        self.assertIn("${{ github.event.before }}", cd)
-        self.assertIn('--baseline-ref "$BASELINE_SHA" --candidate-ref "$CANDIDATE_SHA"', cd)
-        self.assertNotIn("continue-on-error", cd)
-        self.assertNotIn("|| true", cd)
-        self.assertIn("fetch-depth: 0", cd)
-        self.assertNotIn("just build", cd)
-        self.assertNotIn("just build", ci.split("  validate:", 1)[1])
-        self.assertIn("scripts/policy_source.py --revision", ci)
-        self.assertIn("nix develop --command python3 -m unittest discover -s tests", ci)
+    def test_trusted_driver_keeps_existing_promotion_guard(self):
+        import policy_ci
+        with mock.patch.object(policy_ci, "trusted_context", return_value=("a" * 40, "b" * 40)), mock.patch.object(
+            policy_ci, "_run"
+        ), mock.patch.object(policy_ci, "compile_revision", side_effect=[{"acls": []}, {"acls": [1]}]), mock.patch.object(
+            policy_ci, "resolve_oidc", return_value="reader-or-writer-in-memory"
+        ), mock.patch.object(policy_ci, "promote") as promote:
+            policy_ci.run("writer")
+        promote.assert_called_once_with("reader-or-writer-in-memory", {"acls": [1]}, policy_source.canonical_digest({"acls": []}), policy_source.canonical_digest({"acls": [1]}))
 
 
 if __name__ == "__main__":

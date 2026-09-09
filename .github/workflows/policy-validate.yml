@@ -1,0 +1,48 @@
+name: Trusted policy validation
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate against live ACL
+    # Do not issue an OIDC-capable job for forks, even though the workflow is trusted.
+    if: >-
+      github.repository_id == '1165961732' &&
+      github.repository_owner_id == '37297218' &&
+      github.event.pull_request.head.repo.id == 1165961732 &&
+      github.event.pull_request.base.repo.id == 1165961732 &&
+      github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      TS_FEDERATED_CLIENT_ID: ${{ vars.TS_POLICY_READER_CLIENT_ID }}
+      TS_FEDERATED_AUDIENCE: ${{ vars.TS_POLICY_READER_AUDIENCE }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.workflow_sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify trusted context before installing tools or requesting a token
+        run: python3 scripts/policy_ci.py reader --check-context
+
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa
+
+      # Nix and every executable come from this immutable MAIN checkout. The
+      # driver fetches PR objects, extracting only Dhall/grants as isolated data.
+      # No shared cache, PR checkout, artifacts, scripts, flake or workflow code.
+      - name: Validate committed policy data with the reader identity
+        run: nix develop --no-write-lock-file --command python3 scripts/policy_ci.py reader
+        env:
+          XDG_CACHE_HOME: ${{ runner.temp }}/trusted-policy-cache

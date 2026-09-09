@@ -6,7 +6,7 @@ inspection; it is never an input to credentialed validation or apply.
 
 ## Source and live baseline
 
-PR CI compiles the exact pull-request head and base commits, validates the
+The trusted main reader compiles the exact pull-request head and base commits, validates the
 candidate against Tailscale, and compares the live policy with both. Expected
 candidate changes are acceptable only when live still equals the base or
 already equals the candidate. Other drift fails the comparison. Main CD
@@ -73,15 +73,19 @@ Main CD supplies exact source revisions instead of manually entered digests.
 There is no force flag or ignored-drift path. A failed baseline comparison
 requires review and source convergence; do not normalize away unexpected
 keys, reorder lists, or treat absent and default fields as equivalent without
-an explicit, tested contract. Current live normalization parity remains
-unproven while the existing production credential is rejected.
+an explicit, tested contract. An attended September 9 read at 22:25:38 UTC
+proved captured current-main/live canonical parity, and at 22:31:12 UTC the
+validator rejected its canary and accepted the separate grant candidate.
+These are dated read/grammar proofs, not Actions identity or conditional-write
+acceptance; no policy was applied by those observations.
 
 ## Public CI and credential custody
 
-CI comments contain only sanitized comparison output passed through environment
-variables to `github-script`; step output is never inserted into JavaScript
-source. Nix setup logs are not captured into comparison comments. Both CI and
-CD retain the existing `production` credential interface documented in
-[ci-credentials.md](ci-credentials.md). These changes do not provision an
-identity, change credential scopes, delete or rotate a secret, or bypass an
-environment approval.
+Unprivileged PR CI has no production or OIDC permission. The separate trusted
+reader uses `pull_request_target`, rejects forks before token issuance, checks
+out exactly the main workflow SHA, and consumes PR Dhall/grants only as data.
+The reader and writer use separate federated identities in the unchanged
+`production` environment, with nonsecret IDs/audiences and memory-only token
+exchange. There are no policy artifact uploads or PR comments with live data.
+See [ci-credentials.md](ci-credentials.md) for exact trust claims, bootstrap,
+per-item provisioning review, and the current limits of live evidence.
