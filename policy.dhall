@@ -43,7 +43,9 @@ let allACLs =
 
 let allNodeAttrs
     : List T.NodeAttr
-    = [ { target = [ C.tag.dollhouse ], attr = [ "funnel" ] } ]
+    = [ { target = [ C.tag.dollhouse ], attr = [ "funnel" ] }
+      , { target = [ C.tag.anon_gateway ], attr = [ "mullvad" ] }
+      ]
 
 let autoApprovers
     : T.AutoApprovers

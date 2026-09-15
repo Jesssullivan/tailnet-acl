@@ -32,6 +32,7 @@ let tag =
       , dev = "tag:dev"
       , staging = "tag:staging"
       , qa = "tag:qa"
+      , anon_gateway = "tag:anon-gateway"
       , exit_node = "tag:exit-node"
       , switch = "tag:switch"
       , subnet_router = "tag:subnet-router"
