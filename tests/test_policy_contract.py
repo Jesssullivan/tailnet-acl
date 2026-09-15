@@ -30,7 +30,7 @@ class PolicyContractTest(unittest.TestCase):
         self.assertFalse(any(tag in tags for tags in self.policy["autoApprovers"]["routes"].values()))
         # Additive policy has no deny override. Universal source rules would
         # silently grant this newly tagged node access beyond its explicit ACL.
-        universal = {"*", "0.0.0.0/0", "::/0", "100.64.0.0/10"}
+        universal = {"*", "autogroup:tagged", "0.0.0.0/0", "::/0", "100.64.0.0/10"}
         for row in self.policy["acls"] + self.policy["grants"]:
             self.assertFalse(universal.intersection(row["src"]))
 
