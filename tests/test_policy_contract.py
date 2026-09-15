@@ -13,6 +13,27 @@ class PolicyContractTest(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.policy = compile_revision(head_revision())
 
+    def test_anonymous_gateway_is_a_separate_internet_only_identity(self) -> None:
+        tag = "tag:anon-gateway"
+        self.assertEqual(self.policy["tagOwners"][tag], ["autogroup:admin"])
+        self.assertEqual(
+            [row for row in self.policy["nodeAttrs"] if "mullvad" in row["attr"]],
+            [{"target": [tag], "attr": ["mullvad"]}],
+        )
+        self.assertEqual(
+            [row for row in self.policy["acls"] if tag in row["src"]],
+            [{"action": "accept", "src": [tag], "dst": ["autogroup:internet:*"]}],
+        )
+        self.assertFalse(any(tag in row["src"] for row in self.policy["grants"]))
+        self.assertFalse(any(tag in row["src"] or tag in row["dst"] for row in self.policy["ssh"]))
+        self.assertNotIn(tag, self.policy["autoApprovers"]["exitNode"])
+        self.assertFalse(any(tag in tags for tags in self.policy["autoApprovers"]["routes"].values()))
+        # Additive policy has no deny override. Universal source rules would
+        # silently grant this newly tagged node access beyond its explicit ACL.
+        universal = {"*", "0.0.0.0/0", "::/0", "100.64.0.0/10"}
+        for row in self.policy["acls"] + self.policy["grants"]:
+            self.assertFalse(universal.intersection(row["src"]))
+
     def test_kubernetes_operator_owns_mcp_proxy_tag(self) -> None:
         owners = self.policy["tagOwners"]["tag:mcp-proxy"]
         self.assertIn("tag:k8s-operator", owners)

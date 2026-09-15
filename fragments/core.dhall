@@ -67,6 +67,7 @@ let tagOwners
         , mapValue =
           [ C.tag.tag_authority, C.autogroup.admin, C.group.developers ]
         }
+      , { mapKey = C.tag.anon_gateway, mapValue = [ C.autogroup.admin ] }
       , { mapKey = C.tag.exit_node
         , mapValue = [ C.autogroup.admin, C.group.dollhouse_admins ]
         }

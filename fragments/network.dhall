@@ -36,6 +36,10 @@ let aclsEarly
         , dst = [ "${C.tag.kvm_proxy}:*" ]
         }
       , { action = "accept"
+        , src = [ C.tag.anon_gateway ]
+        , dst = [ "${C.autogroup.internet}:*" ]
+        }
+      , { action = "accept"
         , src = [ C.tag.exit_node ]
         , dst = [ "${C.autogroup.internet}:*" ]
         }
