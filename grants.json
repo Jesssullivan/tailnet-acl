@@ -36,6 +36,13 @@
 	"dst": ["tag:mcp-proxy"],
 	"ip": ["tcp:8080"]
 }, {
+	"src": ["tinyland-honey"],
+	"dst": [
+		"tinyland-mcp-arxiv", "tinyland-mcp-duckduckgo", "tinyland-mcp-fetch",
+		"tinyland-mcp-paper-search", "tinyland-mcp-wikipedia"
+	],
+	"ip": ["tcp:8080"]
+}, {
 	"src": ["tag:k8s-egress-nodeexporter"],
 	"dst": ["tinyland-relay-1", "tinyland-petting-zoo-mini", "tinyland-neo"],
 	"ip": ["tcp:9100"]
