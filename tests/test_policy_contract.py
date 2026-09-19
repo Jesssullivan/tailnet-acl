@@ -46,6 +46,24 @@ class PolicyContractTest(unittest.TestCase):
         }
         self.assertEqual(self.policy["grants"].count(expected), 1)
 
+    def test_honey_interim_mcp_proxy_host_grant_is_exact(self) -> None:
+        # lab TIN-4415 (2026-09-19): the five mcp-services proxies carry
+        # tag:k8s only (blahaj never applied tag:mcp-proxy), so the tag-scoped
+        # grant above matches nothing live. This host-alias grant is the
+        # interim; it names exactly the five proxies and tcp/8080, nothing
+        # wider, and is retired with them once the tag is applied.
+        aliases = [
+            "tinyland-mcp-arxiv",
+            "tinyland-mcp-duckduckgo",
+            "tinyland-mcp-fetch",
+            "tinyland-mcp-paper-search",
+            "tinyland-mcp-wikipedia",
+        ]
+        for alias in aliases:
+            self.assertIn(alias, self.policy["hosts"])
+        expected = {"src": ["tinyland-honey"], "dst": aliases, "ip": ["tcp:8080"]}
+        self.assertEqual(self.policy["grants"].count(expected), 1)
+
     def test_honey_does_not_receive_broad_kubernetes_acl_access(self) -> None:
         broad_rule = {
             "action": "accept",

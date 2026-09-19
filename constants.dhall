@@ -61,6 +61,11 @@ let host =
       , relay_1 = "100.102.229.122"
       , petting_zoo_mini = "100.111.5.80"
       , neo = "100.67.93.34"
+      , mcp_arxiv = "100.75.221.65"
+      , mcp_duckduckgo = "100.69.247.122"
+      , mcp_fetch = "100.66.235.11"
+      , mcp_paper_search = "100.77.215.50"
+      , mcp_wikipedia = "100.78.235.88"
       }
 
 in  { user, group, autogroup, tag, host }
