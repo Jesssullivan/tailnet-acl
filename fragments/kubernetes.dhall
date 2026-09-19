@@ -86,7 +86,9 @@ let hosts
       , { mapKey = "tinyland-mcp-arxiv", mapValue = C.host.mcp_arxiv }
       , { mapKey = "tinyland-mcp-duckduckgo", mapValue = C.host.mcp_duckduckgo }
       , { mapKey = "tinyland-mcp-fetch", mapValue = C.host.mcp_fetch }
-      , { mapKey = "tinyland-mcp-paper-search", mapValue = C.host.mcp_paper_search }
+      , { mapKey = "tinyland-mcp-paper-search"
+        , mapValue = C.host.mcp_paper_search
+        }
       , { mapKey = "tinyland-mcp-wikipedia", mapValue = C.host.mcp_wikipedia }
       ]
 

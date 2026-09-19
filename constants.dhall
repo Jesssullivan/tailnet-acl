@@ -51,6 +51,12 @@ let tag =
       , tag_authority = "tag:tag-authority"
       }
 
+-- host.mcp_*: interim aliases for the five blahaj mcp-services Tailscale
+-- operator proxies (lab TIN-4415, 2026-09-19). The intended grant is the
+-- tag-scoped tinyland-honey -> tag:mcp-proxy one, but the operator never
+-- applied tailscale.com/tags=tag:mcp-proxy to these proxies (blahaj drift),
+-- so they carry tag:k8s only. Retire the aliases and their grant once the
+-- proxies are re-registered carrying tag:mcp-proxy.
 let host =
       { ai = "100.108.97.127"
       , honey = "100.113.89.12"
@@ -61,13 +67,6 @@ let host =
       , relay_1 = "100.102.229.122"
       , petting_zoo_mini = "100.111.5.80"
       , neo = "100.67.93.34"
-      -- Interim, lab TIN-4415 (2026-09-19): the five blahaj mcp-services proxies
-      -- as host aliases so tinyland-honey can reach them on tcp/8080. The
-      -- intended shape is the existing tag-scoped grant (tinyland-honey ->
-      -- tag:mcp-proxy), but the Tailscale operator never applied
-      -- tailscale.com/tags=tag:mcp-proxy to these proxies (blahaj drift), so
-      -- they carry tag:k8s only. Retire these aliases and the grant that uses
-      -- them once the proxies are re-registered with tag:mcp-proxy.
       , mcp_arxiv = "100.75.221.65"
       , mcp_duckduckgo = "100.69.247.122"
       , mcp_fetch = "100.66.235.11"
