@@ -43,6 +43,14 @@
 	],
 	"ip": ["tcp:8080"]
 }, {
+	"src": ["group:dollhouse-admins", "tag:mcp-proxy"],
+	"dst": ["tag:mcp-proxy"],
+	"ip": ["tcp:3100", "tcp:3200"]
+}, {
+	"src": ["tinyland-honey", "tinyland-bumble", "tinyland-sting"],
+	"dst": ["tag:mcp-proxy"],
+	"ip": ["tcp:3100"]
+}, {
 	"src": ["tag:k8s-egress-nodeexporter"],
 	"dst": ["tinyland-relay-1", "tinyland-petting-zoo-mini", "tinyland-neo"],
 	"ip": ["tcp:9100"]
