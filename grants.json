@@ -58,4 +58,38 @@
 	"src": ["tag:dollhouse"],
 	"dst": ["tag:dollhouse"],
 	"app": {"tailscale.com/cap/relay": [{}]}
+}, {
+	"src": ["group:dollhouse-admins", "tag:mcp-proxy"],
+	"dst": ["svc:o11y-loki"],
+	"ip": ["tcp:3100"]
+}, {
+	"src": ["group:dollhouse-admins", "tag:mcp-proxy"],
+	"dst": ["svc:o11y-tempo"],
+	"ip": ["tcp:3200"]
+}, {
+	"src": ["group:dollhouse-admins", "tag:mcp-proxy"],
+	"dst": ["svc:o11y-mimir"],
+	"ip": ["tcp:9009"]
+}, {
+	"src": ["group:dollhouse-admins", "tag:mcp-proxy"],
+	"dst": ["svc:o11y-pyroscope"],
+	"ip": ["tcp:4040"]
+}, {
+	"src": ["tinyland-honey", "tinyland-bumble", "tinyland-sting"],
+	"dst": ["svc:o11y-loki"],
+	"ip": ["tcp:3100"]
+}, {
+	"src": [
+		"group:dollhouse-admins", "group:dollhouse-users", "tag:k8s",
+		"tag:k8s-operator", "tag:dev", "tag:ci-agent"
+	],
+	"dst": ["svc:o11y-otlp"],
+	"ip": ["tcp:4318"]
+}, {
+	"src": [
+		"group:dollhouse-admins", "group:dollhouse-users", "tag:k8s",
+		"tag:k8s-operator", "tag:dev", "tag:ci-agent", "tinyland-honey"
+	],
+	"dst": ["svc:o11y-grafana"],
+	"ip": ["tcp:3000"]
 }]

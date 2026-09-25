@@ -149,6 +149,90 @@ class PolicyContractTest(unittest.TestCase):
         }
         self.assertEqual(self.policy["acls"].count(rule), 1)
 
+    # TIN-4686 Phase 0: Tailscale Services for stable o11y names. The
+    # operator ProxyGroup carries tag:mcp-proxy (no new tag) and advertises
+    # the six svc:o11y-* Services; autoApprovers.services names each Service
+    # exactly. Grants below are the only rules that name any svc:o11y-*.
+    O11Y_SERVICES = (
+        "svc:o11y-loki", "svc:o11y-tempo", "svc:o11y-mimir",
+        "svc:o11y-pyroscope", "svc:o11y-otlp", "svc:o11y-grafana",
+    )
+    O11Y_READERS = ["group:dollhouse-admins", "tag:mcp-proxy"]
+    O11Y_SERVICE_GRANTS = [
+        {"src": O11Y_READERS, "dst": ["svc:o11y-loki"], "ip": ["tcp:3100"]},
+        {"src": O11Y_READERS, "dst": ["svc:o11y-tempo"], "ip": ["tcp:3200"]},
+        {"src": O11Y_READERS, "dst": ["svc:o11y-mimir"], "ip": ["tcp:9009"]},
+        {"src": O11Y_READERS, "dst": ["svc:o11y-pyroscope"], "ip": ["tcp:4040"]},
+        {
+            "src": ["tinyland-honey", "tinyland-bumble", "tinyland-sting"],
+            "dst": ["svc:o11y-loki"],
+            "ip": ["tcp:3100"],
+        },
+        # Same principals that reach the current tag:k8s OTLP proxy on 4318 today.
+        {
+            "src": [
+                "group:dollhouse-admins", "group:dollhouse-users", "tag:k8s",
+                "tag:k8s-operator", "tag:dev", "tag:ci-agent",
+            ],
+            "dst": ["svc:o11y-otlp"],
+            "ip": ["tcp:4318"],
+        },
+        # Same principals that reach tinyland-grafana-observability:3000 today.
+        {
+            "src": [
+                "group:dollhouse-admins", "group:dollhouse-users", "tag:k8s",
+                "tag:k8s-operator", "tag:dev", "tag:ci-agent", "tinyland-honey",
+            ],
+            "dst": ["svc:o11y-grafana"],
+            "ip": ["tcp:3000"],
+        },
+    ]
+
+    def test_o11y_service_grants_are_exact(self) -> None:
+        for grant in self.O11Y_SERVICE_GRANTS:
+            self.assertEqual(self.policy["grants"].count(grant), 1, grant)
+
+    def test_nothing_else_reaches_o11y_services(self) -> None:
+        def names_o11y(values):
+            return any(value.startswith("svc:o11y-") for value in values)
+
+        self.assertEqual(
+            [grant for grant in self.policy["grants"] if names_o11y(grant["dst"])],
+            self.O11Y_SERVICE_GRANTS,
+        )
+        for grant in self.O11Y_SERVICE_GRANTS:
+            self.assertEqual(len(grant["dst"]), 1)
+            self.assertIn(grant["dst"][0], self.O11Y_SERVICES)
+            self.assertEqual(len(grant["ip"]), 1)
+            self.assertTrue(grant["ip"][0].startswith("tcp:"))
+            self.assertNotIn("app", grant)
+        self.assertFalse(any(names_o11y(grant["src"]) for grant in self.policy["grants"]))
+        for rule in self.policy["acls"]:
+            self.assertFalse(names_o11y(rule["src"] + rule["dst"]), rule)
+        for rule in self.policy["ssh"]:
+            self.assertFalse(names_o11y(rule["src"] + rule["dst"]), rule)
+
+    def test_o11y_services_auto_approved_for_mcp_proxy_only(self) -> None:
+        approvers = self.policy["autoApprovers"]
+        self.assertEqual(
+            approvers["services"],
+            {service: ["tag:mcp-proxy"] for service in self.O11Y_SERVICES},
+        )
+        self.assertEqual(
+            set(approvers),
+            {"routes", "exitNode", "services"},
+        )
+        self.assertNotIn("tag:mcp-proxy", approvers["exitNode"])
+        self.assertFalse(any("tag:mcp-proxy" in tags for tags in approvers["routes"].values()))
+
+    def test_o11y_services_change_leaves_tag_mcp_proxy_grants_untouched(self) -> None:
+        # The tailnet-acl#29 grants and honey's tcp:8080 grant are unchanged,
+        # and still the only grants whose destination is tag:mcp-proxy.
+        self.assertEqual(
+            [grant for grant in self.policy["grants"] if "tag:mcp-proxy" in grant["dst"]],
+            [self.HONEY_MCP_GRANT, self.OBSERVABILITY_READ_GRANT, self.LOKI_WRITER_GRANT],
+        )
+
     def test_exporter_egress_identity_has_only_the_three_tcp_metrics_targets(self) -> None:
         tag = "tag:k8s-egress-nodeexporter"
         self.assertEqual(
