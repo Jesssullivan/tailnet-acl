@@ -72,6 +72,83 @@ class PolicyContractTest(unittest.TestCase):
         }
         self.assertNotIn(broad_rule, self.policy["acls"])
 
+    # TIN-4670: raw Loki (3100) and Tempo (3200) on the observability proxies
+    # are read only by group:dollhouse-admins and tag:mcp-proxy; Grafana stays
+    # the human surface. The proxies carry tag:mcp-proxy alone (operator-side
+    # retag), so no tag:k8s:* rule matches them. Policy is additive, so these
+    # tests pin every rule that can reach tag:mcp-proxy.
+    OBSERVABILITY_READ_GRANT = {
+        "src": ["group:dollhouse-admins", "tag:mcp-proxy"],
+        "dst": ["tag:mcp-proxy"],
+        "ip": ["tcp:3100", "tcp:3200"],
+    }
+    LOKI_WRITER_GRANT = {
+        "src": ["tinyland-honey", "tinyland-bumble", "tinyland-sting"],
+        "dst": ["tag:mcp-proxy"],
+        "ip": ["tcp:3100"],
+    }
+    HONEY_MCP_GRANT = {
+        "src": ["tinyland-honey"],
+        "dst": ["tag:mcp-proxy"],
+        "ip": ["tcp:8080"],
+    }
+
+    def test_observability_read_and_loki_writer_grants_are_exact(self) -> None:
+        self.assertEqual(self.policy["grants"].count(self.OBSERVABILITY_READ_GRANT), 1)
+        self.assertEqual(self.policy["grants"].count(self.LOKI_WRITER_GRANT), 1)
+        for alias in ("tinyland-honey", "tinyland-bumble", "tinyland-sting"):
+            self.assertIn(alias, self.policy["hosts"])
+
+    def test_nothing_else_reaches_mcp_proxy(self) -> None:
+        tag = "tag:mcp-proxy"
+        self.assertEqual(
+            [grant for grant in self.policy["grants"] if tag in grant["dst"]],
+            [self.HONEY_MCP_GRANT, self.OBSERVABILITY_READ_GRANT, self.LOKI_WRITER_GRANT],
+        )
+        for grant in self.policy["grants"]:
+            if tag in grant["dst"]:
+                self.assertTrue(grant.get("ip"))
+                self.assertNotIn("*", grant["ip"])
+                self.assertNotIn("app", grant)
+        for rule in self.policy["acls"]:
+            for destination in rule["dst"]:
+                host = destination.rpartition(":")[0]
+                self.assertNotIn(host, {tag, "*"}, rule)
+        for rule in self.policy["ssh"]:
+            self.assertNotIn(tag, rule["dst"])
+
+    def test_observability_read_acl_adds_no_tag_or_owner(self) -> None:
+        self.assertEqual(
+            self.policy["tagOwners"]["tag:mcp-proxy"],
+            ["tag:k8s-operator", "autogroup:admin", "group:dollhouse-admins"],
+        )
+        self.assertEqual(
+            set(self.policy["tagOwners"]),
+            {
+                "tag:dollhouse", "tag:services", "tag:k8s", "tag:k8s-operator",
+                "tag:mcp-proxy", "tag:k8s-egress-nodeexporter", "tag:tsidp",
+                "tag:dev", "tag:staging", "tag:qa", "tag:anon-gateway",
+                "tag:exit-node", "tag:switch", "tag:subnet-router",
+                "tag:tinyland-lab-common", "tag:tinyland-lab-sunshine",
+                "tag:tinyland-lab-moonlight", "tag:tinyland-lab-crush",
+                "tag:tinyland-lab-runner", "tag:tinyland-lab-deploy",
+                "tag:tinyland-lab-ci-ephemeral", "tag:tinyland-lab-nix-target",
+                "tag:rj-gateway", "tag:setec", "tag:ci-agent", "tag:kvm-proxy",
+                "tag:tag-authority",
+            },
+        )
+        for row in self.policy["nodeAttrs"]:
+            self.assertNotIn("tag:mcp-proxy", row["target"])
+
+    def test_existing_loki_alias_writer_rule_is_kept_for_now(self) -> None:
+        # Retired only after the tag-scoped writer grant is confirmed live.
+        rule = {
+            "action": "accept",
+            "src": ["tinyland-honey", "tinyland-bumble", "tinyland-sting"],
+            "dst": ["tinyland-loki-observability:3100"],
+        }
+        self.assertEqual(self.policy["acls"].count(rule), 1)
+
     def test_exporter_egress_identity_has_only_the_three_tcp_metrics_targets(self) -> None:
         tag = "tag:k8s-egress-nodeexporter"
         self.assertEqual(
