@@ -51,6 +51,10 @@
 	"dst": ["tag:mcp-proxy"],
 	"ip": ["tcp:3100"]
 }, {
+	"src": ["tinyland-neo"],
+	"dst": ["tag:mcp-proxy"],
+	"ip": ["tcp:3000", "tcp:4318"]
+}, {
 	"src": ["tag:k8s-egress-nodeexporter"],
 	"dst": ["tinyland-relay-1", "tinyland-petting-zoo-mini", "tinyland-neo"],
 	"ip": ["tcp:9100"]
