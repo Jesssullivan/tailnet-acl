@@ -51,6 +51,15 @@ let tag =
       , tag_authority = "tag:tag-authority"
       }
 
+let service =
+      { o11y_loki = "svc:o11y-loki"
+      , o11y_tempo = "svc:o11y-tempo"
+      , o11y_mimir = "svc:o11y-mimir"
+      , o11y_pyroscope = "svc:o11y-pyroscope"
+      , o11y_otlp = "svc:o11y-otlp"
+      , o11y_grafana = "svc:o11y-grafana"
+      }
+
 let host =
       { ai = "100.108.97.127"
       , honey = "100.113.89.12"
@@ -68,4 +77,4 @@ let host =
       , mcp_wikipedia = "100.78.235.88"
       }
 
-in  { user, group, autogroup, tag, host }
+in  { user, group, autogroup, tag, service, host }

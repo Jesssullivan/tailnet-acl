@@ -56,6 +56,14 @@ let autoApprovers
           }
         ]
       , exitNode = [ C.tag.exit_node ]
+      , services =
+        [ { mapKey = C.service.o11y_loki, mapValue = [ C.tag.mcp_proxy ] }
+        , { mapKey = C.service.o11y_tempo, mapValue = [ C.tag.mcp_proxy ] }
+        , { mapKey = C.service.o11y_mimir, mapValue = [ C.tag.mcp_proxy ] }
+        , { mapKey = C.service.o11y_pyroscope, mapValue = [ C.tag.mcp_proxy ] }
+        , { mapKey = C.service.o11y_otlp, mapValue = [ C.tag.mcp_proxy ] }
+        , { mapKey = C.service.o11y_grafana, mapValue = [ C.tag.mcp_proxy ] }
+        ]
       }
 
 in  { groups = core.groups

@@ -13,6 +13,7 @@ let NodeAttr = { target : List Text, attr : List Text }
 let AutoApprovers =
       { routes : List { mapKey : Text, mapValue : List Text }
       , exitNode : List Text
+      , services : List { mapKey : Text, mapValue : List Text }
       }
 
 let Host = { mapKey : Text, mapValue : Text }
