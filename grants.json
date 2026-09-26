@@ -51,9 +51,27 @@
 	"dst": ["tag:mcp-proxy"],
 	"ip": ["tcp:3100"]
 }, {
-	"src": ["tinyland-neo"],
+	"src": ["group:dollhouse-admins", "tag:mcp-proxy"],
 	"dst": ["tag:mcp-proxy"],
-	"ip": ["tcp:3000", "tcp:4318"]
+	"ip": ["tcp:9009"]
+}, {
+	"src": ["group:dollhouse-admins", "tag:mcp-proxy"],
+	"dst": ["tag:mcp-proxy"],
+	"ip": ["tcp:4040"]
+}, {
+	"src": [
+		"group:dollhouse-admins", "group:dollhouse-users", "tag:k8s",
+		"tag:k8s-operator", "tag:dev", "tag:ci-agent"
+	],
+	"dst": ["tag:mcp-proxy"],
+	"ip": ["tcp:4318"]
+}, {
+	"src": [
+		"group:dollhouse-admins", "group:dollhouse-users", "tag:k8s",
+		"tag:k8s-operator", "tag:dev", "tag:ci-agent", "tinyland-honey"
+	],
+	"dst": ["tag:mcp-proxy"],
+	"ip": ["tcp:3000"]
 }, {
 	"src": ["tag:k8s-egress-nodeexporter"],
 	"dst": ["tinyland-relay-1", "tinyland-petting-zoo-mini", "tinyland-neo"],
