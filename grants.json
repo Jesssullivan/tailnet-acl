@@ -32,6 +32,10 @@
 		{"action": ["get", "info", "put", "activate", "delete"], "secret": ["*"]}
 	]}
 }, {
+	"src": ["tag:gftb-pre-egress"],
+	"dst": ["tag:gftb-pre-ingress"],
+	"ip": ["tcp:443"]
+}, {
 	"src": ["tinyland-honey"],
 	"dst": ["tag:mcp-proxy"],
 	"ip": ["tcp:8080"]
