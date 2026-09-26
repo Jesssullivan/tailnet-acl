@@ -92,11 +92,40 @@ class PolicyContractTest(unittest.TestCase):
         "dst": ["tag:mcp-proxy"],
         "ip": ["tcp:8080"],
     }
-    # TIN-4686 PROBE: one off-cluster client (neo) gets a device-level grant
-    # to tag:mcp-proxy on the Grafana (3000) and OTLP (4318) ports only, to
-    # test whether that delivers the o11y Service host as a peer. A probe,
-    # not the final shape: widened to the OTLP/Grafana source sets only if
-    # it works, removed if it does not.
+    # TIN-4686: a client only receives the o11y Service host peer (and so
+    # reaches the VIP) when it also holds a device-level grant to the hosts'
+    # tag, tag:mcp-proxy, on the service port. The neo probe proved it. Every
+    # svc:o11y-* grant therefore has a device "twin" to tag:mcp-proxy with
+    # the same sources and ports. Loki/Tempo readers and Loki writers are
+    # twinned by the tailnet-acl#29 grants above; these four twin the rest.
+    MIMIR_DEVICE_TWIN = {
+        "src": ["group:dollhouse-admins", "tag:mcp-proxy"],
+        "dst": ["tag:mcp-proxy"],
+        "ip": ["tcp:9009"],
+    }
+    PYROSCOPE_DEVICE_TWIN = {
+        "src": ["group:dollhouse-admins", "tag:mcp-proxy"],
+        "dst": ["tag:mcp-proxy"],
+        "ip": ["tcp:4040"],
+    }
+    OTLP_DEVICE_TWIN = {
+        "src": [
+            "group:dollhouse-admins", "group:dollhouse-users", "tag:k8s",
+            "tag:k8s-operator", "tag:dev", "tag:ci-agent",
+        ],
+        "dst": ["tag:mcp-proxy"],
+        "ip": ["tcp:4318"],
+    }
+    GRAFANA_DEVICE_TWIN = {
+        "src": [
+            "group:dollhouse-admins", "group:dollhouse-users", "tag:k8s",
+            "tag:k8s-operator", "tag:dev", "tag:ci-agent", "tinyland-honey",
+        ],
+        "dst": ["tag:mcp-proxy"],
+        "ip": ["tcp:3000"],
+    }
+    # Retired: the neo probe, now covered by the OTLP and Grafana twins via
+    # neo's tags (tag:k8s, tag:k8s-operator, tag:dev).
     NEO_O11Y_PROBE_GRANT = {
         "src": ["tinyland-neo"],
         "dst": ["tag:mcp-proxy"],
@@ -106,19 +135,51 @@ class PolicyContractTest(unittest.TestCase):
         HONEY_MCP_GRANT,
         OBSERVABILITY_READ_GRANT,
         LOKI_WRITER_GRANT,
-        NEO_O11Y_PROBE_GRANT,
+        MIMIR_DEVICE_TWIN,
+        PYROSCOPE_DEVICE_TWIN,
+        OTLP_DEVICE_TWIN,
+        GRAFANA_DEVICE_TWIN,
     ]
 
-    def test_neo_o11y_probe_grant_is_exact(self) -> None:
-        self.assertEqual(self.policy["grants"].count(self.NEO_O11Y_PROBE_GRANT), 1)
-        self.assertIn("tinyland-neo", self.policy["hosts"])
-        self.assertEqual(
-            [
-                grant for grant in self.policy["grants"]
-                if "tinyland-neo" in grant["src"] and "tag:mcp-proxy" in grant["dst"]
-            ],
-            [self.NEO_O11Y_PROBE_GRANT],
-        )
+    def test_o11y_device_twin_grants_are_exact(self) -> None:
+        for grant in (
+            self.MIMIR_DEVICE_TWIN, self.PYROSCOPE_DEVICE_TWIN,
+            self.OTLP_DEVICE_TWIN, self.GRAFANA_DEVICE_TWIN,
+        ):
+            self.assertEqual(self.policy["grants"].count(grant), 1, grant)
+
+    def test_neo_o11y_probe_grant_is_retired(self) -> None:
+        self.assertNotIn(self.NEO_O11Y_PROBE_GRANT, self.policy["grants"])
+        self.assertFalse(any(
+            "tinyland-neo" in grant["src"] and "tag:mcp-proxy" in grant["dst"]
+            for grant in self.policy["grants"]
+        ))
+        # neo's tags are device state, not policy; the twins cover them.
+        for tag in ("tag:k8s", "tag:k8s-operator", "tag:dev"):
+            self.assertIn(tag, self.OTLP_DEVICE_TWIN["src"])
+            self.assertIn(tag, self.GRAFANA_DEVICE_TWIN["src"])
+
+    def test_every_o11y_service_grant_has_a_device_twin(self) -> None:
+        # For each grant naming a svc:o11y-* destination, some single grant
+        # to exactly tag:mcp-proxy covers a superset of its sources and ports.
+        service_grants = [
+            grant for grant in self.policy["grants"]
+            if any(dst.startswith("svc:o11y-") for dst in grant["dst"])
+        ]
+        self.assertEqual(len(service_grants), 7)
+        device_grants = [
+            grant for grant in self.policy["grants"]
+            if grant["dst"] == ["tag:mcp-proxy"]
+        ]
+        for service_grant in service_grants:
+            self.assertTrue(
+                any(
+                    set(service_grant["src"]) <= set(twin["src"])
+                    and set(service_grant["ip"]) <= set(twin.get("ip", []))
+                    for twin in device_grants
+                ),
+                service_grant,
+            )
 
     def test_observability_read_and_loki_writer_grants_are_exact(self) -> None:
         self.assertEqual(self.policy["grants"].count(self.OBSERVABILITY_READ_GRANT), 1)
@@ -254,7 +315,7 @@ class PolicyContractTest(unittest.TestCase):
 
     def test_o11y_services_change_leaves_tag_mcp_proxy_grants_untouched(self) -> None:
         # The tailnet-acl#29 grants and honey's tcp:8080 grant are unchanged;
-        # with the TIN-4686 neo probe they are the only grants whose
+        # with the TIN-4686 device twins they are the only grants whose
         # destination is tag:mcp-proxy.
         self.assertEqual(
             [grant for grant in self.policy["grants"] if "tag:mcp-proxy" in grant["dst"]],
