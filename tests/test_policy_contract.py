@@ -92,6 +92,33 @@ class PolicyContractTest(unittest.TestCase):
         "dst": ["tag:mcp-proxy"],
         "ip": ["tcp:8080"],
     }
+    # TIN-4686 PROBE: one off-cluster client (neo) gets a device-level grant
+    # to tag:mcp-proxy on the Grafana (3000) and OTLP (4318) ports only, to
+    # test whether that delivers the o11y Service host as a peer. A probe,
+    # not the final shape: widened to the OTLP/Grafana source sets only if
+    # it works, removed if it does not.
+    NEO_O11Y_PROBE_GRANT = {
+        "src": ["tinyland-neo"],
+        "dst": ["tag:mcp-proxy"],
+        "ip": ["tcp:3000", "tcp:4318"],
+    }
+    MCP_PROXY_GRANTS = [
+        HONEY_MCP_GRANT,
+        OBSERVABILITY_READ_GRANT,
+        LOKI_WRITER_GRANT,
+        NEO_O11Y_PROBE_GRANT,
+    ]
+
+    def test_neo_o11y_probe_grant_is_exact(self) -> None:
+        self.assertEqual(self.policy["grants"].count(self.NEO_O11Y_PROBE_GRANT), 1)
+        self.assertIn("tinyland-neo", self.policy["hosts"])
+        self.assertEqual(
+            [
+                grant for grant in self.policy["grants"]
+                if "tinyland-neo" in grant["src"] and "tag:mcp-proxy" in grant["dst"]
+            ],
+            [self.NEO_O11Y_PROBE_GRANT],
+        )
 
     def test_observability_read_and_loki_writer_grants_are_exact(self) -> None:
         self.assertEqual(self.policy["grants"].count(self.OBSERVABILITY_READ_GRANT), 1)
@@ -103,7 +130,7 @@ class PolicyContractTest(unittest.TestCase):
         tag = "tag:mcp-proxy"
         self.assertEqual(
             [grant for grant in self.policy["grants"] if tag in grant["dst"]],
-            [self.HONEY_MCP_GRANT, self.OBSERVABILITY_READ_GRANT, self.LOKI_WRITER_GRANT],
+            self.MCP_PROXY_GRANTS,
         )
         for grant in self.policy["grants"]:
             if tag in grant["dst"]:
@@ -226,11 +253,12 @@ class PolicyContractTest(unittest.TestCase):
         self.assertFalse(any("tag:mcp-proxy" in tags for tags in approvers["routes"].values()))
 
     def test_o11y_services_change_leaves_tag_mcp_proxy_grants_untouched(self) -> None:
-        # The tailnet-acl#29 grants and honey's tcp:8080 grant are unchanged,
-        # and still the only grants whose destination is tag:mcp-proxy.
+        # The tailnet-acl#29 grants and honey's tcp:8080 grant are unchanged;
+        # with the TIN-4686 neo probe they are the only grants whose
+        # destination is tag:mcp-proxy.
         self.assertEqual(
             [grant for grant in self.policy["grants"] if "tag:mcp-proxy" in grant["dst"]],
-            [self.HONEY_MCP_GRANT, self.OBSERVABILITY_READ_GRANT, self.LOKI_WRITER_GRANT],
+            self.MCP_PROXY_GRANTS,
         )
 
     def test_exporter_egress_identity_has_only_the_three_tcp_metrics_targets(self) -> None:
