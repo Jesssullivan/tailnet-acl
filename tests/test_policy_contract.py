@@ -82,8 +82,15 @@ class PolicyContractTest(unittest.TestCase):
         "dst": ["tag:mcp-proxy"],
         "ip": ["tcp:3100", "tcp:3200"],
     }
+    # TIN-4686 Phase 2: petting-zoo-mini's Darwin Loki shipper joins the
+    # writers (lab#1945). Tailscale has no write-only port: tcp:3100 is also
+    # Loki's read API, so every writer here can read raw logs too.
+    LOKI_WRITERS = [
+        "tinyland-honey", "tinyland-bumble", "tinyland-sting",
+        "tinyland-petting-zoo-mini",
+    ]
     LOKI_WRITER_GRANT = {
-        "src": ["tinyland-honey", "tinyland-bumble", "tinyland-sting"],
+        "src": LOKI_WRITERS,
         "dst": ["tag:mcp-proxy"],
         "ip": ["tcp:3100"],
     }
@@ -184,8 +191,29 @@ class PolicyContractTest(unittest.TestCase):
     def test_observability_read_and_loki_writer_grants_are_exact(self) -> None:
         self.assertEqual(self.policy["grants"].count(self.OBSERVABILITY_READ_GRANT), 1)
         self.assertEqual(self.policy["grants"].count(self.LOKI_WRITER_GRANT), 1)
-        for alias in ("tinyland-honey", "tinyland-bumble", "tinyland-sting"):
+        for alias in self.LOKI_WRITERS:
             self.assertIn(alias, self.policy["hosts"])
+
+    def test_petting_zoo_mini_is_only_a_loki_writer_and_metrics_target(self) -> None:
+        alias = "tinyland-petting-zoo-mini"
+        loki_writer_service_grant = {
+            "src": self.LOKI_WRITERS, "dst": ["svc:o11y-loki"], "ip": ["tcp:3100"],
+        }
+        self.assertEqual(
+            [grant for grant in self.policy["grants"] if alias in grant["src"]],
+            [self.LOKI_WRITER_GRANT, loki_writer_service_grant],
+        )
+        self.assertEqual(
+            [grant for grant in self.policy["grants"] if alias in grant["dst"]],
+            [{
+                "src": ["tag:k8s-egress-nodeexporter"],
+                "dst": ["tinyland-relay-1", alias, "tinyland-neo"],
+                "ip": ["tcp:9100"],
+            }],
+        )
+        # The retiring alias-scoped ACL writer rule is not widened.
+        for rule in self.policy["acls"]:
+            self.assertNotIn(alias, rule["src"], rule)
 
     def test_nothing_else_reaches_mcp_proxy(self) -> None:
         tag = "tag:mcp-proxy"
@@ -251,11 +279,7 @@ class PolicyContractTest(unittest.TestCase):
         {"src": O11Y_READERS, "dst": ["svc:o11y-tempo"], "ip": ["tcp:3200"]},
         {"src": O11Y_READERS, "dst": ["svc:o11y-mimir"], "ip": ["tcp:9009"]},
         {"src": O11Y_READERS, "dst": ["svc:o11y-pyroscope"], "ip": ["tcp:4040"]},
-        {
-            "src": ["tinyland-honey", "tinyland-bumble", "tinyland-sting"],
-            "dst": ["svc:o11y-loki"],
-            "ip": ["tcp:3100"],
-        },
+        {"src": LOKI_WRITERS, "dst": ["svc:o11y-loki"], "ip": ["tcp:3100"]},
         # Same principals that reach the current tag:k8s OTLP proxy on 4318 today.
         {
             "src": [

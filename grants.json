@@ -47,7 +47,10 @@
 	"dst": ["tag:mcp-proxy"],
 	"ip": ["tcp:3100", "tcp:3200"]
 }, {
-	"src": ["tinyland-honey", "tinyland-bumble", "tinyland-sting"],
+	"src": [
+		"tinyland-honey", "tinyland-bumble", "tinyland-sting",
+		"tinyland-petting-zoo-mini"
+	],
 	"dst": ["tag:mcp-proxy"],
 	"ip": ["tcp:3100"]
 }, {
@@ -97,7 +100,10 @@
 	"dst": ["svc:o11y-pyroscope"],
 	"ip": ["tcp:4040"]
 }, {
-	"src": ["tinyland-honey", "tinyland-bumble", "tinyland-sting"],
+	"src": [
+		"tinyland-honey", "tinyland-bumble", "tinyland-sting",
+		"tinyland-petting-zoo-mini"
+	],
 	"dst": ["svc:o11y-loki"],
 	"ip": ["tcp:3100"]
 }, {
