@@ -1,5 +1,11 @@
 -- Core fragment: groups, tag owners, and base user access rules.
 -- This is the foundation that all other fragments build on.
+--
+-- group:gftb-qa (operator ruling 2026-10-03, verbatim: "this is the intent; I
+-- can add users to the qa tag as needed."): the one group admitted to the
+-- greatfallstoolbus.org membership surface. Users go in groups (devices carry
+-- tags), so this is a group, not tag:qa. It starts with the operator's own
+-- identities; the operator adds QA users here.
 let T = ../types/ACL.dhall
 
 let C = ../constants.dhall
@@ -13,6 +19,9 @@ let groups
         , mapValue = [ C.user.jsullivan2_gmail, C.user.jess_sulliwood ]
         }
       , { mapKey = C.group.developers
+        , mapValue = [ C.user.jsullivan2_gmail, C.user.jess_sulliwood ]
+        }
+      , { mapKey = C.group.gftb_qa
         , mapValue = [ C.user.jsullivan2_gmail, C.user.jess_sulliwood ]
         }
       ]
@@ -55,10 +64,7 @@ let tagOwners
         , mapValue =
           [ C.tag.tag_authority, C.autogroup.admin, C.group.dollhouse_admins ]
         }
-      , { mapKey = C.tag.gftb_probe
-        , mapValue =
-          [ C.tag.tag_authority, C.autogroup.admin, C.group.dollhouse_admins ]
-        }
+      , { mapKey = C.tag.gftb_probe, mapValue = [ C.autogroup.admin ] }
       , { mapKey = C.tag.dev
         , mapValue =
           [ C.tag.tag_authority, C.autogroup.admin, C.group.developers ]

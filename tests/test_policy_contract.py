@@ -1,3 +1,4 @@
+import ipaddress
 import unittest
 import sys
 from pathlib import Path
@@ -37,40 +38,105 @@ class PolicyContractTest(unittest.TestCase):
     # gftb-probe (operator rulings 2026-10-03; lab design
     # docs/operations/TAILNET_MEMBERSHIP_DETECTION_DESIGN_2026-10-03.md, 3.5):
     # the public greatfallstoolbus.org bundle image-probes this node to learn
-    # "is this browser on the tailnet". It must stay inbound-only on tcp:443
-    # from user devices and must never get Funnel: a public probe would answer
-    # yes for everyone and defeat the flag.
-    def test_gftb_probe_is_inbound_only_on_443_and_never_funnel(self) -> None:
-        tag = "tag:gftb-probe"
+    # "is this browser in the GFTB QA group". Ruling, verbatim: "this is the
+    # intent; I can add users to the qa tag as needed." So the yes set is one
+    # group, group:gftb-qa, and the node stays inbound-only on tcp:443 with no
+    # Funnel. (A Funnelled probe would still answer no, since Funnel requests
+    # carry no user login; Funnel would make the node internet-reachable.)
+    PROBE = "tag:gftb-probe"
+    PROBE_CAP = "greatfallstoolbus.org/cap/gftb-probe"
+    QA = "group:gftb-qa"
+
+    def test_gftb_qa_group_starts_with_the_operator_only(self) -> None:
         self.assertEqual(
-            self.policy["tagOwners"][tag],
-            ["tag:tag-authority", "autogroup:admin", "group:dollhouse-admins"],
+            self.policy["groups"][self.QA], ["jsullivan2@gmail.com", "jess@sulliwood.org"]
         )
+
+    def test_gftb_probe_is_inbound_only_on_443_for_the_qa_group(self) -> None:
+        tag = self.PROBE
         mentions = [
             row for row in self.policy["acls"] + self.policy["grants"]
             if any(tag in entry for entry in row["src"] + row["dst"])
         ]
         self.assertEqual(
             mentions,
-            [{"src": ["autogroup:member"], "dst": [tag], "ip": ["tcp:443"]}],
+            [{
+                "src": [self.QA],
+                "dst": [tag],
+                "ip": ["tcp:443"],
+                "app": {self.PROBE_CAP: [{"gftb_qa": True}]},
+            }],
         )
+        # The probe capability is granted nowhere else.
+        holders = [row for row in self.policy["grants"] if self.PROBE_CAP in row.get("app", {})]
+        self.assertEqual(holders, mentions)
         self.assertFalse(any(tag in row["target"] for row in self.policy["nodeAttrs"]))
-        funnel_targets = sorted(
-            target
-            for row in self.policy["nodeAttrs"] if "funnel" in row["attr"]
-            for target in row["target"]
-        )
-        self.assertNotIn(tag, funnel_targets)
         self.assertFalse(any(tag in row["src"] or tag in row["dst"] for row in self.policy["ssh"]))
         self.assertNotIn(tag, self.policy["autoApprovers"]["exitNode"])
         self.assertFalse(any(tag in tags for tags in self.policy["autoApprovers"]["routes"].values()))
-        # Additive policy: no rule may name a destination wide enough to
-        # reach the probe beyond the one grant above.
+
+    def test_gftb_probe_owners_and_no_second_tag(self) -> None:
+        """A tag:gftb-probe node must never also carry a Funnel or broad tag.
+
+        Policy cannot forbid a device from holding two tags. It can make that
+        hard: (1) only autogroup:admin owns tag:gftb-probe, so no non-admin
+        user and no tagged device (tag:tag-authority included) can mint it,
+        alone or next to another tag; (2) tag:gftb-probe owns no tag, so the
+        probe node itself cannot advertise a second one; (3) the tag is never
+        a Funnel target, a source, an SSH party or an auto-approver. An admin
+        could still add a tag by hand in the console; the host-side guard in
+        xoxd-ai/lab (backend.py node_state, serve.sh) refuses to answer yes
+        and resets serve unless Self.Tags is exactly ["tag:gftb-probe"].
+        """
+        tag = self.PROBE
+        owners = self.policy["tagOwners"]
+        self.assertEqual(owners[tag], ["autogroup:admin"])
+        self.assertFalse(
+            [other for other, who in owners.items() if tag in who],
+            "tag:gftb-probe must own no tag, or the probe node could advertise it",
+        )
+        funnel = {t for row in self.policy["nodeAttrs"] if "funnel" in row["attr"] for t in row["target"]}
+        sources = {
+            s for row in self.policy["acls"] + self.policy["grants"] for s in row["src"] if s.startswith("tag:")
+        }
+        ssh_parties = {
+            p for row in self.policy["ssh"] for p in row["src"] + row["dst"] if p.startswith("tag:")
+        }
+        risky = funnel | sources | ssh_parties
+        self.assertIn("tag:dollhouse", risky)
+        self.assertNotIn(tag, risky)
+        for other in sorted(risky):
+            self.assertNotIn(tag, owners.get(other, []), other)
+
+    def test_nothing_wider_than_the_one_grant_reaches_gftb_probe(self) -> None:
+        tag = self.PROBE
         universal = {"*", "autogroup:tagged", "0.0.0.0/0", "::/0", "100.64.0.0/10"}
         for row in self.policy["acls"]:
             self.assertFalse(universal.intersection(dst.rsplit(":", 1)[0] for dst in row["dst"]))
         for row in self.policy["grants"]:
             self.assertFalse(universal.intersection(row["dst"]))
+        # A narrower CGNAT CIDR or a hosts alias could still reach the probe
+        # node's address. Every tailnet-range destination must be exactly one
+        # named host address from the hosts map.
+        hosts = self.policy["hosts"]
+        cgnat = ipaddress.ip_network("100.64.0.0/10")
+        named = set()
+        for name, value in hosts.items():
+            net = ipaddress.ip_network(value, strict=False)
+            if net.version == 4 and net.overlaps(cgnat):
+                self.assertEqual(net.prefixlen, 32, name)
+                named.add(net)
+        dsts = [dst.rsplit(":", 1)[0] for row in self.policy["acls"] for dst in row["dst"]]
+        dsts += [dst for row in self.policy["grants"] for dst in row["dst"]]
+        for dst in dsts:
+            target = hosts.get(dst, dst)
+            try:
+                net = ipaddress.ip_network(target, strict=False)
+            except ValueError:
+                continue  # a tag, group, autogroup or service name
+            if net.version == 4 and net.overlaps(cgnat):
+                self.assertIn(net, named, dst)
+        self.assertNotIn(tag, hosts)
 
     def test_kubernetes_operator_owns_mcp_proxy_tag(self) -> None:
         owners = self.policy["tagOwners"]["tag:mcp-proxy"]

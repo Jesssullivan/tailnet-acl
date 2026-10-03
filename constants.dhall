@@ -12,6 +12,7 @@ let group =
       { dollhouse_users = "group:dollhouse-users"
       , dollhouse_admins = "group:dollhouse-admins"
       , developers = "group:developers"
+      , gftb_qa = "group:gftb-qa"
       }
 
 let autogroup =
