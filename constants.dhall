@@ -51,6 +51,7 @@ let tag =
       , ci_agent = "tag:ci-agent"
       , kvm_proxy = "tag:kvm-proxy"
       , tag_authority = "tag:tag-authority"
+      , gftb_idp = "tag:gftb-idp"
       }
 
 let service =

@@ -132,6 +132,12 @@ let tagOwners
       , { mapKey = C.tag.tag_authority
         , mapValue = [ C.autogroup.admin, C.group.dollhouse_admins ]
         }
+      , -- tag:gftb-idp: the GFTB tsidp node (operator rulings 2026-10-03;
+        -- lab TAILNET_MEMBERSHIP_DETECTION_DESIGN_2026-10-03.md 4.3). New, so
+        -- no existing device inherits its grants or Funnel (tag:tsidp is held
+        -- by several devices). Admin-only owner, like tag:gftb-probe, so no
+        -- tagged device can mint it next to another tag.
+        { mapKey = C.tag.gftb_idp, mapValue = [ C.autogroup.admin ] }
       ]
 
 let acls

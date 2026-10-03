@@ -1,5 +1,4 @@
--- Kubernetes fragment: K8s cluster and operator access. tsidp access moved to
--- grants.json (tcp:443 only, gftb-members and dollhouse-admins; 2026-10-03).
+-- Kubernetes fragment: K8s cluster, operator, and tsidp access.
 -- Split into two groups to match live ACL ordering.
 let T = ../types/ACL.dhall
 
@@ -32,6 +31,10 @@ let aclsLate
           , "${C.tag.k8s}:10250"
           , "${C.tag.k8s}:2379-2380"
           ]
+        }
+      , { action = "accept"
+        , src = [ C.group.dollhouse_admins, C.tag.k8s ]
+        , dst = [ "${C.tag.tsidp}:*" ]
         }
       , { action = "accept"
         , src = [ C.group.dollhouse_admins, C.group.dollhouse_users ]
