@@ -55,6 +55,10 @@ let tagOwners
         , mapValue =
           [ C.tag.tag_authority, C.autogroup.admin, C.group.dollhouse_admins ]
         }
+      , { mapKey = C.tag.gftb_probe
+        , mapValue =
+          [ C.tag.tag_authority, C.autogroup.admin, C.group.dollhouse_admins ]
+        }
       , { mapKey = C.tag.dev
         , mapValue =
           [ C.tag.tag_authority, C.autogroup.admin, C.group.developers ]

@@ -34,6 +34,44 @@ class PolicyContractTest(unittest.TestCase):
         for row in self.policy["acls"] + self.policy["grants"]:
             self.assertFalse(universal.intersection(row["src"]))
 
+    # gftb-probe (operator rulings 2026-10-03; lab design
+    # docs/operations/TAILNET_MEMBERSHIP_DETECTION_DESIGN_2026-10-03.md, 3.5):
+    # the public greatfallstoolbus.org bundle image-probes this node to learn
+    # "is this browser on the tailnet". It must stay inbound-only on tcp:443
+    # from user devices and must never get Funnel: a public probe would answer
+    # yes for everyone and defeat the flag.
+    def test_gftb_probe_is_inbound_only_on_443_and_never_funnel(self) -> None:
+        tag = "tag:gftb-probe"
+        self.assertEqual(
+            self.policy["tagOwners"][tag],
+            ["tag:tag-authority", "autogroup:admin", "group:dollhouse-admins"],
+        )
+        mentions = [
+            row for row in self.policy["acls"] + self.policy["grants"]
+            if any(tag in entry for entry in row["src"] + row["dst"])
+        ]
+        self.assertEqual(
+            mentions,
+            [{"src": ["autogroup:member"], "dst": [tag], "ip": ["tcp:443"]}],
+        )
+        self.assertFalse(any(tag in row["target"] for row in self.policy["nodeAttrs"]))
+        funnel_targets = sorted(
+            target
+            for row in self.policy["nodeAttrs"] if "funnel" in row["attr"]
+            for target in row["target"]
+        )
+        self.assertNotIn(tag, funnel_targets)
+        self.assertFalse(any(tag in row["src"] or tag in row["dst"] for row in self.policy["ssh"]))
+        self.assertNotIn(tag, self.policy["autoApprovers"]["exitNode"])
+        self.assertFalse(any(tag in tags for tags in self.policy["autoApprovers"]["routes"].values()))
+        # Additive policy: no rule may name a destination wide enough to
+        # reach the probe beyond the one grant above.
+        universal = {"*", "autogroup:tagged", "0.0.0.0/0", "::/0", "100.64.0.0/10"}
+        for row in self.policy["acls"]:
+            self.assertFalse(universal.intersection(dst.rsplit(":", 1)[0] for dst in row["dst"]))
+        for row in self.policy["grants"]:
+            self.assertFalse(universal.intersection(row["dst"]))
+
     def test_kubernetes_operator_owns_mcp_proxy_tag(self) -> None:
         owners = self.policy["tagOwners"]["tag:mcp-proxy"]
         self.assertIn("tag:k8s-operator", owners)
@@ -243,7 +281,7 @@ class PolicyContractTest(unittest.TestCase):
             {
                 "tag:dollhouse", "tag:services", "tag:k8s", "tag:k8s-operator",
                 "tag:mcp-proxy", "tag:k8s-egress-nodeexporter", "tag:tsidp",
-                "tag:dev", "tag:staging", "tag:qa", "tag:anon-gateway",
+                "tag:gftb-probe", "tag:dev", "tag:staging", "tag:qa", "tag:anon-gateway",
                 "tag:exit-node", "tag:switch", "tag:subnet-router",
                 "tag:tinyland-lab-common", "tag:tinyland-lab-sunshine",
                 "tag:tinyland-lab-moonlight", "tag:tinyland-lab-crush",

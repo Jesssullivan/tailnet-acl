@@ -29,6 +29,7 @@ let tag =
       , mcp_proxy = "tag:mcp-proxy"
       , k8s_egress_nodeexporter = "tag:k8s-egress-nodeexporter"
       , tsidp = "tag:tsidp"
+      , gftb_probe = "tag:gftb-probe"
       , dev = "tag:dev"
       , staging = "tag:staging"
       , qa = "tag:qa"
