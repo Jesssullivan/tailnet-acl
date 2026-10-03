@@ -5,6 +5,11 @@
 --
 -- To build: just build
 -- To verify: just validate
+--
+-- Funnel for tag:tsidp (operator rulings 2026-10-03): Cloudflare Access must
+-- reach tsidp's public /token and /.well-known/jwks.json. tsidp itself refuses
+-- /authorize, its admin UI, /clients and DCR over Funnel. No other tag gets
+-- funnel beyond tag:dollhouse (tests/test_policy_contract.py).
 let T = ./types/ACL.dhall
 
 let C = ./constants.dhall
@@ -44,6 +49,7 @@ let allACLs =
 let allNodeAttrs
     : List T.NodeAttr
     = [ { target = [ C.tag.dollhouse ], attr = [ "funnel" ] }
+      , { target = [ C.tag.tsidp ], attr = [ "funnel" ] }
       , { target = [ C.tag.anon_gateway ], attr = [ "mullvad" ] }
       ]
 

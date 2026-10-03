@@ -469,5 +469,83 @@ class PolicyContractTest(unittest.TestCase):
             self.assertEqual(self.policy["hosts"][name], address)
 
 
+    # Operator rulings 2026-10-03 ("all the buttons / membership / join button
+    # in header etc should conditionally show only on tailnet and/or CF access
+    # logged in; feature flag style." and "lets design and implement both in
+    # ultracode"): tsidp as a Cloudflare Access IdP for the GFTB members gate
+    # (xoxd-ai/lab TAILNET_MEMBERSHIP_DETECTION_DESIGN_2026-10-03.md 4.3).
+    TSIDP_GRANTS = [
+        {
+            "src": ["group:dollhouse-admins"],
+            "dst": ["tag:tsidp"],
+            "app": {"tailscale.com/cap/tsidp": [{"allow_admin_ui": True}]},
+        },
+        {
+            "src": ["group:gftb-members"],
+            "dst": ["tag:tsidp"],
+            "app": {"tailscale.com/cap/tsidp": [{
+                "users": ["*"],
+                "resources": ["*"],
+                "extraClaims": {"gftb_member": True},
+                "includeInUserInfo": True,
+            }]},
+        },
+        {
+            "src": ["group:gftb-members", "group:dollhouse-admins"],
+            "dst": ["tag:tsidp"],
+            "ip": ["tcp:443"],
+        },
+    ]
+
+    def test_tsidp_grants_are_exact_and_current_schema(self) -> None:
+        self.assertEqual(
+            [grant for grant in self.policy["grants"] if "tag:tsidp" in grant["src"] + grant["dst"]],
+            self.TSIDP_GRANTS,
+        )
+
+    def test_tsidp_capability_never_grants_dcr_and_admin_ui_only_to_admins(self) -> None:
+        for grant in self.policy["grants"]:
+            for rules in grant.get("app", {}).values():
+                for rule in rules:
+                    self.assertNotIn("allow_dcr", rule)
+                    self.assertNotIn("admin", rule)
+                    if rule.get("allow_admin_ui"):
+                        self.assertEqual(grant["src"], ["group:dollhouse-admins"])
+                    if "extraClaims" in rule:
+                        self.assertEqual(grant["src"], ["group:gftb-members"])
+
+    def test_tsidp_has_no_outbound_access_and_only_tcp_443_inbound(self) -> None:
+        tag = "tag:tsidp"
+        for rule in self.policy["acls"]:
+            self.assertNotIn(tag, rule["src"])
+        for rule in self.policy["grants"]:
+            self.assertNotIn(tag, rule["src"])
+        for rule in self.policy["ssh"]:
+            self.assertNotIn(tag, rule["src"])
+            self.assertNotIn(tag, rule["dst"])
+        reach = [rule for rule in self.policy["acls"] if any(dst.rpartition(":")[0] == tag for dst in rule["dst"])]
+        self.assertTrue(all("tag:k8s" not in rule["src"] for rule in reach))
+        self.assertTrue(all(rule["src"] == ["tag:dev"] for rule in reach), reach)
+
+    def test_funnel_only_for_dollhouse_and_tsidp(self) -> None:
+        funnel = [row for row in self.policy["nodeAttrs"] if "funnel" in row["attr"]]
+        self.assertEqual(
+            funnel,
+            [
+                {"target": ["tag:dollhouse"], "attr": ["funnel"]},
+                {"target": ["tag:tsidp"], "attr": ["funnel"]},
+            ],
+        )
+
+    def test_gftb_members_group_starts_with_the_operator(self) -> None:
+        self.assertEqual(
+            self.policy["groups"]["group:gftb-members"],
+            ["jsullivan2@gmail.com", "jess@sulliwood.org"],
+        )
+        self.assertEqual(
+            self.policy["tagOwners"]["tag:tsidp"],
+            ["tag:tag-authority", "autogroup:admin", "group:dollhouse-admins"],
+        )
+
 if __name__ == "__main__":
     unittest.main()

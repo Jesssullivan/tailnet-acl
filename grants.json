@@ -1,7 +1,20 @@
 [{
-	"src": ["tag:tsidp"],
-	"dst": ["group:dollhouse-admins"],
-	"app": {"tailscale.com/cap/tsidp": [{"admin": ["group:dollhouse-admins"]}]}
+	"src": ["group:dollhouse-admins"],
+	"dst": ["tag:tsidp"],
+	"app": {"tailscale.com/cap/tsidp": [{"allow_admin_ui": true}]}
+}, {
+	"src": ["group:gftb-members"],
+	"dst": ["tag:tsidp"],
+	"app": {"tailscale.com/cap/tsidp": [{
+		"users":             ["*"],
+		"resources":         ["*"],
+		"extraClaims":       {"gftb_member": true},
+		"includeInUserInfo": true
+	}]}
+}, {
+	"src": ["group:gftb-members", "group:dollhouse-admins"],
+	"dst": ["tag:tsidp"],
+	"ip":  ["tcp:443"]
 }, {"src": ["tag:k8s-operator"], "dst": ["group:dollhouse-admins"], "app": {
 	"tailscale.com/cap/kubernetes": [{"impersonate": {"groups": ["system:masters"]}}]
 }}, {
