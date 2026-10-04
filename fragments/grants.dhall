@@ -4,6 +4,8 @@ let C = ../constants.dhall
 
 let G = ../types/Grant.dhall
 
+let J = ../types/JSON.dhall
+
 let grants
     : List G.Grant
     = [ G.cap
@@ -12,6 +14,22 @@ let grants
           [ G.Cap.Tsidp
               (G.tsidpEmpty // { admin = Some [ C.group.dollhouse_admins ] })
           ]
+      , G.cap
+          [ C.group.dollhouse_admins ]
+          [ C.tag.gftb_idp ]
+          [ G.Cap.Tsidp (G.tsidpEmpty // { allowAdminUI = Some True }) ]
+      , G.cap
+          [ C.group.gftb_qa ]
+          [ C.tag.gftb_idp ]
+          [ G.Cap.Tsidp
+              (     G.tsidpEmpty
+                //  { extraClaims = Some
+                      [ { mapKey = "gftb_member", mapValue = J.string "true" } ]
+                    , includeInUserInfo = Some True
+                    }
+              )
+          ]
+      , G.net [ C.group.gftb_qa ] [ C.tag.gftb_idp ] [ "tcp:443" ]
       , G.cap
           [ C.tag.k8s_operator ]
           [ C.group.dollhouse_admins ]
@@ -150,6 +168,14 @@ let grants
           ]
           [ C.service.o11y_grafana ]
           [ "tcp:3000" ]
+      , { src = [ C.group.gftb_qa ]
+        , dst = [ C.tag.gftb_probe ]
+        , ip = Some [ "tcp:443" ]
+        , app = Some
+          [ G.Cap.Probe
+              { cap = "greatfallstoolbus.org/cap/gftb-probe", flag = "gftb_qa" }
+          ]
+        }
       ]
 
 in  { grants }
