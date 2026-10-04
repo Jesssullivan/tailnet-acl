@@ -144,4 +144,8 @@
 	"src": ["autogroup:admin"],
 	"dst": ["tag:tofu-state"],
 	"ip": ["tcp:9000"]
+}, {
+	"src": ["tinyland-neo"],
+	"dst": ["tag:tofu-state"],
+	"ip": ["tcp:9000"]
 }]
