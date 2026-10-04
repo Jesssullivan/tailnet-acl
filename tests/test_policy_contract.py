@@ -354,7 +354,7 @@ class PolicyContractTest(unittest.TestCase):
                 "tag:tinyland-lab-runner", "tag:tinyland-lab-deploy",
                 "tag:tinyland-lab-ci-ephemeral", "tag:tinyland-lab-nix-target",
                 "tag:rj-gateway", "tag:setec", "tag:ci-agent", "tag:kvm-proxy",
-                "tag:tag-authority", "tag:gftb-idp",
+                "tag:tag-authority", "tag:gftb-idp", "tag:tofu-state",
             },
         )
         for row in self.policy["nodeAttrs"]:
