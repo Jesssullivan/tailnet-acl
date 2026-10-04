@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Build the final Tailscale ACL policy JSON.
 
-Runs dhall-to-json on policy.dhall, merges with grants.json,
-reorders keys for readability, and writes to generated/policy.json.
+Runs dhall-to-json on policy.dhall (grants are typed Dhall, rendered
+by types/Grant.dhall), reorders keys for readability, and writes to generated/policy.json.
 """
 
 import json
@@ -13,7 +13,6 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 POLICY_DHALL = REPO_ROOT / "policy.dhall"
-GRANTS_JSON = REPO_ROOT / "grants.json"
 OUTPUT_DIR = REPO_ROOT / "generated"
 OUTPUT_FILE = OUTPUT_DIR / "policy.json"
 
@@ -94,16 +93,12 @@ def main() -> int:
     print(f"  -> {len(dhall_output.get('acls', []))} ACL rules", file=sys.stderr)
     print(f"  -> {len(dhall_output.get('ssh', []))} SSH rules", file=sys.stderr)
 
-    # Step 2: Load grants.json
-    print(f"Loading {GRANTS_JSON} ...", file=sys.stderr)
-    with open(GRANTS_JSON) as f:
-        grants = json.load(f)
-    print(f"  -> {len(grants)} grants", file=sys.stderr)
+    print(f"  -> {len(dhall_output.get('grants', []))} grants", file=sys.stderr)
 
-    # Step 3: Merge
-    policy = {**dhall_output, "grants": grants}
+    # Step 2: Grants come from Dhall; no raw JSON merge
+    policy = dhall_output
 
-    # Step 4: Validate structure
+    # Step 3: Validate structure
     required_keys = {"groups", "tagOwners", "acls", "grants", "ssh", "nodeAttrs", "autoApprovers", "hosts"}
     missing = required_keys - set(policy.keys())
     if missing:
@@ -120,10 +115,10 @@ def main() -> int:
             print(f"ERROR: SSH rule missing 'users' field: {rule}", file=sys.stderr)
             return 1
 
-    # Step 5: Reorder keys for readability
+    # Step 4: Reorder keys for readability
     policy = reorder_policy(policy)
 
-    # Step 6: Write output
+    # Step 5: Write output
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     with open(OUTPUT_FILE, "w") as f:
         json.dump(policy, f, indent="\t")

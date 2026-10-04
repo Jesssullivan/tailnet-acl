@@ -108,7 +108,11 @@ def compile_revision(revision, root=ROOT):
         check_local_imports(target)
         try:
             policy = strict_json_loads(_run(["dhall-to-json", "--file", "policy.dhall"], target))
-            grants = strict_json_loads((target / "grants.json").read_text())
+            # Typed Dhall grants win; revisions before them carried grants.json.
+            legacy = target / "grants.json"
+            grants = policy.get("grants") if isinstance(policy, dict) else None
+            if grants is None and legacy.is_file():
+                grants = strict_json_loads(legacy.read_text())
         except (OSError, ValueError):
             raise PolicyError("compiled policy is malformed") from None
         if not isinstance(policy, dict) or not isinstance(grants, list):

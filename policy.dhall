@@ -1,7 +1,7 @@
 -- Tailscale ACL Policy for tailnet taila4c78d.ts.net (sulliwood.org)
 --
 -- This file merges all fragments and adds top-level config (autoApprovers, nodeAttrs).
--- Grants are NOT included here; they live in grants.json and are merged by build.py.
+-- Grants are typed Dhall (types/Grant.dhall, fragments/grants.dhall) and rendered here.
 --
 -- To build: just build
 -- To verify: just validate
@@ -33,6 +33,10 @@ let remotejuggler = ./fragments/remotejuggler.dhall
 let aperture = ./fragments/aperture.dhall
 
 let ssh = ./fragments/ssh.dhall
+
+let grants = ./fragments/grants.dhall
+
+let G = ./types/Grant.dhall
 
 let allACLs =
         core.acls
@@ -77,6 +81,7 @@ let autoApprovers
 in  { groups = core.groups
     , tagOwners = core.tagOwners
     , acls = allACLs
+    , grants = G.render grants.grants
     , ssh = ssh.ssh
     , nodeAttrs = allNodeAttrs
     , autoApprovers
