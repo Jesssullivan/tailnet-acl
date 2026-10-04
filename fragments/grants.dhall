@@ -177,6 +177,7 @@ let grants
           ]
         }
       , G.net [ C.autogroup.admin ] [ C.tag.tofu_state ] [ "tcp:9000" ]
+      , G.net [ "tinyland-neo" ] [ C.tag.tofu_state ] [ "tcp:9000" ]
       ]
 
 in  { grants }
