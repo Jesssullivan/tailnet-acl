@@ -52,6 +52,7 @@ let tag =
       , kvm_proxy = "tag:kvm-proxy"
       , tag_authority = "tag:tag-authority"
       , gftb_idp = "tag:gftb-idp"
+      , tofu_state = "tag:tofu-state"
       }
 
 let service =

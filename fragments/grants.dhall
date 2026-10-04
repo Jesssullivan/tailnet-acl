@@ -176,6 +176,7 @@ let grants
               { cap = "greatfallstoolbus.org/cap/gftb-probe", flag = "gftb_qa" }
           ]
         }
+      , G.net [ C.autogroup.admin ] [ C.tag.tofu_state ] [ "tcp:9000" ]
       ]
 
 in  { grants }

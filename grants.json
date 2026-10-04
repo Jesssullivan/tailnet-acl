@@ -140,4 +140,8 @@
 	"dst": ["tag:gftb-probe"],
 	"ip":  ["tcp:443"],
 	"app": {"greatfallstoolbus.org/cap/gftb-probe": [{"gftb_qa": true}]}
+}, {
+	"src": ["autogroup:admin"],
+	"dst": ["tag:tofu-state"],
+	"ip": ["tcp:9000"]
 }]
