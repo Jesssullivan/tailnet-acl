@@ -120,4 +120,9 @@
 	],
 	"dst": ["svc:o11y-grafana"],
 	"ip": ["tcp:3000"]
+}, {
+	"src": ["group:gftb-qa"],
+	"dst": ["tag:gftb-probe"],
+	"ip":  ["tcp:443"],
+	"app": {"greatfallstoolbus.org/cap/gftb-probe": [{"gftb_qa": true}]}
 }]
