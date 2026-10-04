@@ -354,7 +354,7 @@ class PolicyContractTest(unittest.TestCase):
                 "tag:tinyland-lab-runner", "tag:tinyland-lab-deploy",
                 "tag:tinyland-lab-ci-ephemeral", "tag:tinyland-lab-nix-target",
                 "tag:rj-gateway", "tag:setec", "tag:ci-agent", "tag:kvm-proxy",
-                "tag:tag-authority",
+                "tag:tag-authority", "tag:gftb-idp",
             },
         )
         for row in self.policy["nodeAttrs"]:
@@ -468,6 +468,167 @@ class PolicyContractTest(unittest.TestCase):
         }.items():
             self.assertEqual(self.policy["hosts"][name], address)
 
+
+    # GFTB tsidp, the Cloudflare Access IdP for the members gate (operator
+    # rulings 2026-10-03: "lets design and implement both in ultracode";
+    # "this is the intent; I can add users to the qa tag as needed"; "Fix
+    # both, then I review"). Lab design
+    # docs/operations/TAILNET_MEMBERSHIP_DETECTION_DESIGN_2026-10-03.md 4.3.
+    #
+    # Merging applies, so the change is safe by construction: the IdP node
+    # gets a NEW tag, tag:gftb-idp, that no device holds, and every rule that
+    # admits people keys on the one QA group, group:gftb-qa. tag:tsidp is
+    # held by several existing devices (neo's netmap 2026-10-03: neo,
+    # rj-gateway, setec-1, tsidp, tsidp-1, blahaj-doks-router), so its legacy
+    # rules are left exactly as on main and pinned below.
+    IDP = "tag:gftb-idp"
+    QA_GROUP = "group:gftb-qa"
+    TSIDP_CAP = "tailscale.com/cap/tsidp"
+    IDP_GRANTS = [
+        {
+            "src": ["group:dollhouse-admins"],
+            "dst": ["tag:gftb-idp"],
+            "app": {"tailscale.com/cap/tsidp": [{"allow_admin_ui": True}]},
+        },
+        {
+            "src": ["group:gftb-qa"],
+            "dst": ["tag:gftb-idp"],
+            "app": {"tailscale.com/cap/tsidp": [{
+                "extraClaims": {"gftb_member": "true"},
+                "includeInUserInfo": True,
+            }]},
+        },
+        {
+            "src": ["group:gftb-qa"],
+            "dst": ["tag:gftb-idp"],
+            "ip": ["tcp:443"],
+        },
+    ]
+    # Every rule naming tag:tsidp, exactly as on main (1342ef0). Retiring
+    # them is a separate change after those devices are retagged.
+    LEGACY_TSIDP_ACLS = [
+        {
+            "action": "accept",
+            "src": ["tag:dev"],
+            "dst": ["tag:dollhouse:*", "tag:services:*", "tag:k8s:*", "tag:tsidp:*", "autogroup:internet:*"],
+        },
+        {"action": "accept", "src": ["group:dollhouse-admins", "tag:k8s"], "dst": ["tag:tsidp:*"]},
+    ]
+    LEGACY_TSIDP_GRANTS = [
+        {
+            "src": ["tag:tsidp"],
+            "dst": ["group:dollhouse-admins"],
+            "app": {"tailscale.com/cap/tsidp": [{"admin": ["group:dollhouse-admins"]}]},
+        },
+    ]
+
+    @staticmethod
+    def _names(row):
+        """Every identity a rule names: sources, and destinations without
+        the ACL port suffix (grants carry ports in "ip" instead)."""
+        dst = [entry.rsplit(":", 1)[0] for entry in row["dst"]] if "action" in row else list(row["dst"])
+        return set(row["src"]) | set(dst)
+
+    @staticmethod
+    def _dst(row):
+        return {entry.rsplit(":", 1)[0] for entry in row["dst"]} if "action" in row else set(row["dst"])
+
+    def test_gftb_idp_grants_are_exact_and_current_schema(self) -> None:
+        self.assertEqual(
+            [row for row in self.policy["grants"] if self.IDP in row["src"] + row["dst"]],
+            self.IDP_GRANTS,
+        )
+        self.assertFalse([row for row in self.policy["acls"] if self.IDP in self._names(row)])
+
+    def test_gftb_idp_change_leaves_every_existing_device_unaffected(self) -> None:
+        """No device that exists today gains or loses anything on merge.
+
+        tag:gftb-idp is new (no device holds it), so a rule whose only
+        destination is that tag changes reach only to a node that does not
+        exist yet; its sources are user groups, which never match a tagged
+        device, so no tagged device gains outbound access. The Funnel attr
+        targets that tag alone. group:gftb-qa appears only as a source
+        toward new tags, so adding a person to it grants nothing else.
+        """
+        new_tags = {self.IDP, "tag:gftb-probe"}
+        for row in self.policy["acls"] + self.policy["grants"]:
+            if self.IDP in self._names(row):
+                self.assertEqual(row["dst"], [self.IDP], row)
+                self.assertTrue(all(src.startswith("group:") for src in row["src"]), row)
+            if self.QA_GROUP in row["src"]:
+                self.assertTrue(self._dst(row) <= new_tags, row)
+            self.assertNotIn(self.QA_GROUP, row["dst"])
+            self.assertNotIn(self.IDP, row["src"])
+        attrs = [row for row in self.policy["nodeAttrs"] if self.IDP in row["target"]]
+        self.assertEqual(attrs, [{"target": [self.IDP], "attr": ["funnel"]}])
+        for row in self.policy["ssh"]:
+            self.assertNotIn(self.IDP, row["src"] + row["dst"])
+            self.assertNotIn(self.QA_GROUP, row["src"] + row["dst"])
+        self.assertNotIn(self.IDP, self.policy["autoApprovers"]["exitNode"])
+        self.assertFalse(any(self.IDP in tags for tags in self.policy["autoApprovers"]["routes"].values()))
+        self.assertEqual(self.policy["tagOwners"][self.IDP], ["autogroup:admin"])
+        self.assertFalse([tag for tag, owners in self.policy["tagOwners"].items() if self.IDP in owners or self.QA_GROUP in owners])
+        self.assertNotIn(self.IDP, self.policy["hosts"])
+
+    def test_legacy_tag_tsidp_rules_are_unchanged_from_main(self) -> None:
+        self.assertEqual(
+            [row for row in self.policy["acls"] if "tag:tsidp" in self._names(row)],
+            self.LEGACY_TSIDP_ACLS,
+        )
+        self.assertEqual(
+            [row for row in self.policy["grants"] if "tag:tsidp" in row["src"] + row["dst"]],
+            self.LEGACY_TSIDP_GRANTS,
+        )
+        self.assertFalse(any("tag:tsidp" in row["target"] for row in self.policy["nodeAttrs"]))
+        self.assertEqual(
+            self.policy["tagOwners"]["tag:tsidp"],
+            ["tag:tag-authority", "autogroup:admin", "group:dollhouse-admins"],
+        )
+
+    def test_tag_dev_and_tag_k8s_have_no_path_to_the_idp_node(self) -> None:
+        # The design narrows tag:dev and tag:k8s away from the IdP. With the
+        # IdP on tag:gftb-idp, neither reaches it by any rule; their legacy
+        # tag:tsidp:* reach stays with the devices that hold tag:tsidp today.
+        for row in self.policy["acls"] + self.policy["grants"]:
+            if {"tag:dev", "tag:k8s"} & set(row["src"]):
+                self.assertNotIn(self.IDP, self._dst(row), row)
+        # Nor does any rule through a destination wide enough to cover a
+        # tagged node (see also the CIDR and hosts check for gftb-probe).
+        universal = {"*", "autogroup:tagged", "0.0.0.0/0", "::/0", "100.64.0.0/10"}
+        for row in self.policy["acls"] + self.policy["grants"]:
+            self.assertFalse(universal & self._dst(row), row)
+
+    def test_tsidp_capability_is_least_privilege(self) -> None:
+        for grant in self.policy["grants"]:
+            for rule in grant.get("app", {}).get(self.TSIDP_CAP, []):
+                self.assertNotIn("allow_dcr", rule)
+                # No STS or RFC 8707 audience for anyone: the token audience
+                # is only the requesting client, the static Access client.
+                self.assertNotIn("users", rule)
+                self.assertNotIn("resources", rule)
+                if grant["dst"] == [self.IDP]:
+                    self.assertNotIn("admin", rule)
+                if rule.get("allow_admin_ui"):
+                    self.assertEqual(grant["src"], ["group:dollhouse-admins"])
+                if "extraClaims" in rule:
+                    self.assertEqual(grant["src"], [self.QA_GROUP])
+                    # A JSON string, exactly the Access group claim_value.
+                    self.assertEqual(rule["extraClaims"], {"gftb_member": "true"})
+
+    def test_people_reach_the_idp_only_through_the_qa_group(self) -> None:
+        reach = [row for row in self.policy["grants"] if row["dst"] == [self.IDP] and "ip" in row]
+        self.assertEqual(reach, [{"src": [self.QA_GROUP], "dst": [self.IDP], "ip": ["tcp:443"]}])
+        self.assertEqual(self.policy["groups"][self.QA_GROUP], ["jsullivan2@gmail.com", "jess@sulliwood.org"])
+
+    def test_funnel_only_for_dollhouse_and_gftb_idp(self) -> None:
+        funnel = [row for row in self.policy["nodeAttrs"] if "funnel" in row["attr"]]
+        self.assertEqual(
+            funnel,
+            [
+                {"target": ["tag:dollhouse"], "attr": ["funnel"]},
+                {"target": [self.IDP], "attr": ["funnel"]},
+            ],
+        )
 
 if __name__ == "__main__":
     unittest.main()
