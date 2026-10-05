@@ -52,7 +52,13 @@ class PolicyContractTest(unittest.TestCase):
             self.policy["groups"][self.QA], ["jsullivan2@gmail.com", "jess@sulliwood.org"]
         )
 
-    def test_gftb_probe_is_inbound_only_on_443_for_the_qa_group(self) -> None:
+    NEO = "tinyland-neo"
+    NEO_LOGIN = "jess@sulliwood.org"
+
+    def test_gftb_probe_is_inbound_only_on_443_for_the_qa_group_and_neo(self) -> None:
+        # Operator ruling 2026-10-05 (TIN-5371): the primary identity machine
+        # carries the QA identity in policy, as a capability parameter, because
+        # a tagged device has no user for Serve to forward.
         tag = self.PROBE
         mentions = [
             row for row in self.policy["acls"] + self.policy["grants"]
@@ -60,16 +66,31 @@ class PolicyContractTest(unittest.TestCase):
         ]
         self.assertEqual(
             mentions,
-            [{
-                "src": [self.QA],
-                "dst": [tag],
-                "ip": ["tcp:443"],
-                "app": {self.PROBE_CAP: [{"gftb_qa": True}]},
-            }],
+            [
+                {
+                    "src": [self.QA],
+                    "dst": [tag],
+                    "ip": ["tcp:443"],
+                    "app": {self.PROBE_CAP: [{"gftb_qa": True}]},
+                },
+                {
+                    "src": [self.NEO],
+                    "dst": [tag],
+                    "ip": ["tcp:443"],
+                    "app": {self.PROBE_CAP: [{"gftb_qa": True, "user": self.NEO_LOGIN}]},
+                },
+            ],
         )
-        # The probe capability is granted nowhere else.
+        # The probe capability has exactly two holders: the group and neo.
         holders = [row for row in self.policy["grants"] if self.PROBE_CAP in row.get("app", {})]
         self.assertEqual(holders, mentions)
+        self.assertEqual(self.policy["hosts"][self.NEO], "100.67.93.34")
+        params = holders[1]["app"][self.PROBE_CAP]
+        self.assertEqual(len(params), 1)
+        self.assertIsInstance(params[0]["user"], str)
+        self.assertEqual(len(params[0]["user"].split()), 1)
+        self.assertEqual(self.policy["groups"][self.QA].count(params[0]["user"]), 1)
+        self.assertNotIn("tag:qa", [s for row in holders for s in row["src"]])
         self.assertFalse(any(tag in row["target"] for row in self.policy["nodeAttrs"]))
         self.assertFalse(any(tag in row["src"] or tag in row["dst"] for row in self.policy["ssh"]))
         self.assertNotIn(tag, self.policy["autoApprovers"]["exitNode"])
@@ -503,6 +524,18 @@ class PolicyContractTest(unittest.TestCase):
             "dst": ["tag:gftb-idp"],
             "ip": ["tcp:443"],
         },
+        # TIN-5371: neo reaches the IdP and may use its admin endpoints; no
+        # member capability, no allow_dcr, no extraClaims.
+        {
+            "src": ["tinyland-neo"],
+            "dst": ["tag:gftb-idp"],
+            "ip": ["tcp:443"],
+        },
+        {
+            "src": ["tinyland-neo"],
+            "dst": ["tag:gftb-idp"],
+            "app": {"tailscale.com/cap/tsidp": [{"allow_admin_ui": True}]},
+        },
     ]
     # Every rule naming tag:tsidp, exactly as on main (1342ef0). Retiring
     # them is a separate change after those devices are retagged.
@@ -540,6 +573,13 @@ class PolicyContractTest(unittest.TestCase):
         )
         self.assertFalse([row for row in self.policy["acls"] if self.IDP in self._names(row)])
 
+    def test_allow_admin_ui_holders_are_the_admins_group_and_neo(self) -> None:
+        holders = [
+            row["src"] for row in self.policy["grants"]
+            if any(c.get("allow_admin_ui") for c in row.get("app", {}).get(self.TSIDP_CAP, []))
+        ]
+        self.assertEqual(holders, [["group:dollhouse-admins"], ["tinyland-neo"]])
+
     def test_gftb_idp_change_leaves_every_existing_device_unaffected(self) -> None:
         """No device that exists today gains or loses anything on merge.
 
@@ -554,7 +594,7 @@ class PolicyContractTest(unittest.TestCase):
         for row in self.policy["acls"] + self.policy["grants"]:
             if self.IDP in self._names(row):
                 self.assertEqual(row["dst"], [self.IDP], row)
-                self.assertTrue(all(src.startswith("group:") for src in row["src"]), row)
+                self.assertTrue(all(src.startswith("group:") or src == "tinyland-neo" for src in row["src"]), row)
             if self.QA_GROUP in row["src"]:
                 self.assertTrue(self._dst(row) <= new_tags, row)
             self.assertNotIn(self.QA_GROUP, row["dst"])
