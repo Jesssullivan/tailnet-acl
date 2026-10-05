@@ -20,6 +20,8 @@ let Tsidp =
       , allowDCR : Optional Bool
       , users : Optional (List Text)
       , resources : Optional (List Text)
+      , taggedIdentity :
+          Optional { subject : Text, email : Text, name : Text }
       }
 
 let tsidpEmpty
@@ -31,6 +33,7 @@ let tsidpEmpty
       , allowDCR = None Bool
       , users = None (List Text)
       , resources = None (List Text)
+      , taggedIdentity = None { subject : Text, email : Text, name : Text }
       }
 
 let Cap =
@@ -84,6 +87,17 @@ let renderTsidp
             # field Bool "allow_dcr" J.bool t.allowDCR
             # field (List Text) "users" J.strings t.users
             # field (List Text) "resources" J.strings t.resources
+            # field
+                { subject : Text, email : Text, name : Text }
+                "taggedIdentity"
+                (   \(i : { subject : Text, email : Text, name : Text }) ->
+                      J.object
+                        [ { mapKey = "subject", mapValue = J.string i.subject }
+                        , { mapKey = "email", mapValue = J.string i.email }
+                        , { mapKey = "name", mapValue = J.string i.name }
+                        ]
+                )
+                t.taggedIdentity
           )
 
 let renderCap
