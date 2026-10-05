@@ -20,8 +20,7 @@ let Tsidp =
       , allowDCR : Optional Bool
       , users : Optional (List Text)
       , resources : Optional (List Text)
-      , taggedIdentity :
-          Optional { subject : Text, email : Text, name : Text }
+      , taggedIdentity : Optional { subject : Text, email : Text, name : Text }
       }
 
 let tsidpEmpty
@@ -90,12 +89,12 @@ let renderTsidp
             # field
                 { subject : Text, email : Text, name : Text }
                 "taggedIdentity"
-                (   \(i : { subject : Text, email : Text, name : Text }) ->
-                      J.object
-                        [ { mapKey = "subject", mapValue = J.string i.subject }
-                        , { mapKey = "email", mapValue = J.string i.email }
-                        , { mapKey = "name", mapValue = J.string i.name }
-                        ]
+                ( \(i : { subject : Text, email : Text, name : Text }) ->
+                    J.object
+                      [ { mapKey = "subject", mapValue = J.string i.subject }
+                      , { mapKey = "email", mapValue = J.string i.email }
+                      , { mapKey = "name", mapValue = J.string i.name }
+                      ]
                 )
                 t.taggedIdentity
           )
