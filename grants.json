@@ -25,6 +25,18 @@
 	"src": ["tinyland-neo"],
 	"dst": ["tag:gftb-idp"],
 	"app": {"tailscale.com/cap/tsidp": [{"allow_admin_ui": true}]}
+}, {
+	"src": ["tinyland-neo"],
+	"dst": ["tag:gftb-idp"],
+	"app": {"tailscale.com/cap/tsidp": [{
+		"extraClaims":       {"gftb_member": "true"},
+		"includeInUserInfo": true,
+		"taggedIdentity": {
+			"email":   "jess@sulliwood.org",
+			"name":    "Jess Sullivan",
+			"subject": "u9Ha9jAf8111CNTRL"
+		}
+	}]}
 }, {"src": ["tag:k8s-operator"], "dst": ["group:dollhouse-admins"], "app": {
 	"tailscale.com/cap/kubernetes": [{"impersonate": {"groups": ["system:masters"]}}]
 }}, {

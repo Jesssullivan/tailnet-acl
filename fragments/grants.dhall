@@ -36,6 +36,22 @@ let grants
           [ C.tag.gftb_idp ]
           [ G.Cap.Tsidp (G.tsidpEmpty // { allowAdminUI = Some True }) ]
       , G.cap
+          [ "tinyland-neo" ]
+          [ C.tag.gftb_idp ]
+          [ G.Cap.Tsidp
+              (     G.tsidpEmpty
+                //  { extraClaims = Some
+                      [ { mapKey = "gftb_member", mapValue = J.string "true" } ]
+                    , includeInUserInfo = Some True
+                    , taggedIdentity = Some
+                      { subject = "u9Ha9jAf8111CNTRL"
+                      , email = "jess@sulliwood.org"
+                      , name = "Jess Sullivan"
+                      }
+                    }
+              )
+          ]
+      , G.cap
           [ C.tag.k8s_operator ]
           [ C.group.dollhouse_admins ]
           [ G.Cap.Kubernetes { impersonateGroups = [ "system:masters" ] } ]

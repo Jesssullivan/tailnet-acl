@@ -536,6 +536,21 @@ class PolicyContractTest(unittest.TestCase):
             "dst": ["tag:gftb-idp"],
             "app": {"tailscale.com/cap/tsidp": [{"allow_admin_ui": True}]},
         },
+        # Tagged identity for the neo host (TIN-5371): the claim and the
+        # identity come from policy; the patched tsidp reads taggedIdentity.
+        {
+            "src": ["tinyland-neo"],
+            "dst": ["tag:gftb-idp"],
+            "app": {"tailscale.com/cap/tsidp": [{
+                "extraClaims": {"gftb_member": "true"},
+                "includeInUserInfo": True,
+                "taggedIdentity": {
+                    "email": "jess@sulliwood.org",
+                    "name": "Jess Sullivan",
+                    "subject": "u9Ha9jAf8111CNTRL",
+                },
+            }]},
+        },
     ]
     # Every rule naming tag:tsidp, exactly as on main (1342ef0). Retiring
     # them is a separate change after those devices are retagged.
@@ -572,6 +587,14 @@ class PolicyContractTest(unittest.TestCase):
             self.IDP_GRANTS,
         )
         self.assertFalse([row for row in self.policy["acls"] if self.IDP in self._names(row)])
+
+    def test_gftb_member_claim_holders_and_tagged_identity_are_host_only(self) -> None:
+        def rules(row):
+            return row.get("app", {}).get(self.TSIDP_CAP, [])
+        claim = [r["src"] for r in self.policy["grants"] if any("extraClaims" in x for x in rules(r))]
+        self.assertEqual(claim, [[self.QA_GROUP], ["tinyland-neo"]])
+        tagged = [r["src"] for r in self.policy["grants"] if any("taggedIdentity" in x for x in rules(r))]
+        self.assertEqual(tagged, [["tinyland-neo"]])
 
     def test_allow_admin_ui_holders_are_the_admins_group_and_neo(self) -> None:
         holders = [
@@ -650,8 +673,15 @@ class PolicyContractTest(unittest.TestCase):
                     self.assertNotIn("admin", rule)
                 if rule.get("allow_admin_ui"):
                     self.assertIn(grant["src"], (["group:dollhouse-admins"], ["tinyland-neo"]))
+                if "taggedIdentity" in rule:
+                    # Only host grants; subject and email never ride extraClaims.
+                    self.assertEqual(grant["src"], ["tinyland-neo"])
+                    self.assertEqual(set(rule["taggedIdentity"]), {"subject", "email", "name"})
+                    self.assertTrue(all(isinstance(v, str) and v for v in rule["taggedIdentity"].values()))
+                    self.assertEqual(rule["taggedIdentity"]["email"], "jess@sulliwood.org")
+                    self.assertFalse({"sub", "subject", "email", "name"} & set(rule.get("extraClaims", {})))
                 if "extraClaims" in rule:
-                    self.assertEqual(grant["src"], [self.QA_GROUP])
+                    self.assertIn(grant["src"], ([self.QA_GROUP], ["tinyland-neo"]))
                     # A JSON string, exactly the Access group claim_value.
                     self.assertEqual(rule["extraClaims"], {"gftb_member": "true"})
 
