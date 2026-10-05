@@ -35,6 +35,7 @@ let tsidpEmpty
 
 let Cap =
       < Probe : { cap : Text, flag : Text }
+      | ProbeUser : { cap : Text, flag : Text, user : Text }
       | Tsidp : Tsidp
       | Kubernetes : { impersonateGroups : List Text }
       | RjGateway : { role : Text, secrets : Optional (List Text) }
@@ -95,6 +96,17 @@ let renderCap
                 , mapValue =
                     J.array
                       [ J.object [ { mapKey = p.flag, mapValue = J.bool True } ]
+                      ]
+                }
+          , ProbeUser =
+              \(p : { cap : Text, flag : Text, user : Text }) ->
+                { mapKey = p.cap
+                , mapValue =
+                    J.array
+                      [ J.object
+                          [ { mapKey = p.flag, mapValue = J.bool True }
+                          , { mapKey = "user", mapValue = J.string p.user }
+                          ]
                       ]
                 }
           , Tsidp =

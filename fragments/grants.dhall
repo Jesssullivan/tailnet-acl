@@ -30,6 +30,11 @@ let grants
               )
           ]
       , G.net [ C.group.gftb_qa ] [ C.tag.gftb_idp ] [ "tcp:443" ]
+      , G.net [ "tinyland-neo" ] [ C.tag.gftb_idp ] [ "tcp:443" ]
+      , G.cap
+          [ "tinyland-neo" ]
+          [ C.tag.gftb_idp ]
+          [ G.Cap.Tsidp (G.tsidpEmpty // { allowAdminUI = Some True }) ]
       , G.cap
           [ C.tag.k8s_operator ]
           [ C.group.dollhouse_admins ]
@@ -174,6 +179,17 @@ let grants
         , app = Some
           [ G.Cap.Probe
               { cap = "greatfallstoolbus.org/cap/gftb-probe", flag = "gftb_qa" }
+          ]
+        }
+      , { src = [ "tinyland-neo" ]
+        , dst = [ C.tag.gftb_probe ]
+        , ip = Some [ "tcp:443" ]
+        , app = Some
+          [ G.Cap.ProbeUser
+              { cap = "greatfallstoolbus.org/cap/gftb-probe"
+              , flag = "gftb_qa"
+              , user = "jess@sulliwood.org"
+              }
           ]
         }
       , G.net [ C.autogroup.admin ] [ C.tag.tofu_state ] [ "tcp:9000" ]
