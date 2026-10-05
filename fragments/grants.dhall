@@ -44,7 +44,7 @@ let grants
                       [ { mapKey = "gftb_member", mapValue = J.string "true" } ]
                     , includeInUserInfo = Some True
                     , taggedIdentity = Some
-                      { subject = "u9Ha9jAf8111CNTRL"
+                      { subject = "16908883666124"
                       , email = "jess@sulliwood.org"
                       , name = "Jess Sullivan"
                       }

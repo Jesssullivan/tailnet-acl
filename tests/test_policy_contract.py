@@ -547,7 +547,7 @@ class PolicyContractTest(unittest.TestCase):
                 "taggedIdentity": {
                     "email": "jess@sulliwood.org",
                     "name": "Jess Sullivan",
-                    "subject": "u9Ha9jAf8111CNTRL",
+                    "subject": "16908883666124",
                 },
             }]},
         },
@@ -679,6 +679,9 @@ class PolicyContractTest(unittest.TestCase):
                     self.assertEqual(set(rule["taggedIdentity"]), {"subject", "email", "name"})
                     self.assertTrue(all(isinstance(v, str) and v for v in rule["taggedIdentity"].values()))
                     self.assertEqual(rule["taggedIdentity"]["email"], "jess@sulliwood.org")
+                    # Operator ruling 2026-10-05, "Numeric WhoIs user id": the id
+                    # tsidp uses as sub for the operator's user-owned devices.
+                    self.assertRegex(rule["taggedIdentity"]["subject"], r"^[0-9]+$")
                     self.assertFalse({"sub", "subject", "email", "name"} & set(rule.get("extraClaims", {})))
                 if "extraClaims" in rule:
                     self.assertIn(grant["src"], ([self.QA_GROUP], ["tinyland-neo"]))
