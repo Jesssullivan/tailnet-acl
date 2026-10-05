@@ -649,15 +649,21 @@ class PolicyContractTest(unittest.TestCase):
                 if grant["dst"] == [self.IDP]:
                     self.assertNotIn("admin", rule)
                 if rule.get("allow_admin_ui"):
-                    self.assertEqual(grant["src"], ["group:dollhouse-admins"])
+                    self.assertIn(grant["src"], (["group:dollhouse-admins"], ["tinyland-neo"]))
                 if "extraClaims" in rule:
                     self.assertEqual(grant["src"], [self.QA_GROUP])
                     # A JSON string, exactly the Access group claim_value.
                     self.assertEqual(rule["extraClaims"], {"gftb_member": "true"})
 
-    def test_people_reach_the_idp_only_through_the_qa_group(self) -> None:
+    def test_idp_reach_is_the_qa_group_and_the_neo_host(self) -> None:
         reach = [row for row in self.policy["grants"] if row["dst"] == [self.IDP] and "ip" in row]
-        self.assertEqual(reach, [{"src": [self.QA_GROUP], "dst": [self.IDP], "ip": ["tcp:443"]}])
+        self.assertEqual(
+            reach,
+            [
+                {"src": [self.QA_GROUP], "dst": [self.IDP], "ip": ["tcp:443"]},
+                {"src": ["tinyland-neo"], "dst": [self.IDP], "ip": ["tcp:443"]},
+            ],
+        )
         self.assertEqual(self.policy["groups"][self.QA_GROUP], ["jsullivan2@gmail.com", "jess@sulliwood.org"])
 
     def test_funnel_only_for_dollhouse_and_gftb_idp(self) -> None:
