@@ -375,7 +375,7 @@ class PolicyContractTest(unittest.TestCase):
                 "tag:tinyland-lab-runner", "tag:tinyland-lab-deploy",
                 "tag:tinyland-lab-ci-ephemeral", "tag:tinyland-lab-nix-target",
                 "tag:rj-gateway", "tag:setec", "tag:ci-agent", "tag:kvm-proxy",
-                "tag:tag-authority", "tag:gftb-idp", "tag:tofu-state",
+                "tag:tag-authority", "tag:gftb-idp", "tag:tofu-state", "tag:infra-idp",
             },
         )
         for row in self.policy["nodeAttrs"]:
@@ -601,7 +601,7 @@ class PolicyContractTest(unittest.TestCase):
             row["src"] for row in self.policy["grants"]
             if any(c.get("allow_admin_ui") for c in row.get("app", {}).get(self.TSIDP_CAP, []))
         ]
-        self.assertEqual(holders, [["group:dollhouse-admins"], ["tinyland-neo"]])
+        self.assertEqual(holders, [["group:dollhouse-admins"], ["tinyland-neo"], ["group:dollhouse-admins"]])
 
     def test_gftb_idp_change_leaves_every_existing_device_unaffected(self) -> None:
         """No device that exists today gains or loses anything on merge.
