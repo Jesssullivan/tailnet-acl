@@ -53,6 +53,7 @@ let tag =
       , tag_authority = "tag:tag-authority"
       , gftb_idp = "tag:gftb-idp"
       , tofu_state = "tag:tofu-state"
+      , infra_idp = "tag:infra-idp"
       }
 
 let service =

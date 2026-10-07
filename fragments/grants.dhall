@@ -210,6 +210,14 @@ let grants
         }
       , G.net [ C.autogroup.admin ] [ C.tag.tofu_state ] [ "tcp:9000" ]
       , G.net [ "tinyland-neo" ] [ C.tag.tofu_state ] [ "tcp:9000" ]
+      , G.net
+          [ C.group.dollhouse_admins, C.tag.k8s ]
+          [ C.tag.infra_idp ]
+          [ "tcp:443" ]
+      , G.cap
+          [ C.group.dollhouse_admins ]
+          [ C.tag.infra_idp ]
+          [ G.Cap.Tsidp (G.tsidpEmpty // { allowAdminUI = Some True }) ]
       ]
 
 in  { grants }

@@ -173,4 +173,12 @@
 	"src": ["tinyland-neo"],
 	"dst": ["tag:tofu-state"],
 	"ip": ["tcp:9000"]
+}, {
+	"src": ["group:dollhouse-admins", "tag:k8s"],
+	"dst": ["tag:infra-idp"],
+	"ip": ["tcp:443"]
+}, {
+	"src": ["group:dollhouse-admins"],
+	"dst": ["tag:infra-idp"],
+	"app": {"tailscale.com/cap/tsidp": [{"allow_admin_ui": true}]}
 }]
