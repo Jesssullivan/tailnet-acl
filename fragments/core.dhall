@@ -139,6 +139,7 @@ let tagOwners
         , mapValue = [ C.autogroup.admin, C.group.dollhouse_admins ]
         }
       , { mapKey = C.tag.gftb_idp, mapValue = [ C.autogroup.admin ] }
+      , { mapKey = C.tag.infra_idp, mapValue = [ C.autogroup.admin ] }
       , { mapKey = C.tag.tofu_state
         , mapValue =
           [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]

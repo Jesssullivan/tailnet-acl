@@ -688,6 +688,55 @@ class PolicyContractTest(unittest.TestCase):
                     # A JSON string, exactly the Access group claim_value.
                     self.assertEqual(rule["extraClaims"], {"gftb_member": "true"})
 
+    # Tailnet-only tsidp for pods (TIN-5669 / TIN-5587; operator ruling
+    # R-TSIDP-TAILNET-20261006: tailnet-only, reviewed ACL grant, no Funnel and
+    # no public exposure). tag:infra-idp is new and admin-owned, so no device
+    # holds it today; the grants take effect only for a node the operator
+    # enrols later. The name is pending plan section 5 question 1.
+    INFRA_IDP = "tag:infra-idp"
+    INFRA_IDP_GRANTS = [
+        {
+            "src": ["group:dollhouse-admins", "tag:k8s"],
+            "dst": ["tag:infra-idp"],
+            "ip": ["tcp:443"],
+        },
+        {
+            "src": ["group:dollhouse-admins"],
+            "dst": ["tag:infra-idp"],
+            "app": {"tailscale.com/cap/tsidp": [{"allow_admin_ui": True}]},
+        },
+    ]
+
+    def test_infra_idp_grants_are_exact_and_tailnet_only(self) -> None:
+        self.assertEqual(
+            [row for row in self.policy["grants"] if self.INFRA_IDP in row["src"] + row["dst"]],
+            self.INFRA_IDP_GRANTS,
+        )
+        self.assertFalse([row for row in self.policy["acls"] if self.INFRA_IDP in self._names(row)])
+        self.assertEqual(self.policy["tagOwners"][self.INFRA_IDP], ["autogroup:admin"])
+        # No Funnel for the tag, directly or through any other target.
+        for row in self.policy["nodeAttrs"]:
+            if "funnel" in row["attr"]:
+                self.assertNotIn(self.INFRA_IDP, row["target"], row)
+                self.assertFalse({"*", "autogroup:tagged", "autogroup:member"} & set(row["target"]), row)
+        for row in self.policy["ssh"]:
+            self.assertNotIn(self.INFRA_IDP, row["src"] + row["dst"])
+        self.assertNotIn(self.INFRA_IDP, self.policy["autoApprovers"]["exitNode"])
+        self.assertFalse(any(self.INFRA_IDP in tags for tags in self.policy["autoApprovers"]["routes"].values()))
+        self.assertNotIn(self.INFRA_IDP, self.policy["hosts"])
+        self.assertFalse([t for t, owners in self.policy["tagOwners"].items() if self.INFRA_IDP in owners])
+
+    def test_infra_idp_is_separate_from_the_gftb_idp_and_legacy_tsidp(self) -> None:
+        for row in self.policy["acls"] + self.policy["grants"]:
+            if self.INFRA_IDP in self._names(row):
+                self.assertNotIn(self.IDP, self._names(row), row)
+                self.assertNotIn("tag:tsidp", self._names(row), row)
+                self.assertNotIn(self.QA_GROUP, self._names(row), row)
+        for rule_row in self.policy["grants"]:
+            for rule in rule_row.get("app", {}).get(self.TSIDP_CAP, []):
+                if rule_row["dst"] == [self.INFRA_IDP]:
+                    self.assertEqual(set(rule), {"allow_admin_ui"})
+
     def test_idp_reach_is_the_qa_group_and_the_neo_host(self) -> None:
         reach = [row for row in self.policy["grants"] if row["dst"] == [self.IDP] and "ip" in row]
         self.assertEqual(
