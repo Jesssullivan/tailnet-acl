@@ -376,7 +376,7 @@ class PolicyContractTest(unittest.TestCase):
                 "tag:tinyland-lab-ci-ephemeral", "tag:tinyland-lab-nix-target",
                 "tag:rj-gateway", "tag:setec", "tag:ci-agent", "tag:kvm-proxy",
                 "tag:tag-authority", "tag:gftb-idp", "tag:tofu-state", "tag:infra-idp",
-                "tag:interim-build",
+                "tag:interim-build", "tag:honey-relay",
             },
         )
         for row in self.policy["nodeAttrs"]:
@@ -397,6 +397,52 @@ class PolicyContractTest(unittest.TestCase):
                 (("tag:interim-build",), ("tag:dollhouse:5201",)),
             ]),
         )
+
+    RELAY_CAP = "tailscale.com/cap/relay"
+
+    def test_honey_relay_tag_is_owned_like_dollhouse(self) -> None:
+        # TIN-5694 R-W13-20261008: honey is the peer relay for DreamCompute
+        # trial nodes; the tag is owned exactly like tag:dollhouse.
+        self.assertEqual(
+            self.policy["tagOwners"]["tag:honey-relay"],
+            self.policy["tagOwners"]["tag:dollhouse"],
+        )
+
+    def test_relay_grants_are_exactly_the_dollhouse_mesh_and_interim_to_honey(self) -> None:
+        # Peer relay is allocated by the client (src) on the relay server
+        # (dst). tag:interim-build may use only tag:honey-relay, and that
+        # grant carries the relay cap alone: no ip and no other app cap.
+        relay_rows = [
+            row for row in self.policy["grants"] if self.RELAY_CAP in row.get("app", {})
+        ]
+        self.assertEqual(
+            sorted((tuple(r["src"]), tuple(r["dst"])) for r in relay_rows),
+            sorted([
+                (("tag:dollhouse",), ("tag:dollhouse",)),
+                (("tag:interim-build",), ("tag:honey-relay",)),
+            ]),
+        )
+        self.assertEqual(
+            self.policy["grants"].count(
+                {"src": ["tag:interim-build"], "dst": ["tag:honey-relay"], "app": {self.RELAY_CAP: [{}]}}
+            ),
+            1,
+        )
+
+    def test_honey_relay_tag_appears_only_in_the_relay_grant(self) -> None:
+        tag = "tag:honey-relay"
+        rows = [
+            row for row in self.policy["acls"] + self.policy["grants"]
+            if tag in row["src"] or any(d == tag or d.startswith(tag + ":") for d in row["dst"])
+        ]
+        self.assertEqual(
+            rows,
+            [{"src": ["tag:interim-build"], "dst": [tag], "app": {self.RELAY_CAP: [{}]}}],
+        )
+        for rule in self.policy["ssh"]:
+            self.assertNotIn(tag, rule["src"] + rule["dst"])
+        self.assertFalse(any(tag in tags for tags in self.policy["autoApprovers"]["routes"].values()))
+        self.assertNotIn(tag, self.policy["autoApprovers"].get("exitNode", []))
 
     def test_existing_loki_alias_writer_rule_is_kept_for_now(self) -> None:
         # Retired only after the tag-scoped writer grant is confirmed live.

@@ -55,6 +55,7 @@ let tag =
       , tofu_state = "tag:tofu-state"
       , infra_idp = "tag:infra-idp"
       , interim_build = "tag:interim-build"
+      , honey_relay = "tag:honey-relay"
       }
 
 let service =
