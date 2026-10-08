@@ -54,6 +54,7 @@ let tag =
       , gftb_idp = "tag:gftb-idp"
       , tofu_state = "tag:tofu-state"
       , infra_idp = "tag:infra-idp"
+      , interim_build = "tag:interim-build"
       }
 
 let service =
