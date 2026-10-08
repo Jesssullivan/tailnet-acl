@@ -34,10 +34,6 @@ let acls
         , src = [ C.tag.services ]
         , dst = [ "${C.tag.services}:*" ]
         }
-      -- Interim cloud build compute (DreamCompute iad2; TIN-5694
-      -- R-W5-20261008). Trial scope only: operator SSH in, iperf3 (5201)
-      -- out to the dollhouse hosts for uplink measurement. No other
-      -- inbound or outbound grants until GF's leaf/runner stacks land.
       , { action = "accept"
         , src = [ C.user.jsullivan2_gmail ]
         , dst = [ "${C.tag.interim_build}:22" ]
