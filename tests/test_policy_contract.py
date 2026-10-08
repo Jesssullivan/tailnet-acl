@@ -376,10 +376,27 @@ class PolicyContractTest(unittest.TestCase):
                 "tag:tinyland-lab-ci-ephemeral", "tag:tinyland-lab-nix-target",
                 "tag:rj-gateway", "tag:setec", "tag:ci-agent", "tag:kvm-proxy",
                 "tag:tag-authority", "tag:gftb-idp", "tag:tofu-state", "tag:infra-idp",
+                "tag:interim-build",
             },
         )
         for row in self.policy["nodeAttrs"]:
             self.assertNotIn("tag:mcp-proxy", row["target"])
+
+    def test_interim_build_trial_grants_are_narrow(self) -> None:
+        # TIN-5694 R-W5-20261008: DreamCompute trial nodes get operator SSH in
+        # and iperf3 out to tag:dollhouse only, until GF leaf/runner stacks land.
+        rows = [
+            row for row in self.policy["acls"]
+            if "tag:interim-build" in row["src"]
+            or any(dst.startswith("tag:interim-build:") for dst in row["dst"])
+        ]
+        self.assertEqual(
+            sorted((tuple(r["src"]), tuple(r["dst"])) for r in rows),
+            sorted([
+                (("jsullivan2@gmail.com",), ("tag:interim-build:22",)),
+                (("tag:interim-build",), ("tag:dollhouse:5201",)),
+            ]),
+        )
 
     def test_existing_loki_alias_writer_rule_is_kept_for_now(self) -> None:
         # Retired only after the tag-scoped writer grant is confirmed live.

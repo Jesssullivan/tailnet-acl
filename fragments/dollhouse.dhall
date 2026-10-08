@@ -34,6 +34,14 @@ let acls
         , src = [ C.tag.services ]
         , dst = [ "${C.tag.services}:*" ]
         }
+      , { action = "accept"
+        , src = [ C.user.jsullivan2_gmail ]
+        , dst = [ "${C.tag.interim_build}:22" ]
+        }
+      , { action = "accept"
+        , src = [ C.tag.interim_build ]
+        , dst = [ "${C.tag.dollhouse}:5201" ]
+        }
       ]
 
 in  T.emptyFragment // { acls }
