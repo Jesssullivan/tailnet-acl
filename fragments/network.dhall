@@ -32,6 +32,10 @@ let aclsEarly
         , dst = [ "192.168.0.0/16:*" ]
         }
       , { action = "accept"
+        , src = [ C.group.dollhouse_admins, C.tag.dev ]
+        , dst = [ "10.244.0.0/16:*", "10.245.0.0/16:*" ]
+        }
+      , { action = "accept"
         , src = [ C.group.dollhouse_admins ]
         , dst = [ "${C.tag.kvm_proxy}:*" ]
         }
