@@ -144,6 +144,7 @@ let grants
           [ "tinyland-relay-1", "tinyland-petting-zoo-mini", "tinyland-neo" ]
           [ "tcp:9100" ]
       , G.cap [ C.tag.dollhouse ] [ C.tag.dollhouse ] [ G.Cap.Relay ]
+      , G.cap [ C.tag.interim_build ] [ C.tag.honey_relay ] [ G.Cap.Relay ]
       , G.net
           [ C.group.dollhouse_admins, C.tag.mcp_proxy ]
           [ C.service.o11y_loki ]

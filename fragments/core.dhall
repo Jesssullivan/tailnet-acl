@@ -46,6 +46,10 @@ let tagOwners
         , mapValue =
           [ C.tag.tag_authority, C.autogroup.admin, C.group.dollhouse_admins ]
         }
+      , { mapKey = C.tag.honey_relay
+        , mapValue =
+          [ C.tag.tag_authority, C.autogroup.admin, C.group.dollhouse_admins ]
+        }
       , { mapKey = C.tag.k8s
         , mapValue =
           [ C.tag.tag_authority
