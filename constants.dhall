@@ -55,6 +55,8 @@ let tag =
       , tofu_state = "tag:tofu-state"
       , infra_idp = "tag:infra-idp"
       , interim_build = "tag:interim-build"
+      , gf_reapi_cell_egress = "tag:gf-reapi-cell-egress"
+      , gf_reapi_linux_worker = "tag:gf-reapi-linux-worker"
       }
 
 let service =
