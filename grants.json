@@ -119,6 +119,10 @@
 	"dst": ["tag:dollhouse"],
 	"app": {"tailscale.com/cap/relay": [{}]}
 }, {
+	"src": ["tag:interim-build"],
+	"dst": ["tag:honey-relay"],
+	"app": {"tailscale.com/cap/relay": [{}]}
+}, {
 	"src": ["group:dollhouse-admins", "tag:mcp-proxy"],
 	"dst": ["svc:o11y-loki"],
 	"ip": ["tcp:3100"]
