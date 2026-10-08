@@ -393,7 +393,7 @@ class PolicyContractTest(unittest.TestCase):
         self.assertEqual(
             sorted((tuple(r["src"]), tuple(r["dst"])) for r in rows),
             sorted([
-                (("jsullivan2@gmail.com",), ("tag:interim-build:22",)),
+                (("jsullivan2@gmail.com", "100.67.93.34"), ("tag:interim-build:22",)),
                 (("tag:interim-build",), ("tag:dollhouse:5201",)),
             ]),
         )

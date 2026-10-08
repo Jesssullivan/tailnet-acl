@@ -35,7 +35,7 @@ let acls
         , dst = [ "${C.tag.services}:*" ]
         }
       , { action = "accept"
-        , src = [ C.user.jsullivan2_gmail ]
+        , src = [ C.user.jsullivan2_gmail, C.host.neo ]
         , dst = [ "${C.tag.interim_build}:22" ]
         }
       , { action = "accept"
