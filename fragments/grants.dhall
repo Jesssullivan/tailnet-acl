@@ -219,6 +219,10 @@ let grants
           [ C.group.dollhouse_admins ]
           [ C.tag.infra_idp ]
           [ G.Cap.Tsidp (G.tsidpEmpty // { allowAdminUI = Some True }) ]
+      , G.net
+          [ C.tag.gf_reapi_cell_egress ]
+          [ C.tag.gf_reapi_linux_worker ]
+          [ "tcp:8981" ]
       ]
 
 in  { grants }

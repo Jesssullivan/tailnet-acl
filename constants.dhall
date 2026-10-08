@@ -56,6 +56,8 @@ let tag =
       , infra_idp = "tag:infra-idp"
       , interim_build = "tag:interim-build"
       , honey_relay = "tag:honey-relay"
+      , gf_reapi_cell_egress = "tag:gf-reapi-cell-egress"
+      , gf_reapi_linux_worker = "tag:gf-reapi-linux-worker"
       }
 
 let service =
