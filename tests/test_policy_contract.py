@@ -737,6 +737,21 @@ class PolicyContractTest(unittest.TestCase):
                 if rule_row["dst"] == [self.INFRA_IDP]:
                     self.assertEqual(set(rule), {"allow_admin_ui"})
 
+    def test_k8s_operator_connector_routes_are_approved_and_reachable(self) -> None:
+        routes = self.policy["autoApprovers"]["routes"]
+        for cidr in ("10.244.0.0/16", "10.245.0.0/16"):
+            self.assertEqual(routes[cidr], ["tag:k8s-operator"])
+        self.assertEqual(
+            [row for row in self.policy["acls"] if "10.244.0.0/16:*" in row["dst"]],
+            [
+                {
+                    "action": "accept",
+                    "src": ["group:dollhouse-admins", "tag:dev"],
+                    "dst": ["10.244.0.0/16:*", "10.245.0.0/16:*"],
+                }
+            ],
+        )
+
     def test_idp_reach_is_the_qa_group_and_the_neo_host(self) -> None:
         reach = [row for row in self.policy["grants"] if row["dst"] == [self.IDP] and "ip" in row]
         self.assertEqual(

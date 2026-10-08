@@ -66,6 +66,8 @@ let autoApprovers
         , { mapKey = "192.168.0.0/16"
           , mapValue = [ C.tag.subnet_router, C.tag.dollhouse ]
           }
+        , { mapKey = "10.244.0.0/16", mapValue = [ C.tag.k8s_operator ] }
+        , { mapKey = "10.245.0.0/16", mapValue = [ C.tag.k8s_operator ] }
         ]
       , exitNode = [ C.tag.exit_node ]
       , services =
