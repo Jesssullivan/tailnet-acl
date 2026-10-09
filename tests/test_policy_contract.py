@@ -377,7 +377,7 @@ class PolicyContractTest(unittest.TestCase):
                 "tag:rj-gateway", "tag:setec", "tag:ci-agent", "tag:kvm-proxy",
                 "tag:tag-authority", "tag:gftb-idp", "tag:tofu-state", "tag:infra-idp",
                 "tag:interim-build", "tag:honey-relay", "tag:gf-reapi-cell-egress",
-                "tag:gf-reapi-linux-worker",
+                "tag:gf-reapi-linux-worker", "tag:gf-reapi-rocm-worker",
             },
         )
         for row in self.policy["nodeAttrs"]:
@@ -469,14 +469,68 @@ class PolicyContractTest(unittest.TestCase):
                 for tag in route_tags
             )
         ]
+        # The cell egress tag also fronts the ROCm worker (TIN-5861); that
+        # second row is pinned by the rocm-worker test below.
+        self.assertEqual(
+            references,
+            [
+                ("grants", {
+                    "src": ["tag:gf-reapi-cell-egress"],
+                    "dst": ["tag:gf-reapi-linux-worker"],
+                    "ip": ["tcp:8981"],
+                }),
+                ("grants", {
+                    "src": ["tag:gf-reapi-cell-egress"],
+                    "dst": ["tag:gf-reapi-rocm-worker"],
+                    "ip": ["tcp:8981"],
+                }),
+            ],
+        )
+
+    def test_gf_reapi_rocm_worker_route_is_single_port_and_tag_scoped(self) -> None:
+        # TIN-5861 R-W23-20261009: the cell egress proxy may reach the ROCm
+        # worker on 8981 only; no ssh, no other port, no reverse direction.
+        tag = "tag:gf-reapi-rocm-worker"
+        self.assertEqual(
+            self.policy["tagOwners"][tag],
+            ["tag:tag-authority", "autogroup:admin", "group:dollhouse-admins"],
+        )
+        references = [
+            (surface, rule)
+            for surface in ("acls", "grants", "ssh")
+            for rule in self.policy[surface]
+            if any(
+                endpoint == tag or endpoint.startswith(f"{tag}:")
+                for key in ("src", "dst")
+                for endpoint in rule.get(key, [])
+            )
+        ]
         self.assertEqual(
             references,
             [("grants", {
                 "src": ["tag:gf-reapi-cell-egress"],
-                "dst": ["tag:gf-reapi-linux-worker"],
+                "dst": [tag],
                 "ip": ["tcp:8981"],
             })],
         )
+        # tcp:22 (and anything but 8981) from cell egress to the worker is
+        # not granted by any rule.
+        allowed = {
+            ip
+            for row in self.policy["grants"]
+            if "tag:gf-reapi-cell-egress" in row["src"] and tag in row["dst"]
+            for ip in row.get("ip", [])
+        }
+        self.assertEqual(allowed, {"tcp:8981"})
+        self.assertNotIn("tcp:22", allowed)
+        self.assertNotIn("*", allowed)
+        for row in self.policy["acls"]:
+            self.assertFalse(
+                "tag:gf-reapi-cell-egress" in row["src"]
+                and any(d.startswith(tag) for d in row["dst"])
+            )
+        for rule in self.policy["ssh"]:
+            self.assertNotIn(tag, rule["src"] + rule["dst"])
 
     def test_existing_loki_alias_writer_rule_is_kept_for_now(self) -> None:
         # Retired only after the tag-scoped writer grant is confirmed live.

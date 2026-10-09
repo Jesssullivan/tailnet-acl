@@ -189,4 +189,8 @@
 	"src": ["tag:gf-reapi-cell-egress"],
 	"dst": ["tag:gf-reapi-linux-worker"],
 	"ip": ["tcp:8981"]
+}, {
+	"src": ["tag:gf-reapi-cell-egress"],
+	"dst": ["tag:gf-reapi-rocm-worker"],
+	"ip": ["tcp:8981"]
 }]
