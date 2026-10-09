@@ -223,6 +223,10 @@ let grants
           [ C.tag.gf_reapi_cell_egress ]
           [ C.tag.gf_reapi_linux_worker ]
           [ "tcp:8981" ]
+      , G.net
+          [ C.tag.gf_reapi_cell_egress ]
+          [ C.tag.gf_reapi_rocm_worker ]
+          [ "tcp:8981" ]
       ]
 
 in  { grants }
