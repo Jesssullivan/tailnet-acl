@@ -376,7 +376,8 @@ class PolicyContractTest(unittest.TestCase):
                 "tag:tinyland-lab-ci-ephemeral", "tag:tinyland-lab-nix-target",
                 "tag:rj-gateway", "tag:setec", "tag:ci-agent", "tag:kvm-proxy",
                 "tag:tag-authority", "tag:gftb-idp", "tag:tofu-state", "tag:infra-idp",
-                "tag:interim-build", "tag:honey-relay",
+                "tag:interim-build", "tag:honey-relay", "tag:gf-reapi-cell-egress",
+                "tag:gf-reapi-linux-worker",
             },
         )
         for row in self.policy["nodeAttrs"]:
@@ -443,6 +444,39 @@ class PolicyContractTest(unittest.TestCase):
             self.assertNotIn(tag, rule["src"] + rule["dst"])
         self.assertFalse(any(tag in tags for tags in self.policy["autoApprovers"]["routes"].values()))
         self.assertNotIn(tag, self.policy["autoApprovers"].get("exitNode", []))
+
+    def test_gf_reapi_linux_leaf_route_is_single_port_and_tag_scoped(self) -> None:
+        # TIN-5694 R-W5-20261008: the gf-rbe cell's operator egress proxy
+        # dials off-prem REAPI WorkerLeaves on 8981 only. Leaf keys are minted
+        # per instance by the tag authority, never by the k8s operator.
+        self.assertEqual(
+            self.policy["tagOwners"]["tag:gf-reapi-cell-egress"],
+            ["tag:k8s-operator", "autogroup:admin", "group:dollhouse-admins"],
+        )
+        self.assertEqual(
+            self.policy["tagOwners"]["tag:gf-reapi-linux-worker"],
+            ["tag:tag-authority", "autogroup:admin", "group:dollhouse-admins"],
+        )
+        route_tags = ("tag:gf-reapi-cell-egress", "tag:gf-reapi-linux-worker")
+        references = [
+            (surface, rule)
+            for surface in ("acls", "grants", "ssh")
+            for rule in self.policy[surface]
+            if any(
+                endpoint == tag or endpoint.startswith(f"{tag}:")
+                for key in ("src", "dst")
+                for endpoint in rule.get(key, [])
+                for tag in route_tags
+            )
+        ]
+        self.assertEqual(
+            references,
+            [("grants", {
+                "src": ["tag:gf-reapi-cell-egress"],
+                "dst": ["tag:gf-reapi-linux-worker"],
+                "ip": ["tcp:8981"],
+            })],
+        )
 
     def test_existing_loki_alias_writer_rule_is_kept_for_now(self) -> None:
         # Retired only after the tag-scoped writer grant is confirmed live.
