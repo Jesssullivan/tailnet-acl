@@ -197,6 +197,12 @@ class PolicyContractTest(unittest.TestCase):
         }
         self.assertNotIn(broad_rule, self.policy["acls"])
 
+    def test_dollhouse_reaches_k8s_https_443_only_for_loki_push_r_w52(self) -> None:
+        # R-W52 (TIN-5694, TIN-5150, blahaj #2088): tag:dollhouse nodes (honey)
+        # reach HTTPS services on tag:k8s, e.g. loki-push.taila4c78d.ts.net.
+        rule = {"action": "accept", "src": ["tag:dollhouse"], "dst": ["tag:k8s:443"]}
+        self.assertEqual(self.policy["acls"].count(rule), 1)
+
     # TIN-4670: raw Loki (3100) and Tempo (3200) on the observability proxies
     # are read only by group:dollhouse-admins and tag:mcp-proxy; Grafana stays
     # the human surface. The proxies carry tag:mcp-proxy alone (operator-side

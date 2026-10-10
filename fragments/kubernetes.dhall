@@ -33,6 +33,10 @@ let aclsLate
           ]
         }
       , { action = "accept"
+        , src = [ C.tag.dollhouse ]
+        , dst = [ "${C.tag.k8s}:443" ]
+        }
+      , { action = "accept"
         , src = [ C.group.dollhouse_admins, C.tag.k8s ]
         , dst = [ "${C.tag.tsidp}:*" ]
         }
