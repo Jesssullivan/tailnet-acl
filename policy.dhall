@@ -36,6 +36,8 @@ let ssh = ./fragments/ssh.dhall
 
 let grants = ./fragments/grants.dhall
 
+let tests = ./fragments/tests.dhall
+
 let G = ./types/Grant.dhall
 
 let allACLs =
@@ -88,4 +90,5 @@ in  { groups = core.groups
     , nodeAttrs = allNodeAttrs
     , autoApprovers
     , hosts = aperture.hosts # kubernetes.hosts
+    , tests = tests.tests
     }

@@ -1,5 +1,21 @@
 -- Typed grants. Ported 1:1 from the former raw grants.json; order is
 -- significant (it is the order in the rendered policy).
+--
+-- tailscale.com/cap/kubernetes (R-C557/R-C558, TIN-6192 comment 94eb75c0).
+-- honey's operator API server proxy (ts-operator-honey, tag:k8s-operator,
+-- :443) reads this cap from WhoIs of the CALLER, so a cap reaches it only
+-- through a grant with src = caller and dst = proxy tag (upstream shape:
+-- tailscale cmd/k8s-operator/e2e/acl.hujson). Both rows are inert until
+-- blahaj sets apiServerProxyConfig.mode to "true" (auth mode).
+--   * system:masters, R-C558 "Narrow it (Recommended)": narrowed from
+--     group:dollhouse-admins to the operator's own login. Its direction is
+--     unchanged and is the reverse of the proxy shape, so it gives no caller
+--     system:masters through the proxy. Turning it around would open a new
+--     admin path and needs its own ruling.
+--   * adi-sms-deployers, R-C557 "Tailscale API proxy, auth mode
+--     (Recommended)": tag:tinyland-lab-ci-ephemeral reaches tag:k8s-operator
+--     on tcp:443 only and is impersonated as that one group, which blahaj
+--     binds by a RoleBinding in namespace adi-sms only.
 let C = ../constants.dhall
 
 let G = ../types/Grant.dhall
@@ -53,7 +69,7 @@ let grants
           ]
       , G.cap
           [ C.tag.k8s_operator ]
-          [ C.group.dollhouse_admins ]
+          [ C.user.jess_sulliwood ]
           [ G.Cap.Kubernetes { impersonateGroups = [ "system:masters" ] } ]
       , G.cap
           [ C.autogroup.member ]
@@ -227,6 +243,12 @@ let grants
           [ C.tag.gf_reapi_cell_egress ]
           [ C.tag.gf_reapi_rocm_worker ]
           [ "tcp:8981" ]
+      , { src = [ C.tag.tinyland_lab_ci_ephemeral ]
+        , dst = [ C.tag.k8s_operator ]
+        , ip = Some [ "tcp:443" ]
+        , app = Some
+          [ G.Cap.Kubernetes { impersonateGroups = [ "adi-sms-deployers" ] } ]
+        }
       ]
 
 in  { grants }

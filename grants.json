@@ -37,7 +37,7 @@
 			"subject": "16908883666124"
 		}
 	}]}
-}, {"src": ["tag:k8s-operator"], "dst": ["group:dollhouse-admins"], "app": {
+}, {"src": ["tag:k8s-operator"], "dst": ["jess@sulliwood.org"], "app": {
 	"tailscale.com/cap/kubernetes": [{"impersonate": {"groups": ["system:masters"]}}]
 }}, {
 	"src": ["autogroup:member"],
@@ -193,4 +193,9 @@
 	"src": ["tag:gf-reapi-cell-egress"],
 	"dst": ["tag:gf-reapi-rocm-worker"],
 	"ip": ["tcp:8981"]
+}, {
+	"src": ["tag:tinyland-lab-ci-ephemeral"],
+	"dst": ["tag:k8s-operator"],
+	"app": {"tailscale.com/cap/kubernetes": [{"impersonate": {"groups": ["adi-sms-deployers"]}}]},
+	"ip": ["tcp:443"]
 }]

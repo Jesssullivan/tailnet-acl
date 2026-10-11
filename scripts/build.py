@@ -26,11 +26,13 @@ TOP_LEVEL_KEY_ORDER = [
     "nodeAttrs",
     "autoApprovers",
     "hosts",
+    "tests",
 ]
 
 ACL_RULE_KEY_ORDER = ["action", "src", "dst"]
 SSH_RULE_KEY_ORDER = ["action", "src", "dst", "users"]
 GRANT_KEY_ORDER = ["src", "dst", "app", "ip"]
+TEST_KEY_ORDER = ["src", "proto", "accept", "deny"]
 
 
 def ordered_dict(d: dict, key_order: list[str]) -> dict:
@@ -60,6 +62,8 @@ def reorder_policy(policy: dict) -> dict:
             value = [ordered_dict(r, SSH_RULE_KEY_ORDER) for r in value]
         elif key == "grants":
             value = [ordered_dict(r, GRANT_KEY_ORDER) for r in value]
+        elif key == "tests":
+            value = [ordered_dict(r, TEST_KEY_ORDER) for r in value]
 
         result[key] = value
 
