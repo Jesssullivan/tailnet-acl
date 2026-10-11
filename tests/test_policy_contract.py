@@ -930,5 +930,141 @@ class PolicyContractTest(unittest.TestCase):
             ],
         )
 
+    # R-C557/R-C558 (TIN-6192 comment 94eb75c0). honey's Tailscale operator
+    # API server proxy (ts-operator-honey, tag:k8s-operator, listening on
+    # :443) reads tailscale.com/cap/kubernetes from WhoIs of the caller, so a
+    # cap only reaches the proxy through a grant whose src is the caller and
+    # whose dst is the proxy tag. Both rows below are inert until blahaj sets
+    # apiServerProxyConfig.mode to "true" (auth mode).
+    K8S_CAP = "tailscale.com/cap/kubernetes"
+    CI_EPHEMERAL = "tag:tinyland-lab-ci-ephemeral"
+    K8S_OPERATOR = "tag:k8s-operator"
+
+    def _kubernetes_cap_grants(self) -> list:
+        return [row for row in self.policy["grants"] if self.K8S_CAP in row.get("app", {})]
+
+    def test_kubernetes_cap_grants_are_exactly_the_narrowed_admin_and_ci_rows(self) -> None:
+        self.assertEqual(
+            self._kubernetes_cap_grants(),
+            [
+                {
+                    "src": [self.K8S_OPERATOR],
+                    "dst": ["jess@sulliwood.org"],
+                    "app": {self.K8S_CAP: [{"impersonate": {"groups": ["system:masters"]}}]},
+                },
+                {
+                    "src": [self.CI_EPHEMERAL],
+                    "dst": [self.K8S_OPERATOR],
+                    "app": {self.K8S_CAP: [{"impersonate": {"groups": ["adi-sms-deployers"]}}]},
+                    "ip": ["tcp:443"],
+                },
+            ],
+        )
+
+    def test_system_masters_is_never_granted_to_a_proxy_caller(self) -> None:
+        # R-C558: no identity, group or tag gets system:masters through the
+        # proxy. The remaining row is narrowed to the operator's own login and
+        # has the proxy tag as src, so WhoIs of a caller never carries it.
+        masters = [
+            row for row in self._kubernetes_cap_grants()
+            if any("system:masters" in (rule.get("impersonate") or {}).get("groups", [])
+                   for rule in row["app"][self.K8S_CAP])
+        ]
+        self.assertEqual(len(masters), 1)
+        self.assertEqual(masters[0]["src"], [self.K8S_OPERATOR])
+        self.assertEqual(masters[0]["dst"], ["jess@sulliwood.org"])
+        for row in masters:
+            self.assertNotIn(self.K8S_OPERATOR, row["dst"])
+            self.assertFalse([d for d in row["dst"] if d.startswith(("group:", "tag:", "autogroup:"))])
+            self.assertNotIn("group:dollhouse-admins", row["src"] + row["dst"])
+
+    def test_ci_proxy_grant_is_tcp_443_and_one_namespaced_group(self) -> None:
+        # R-C557: the CI tag reaches the proxy on tcp:443 only, impersonated
+        # as adi-sms-deployers only, and no other surface gives it the proxy
+        # tag, the cap, or a new destination.
+        ci_rows = [
+            (surface, row)
+            for surface in ("acls", "grants", "ssh")
+            for row in self.policy[surface]
+            if self.CI_EPHEMERAL in row["src"]
+        ]
+        self.assertEqual(
+            ci_rows,
+            [
+                ("acls", {
+                    "action": "accept",
+                    "src": [self.CI_EPHEMERAL, "tag:tinyland-lab-deploy"],
+                    "dst": ["tag:dev:22", "tag:tinyland-lab-common:22"],
+                }),
+                ("acls", {"action": "accept", "src": [self.CI_EPHEMERAL], "dst": ["tag:dev:*"]}),
+                ("grants", {
+                    "src": [self.CI_EPHEMERAL],
+                    "dst": [self.K8S_OPERATOR],
+                    "app": {self.K8S_CAP: [{"impersonate": {"groups": ["adi-sms-deployers"]}}]},
+                    "ip": ["tcp:443"],
+                }),
+                ("ssh", {
+                    "action": "accept",
+                    "src": [self.CI_EPHEMERAL, "tag:tinyland-lab-deploy"],
+                    "dst": ["tag:dev", "tag:tinyland-lab-common"],
+                    "users": ["jsullivan2", "jess", "autogroup:nonroot"],
+                }),
+            ],
+        )
+        self.assertFalse(any(self.CI_EPHEMERAL in row["dst"] for row in self.policy["grants"]))
+
+    def test_only_operator_user_groups_and_the_ci_tag_reach_the_proxy_tag(self) -> None:
+        # blahaj condition 5 (TIN-6192 2e02c184): no broader rule already
+        # reaches tag:k8s-operator. Tagged callers without a cap would be
+        # impersonated with their tags as groups, so any new tagged source
+        # here needs its own review.
+        reaching = []
+        for surface in ("acls", "grants"):
+            for row in self.policy[surface]:
+                if any(d == self.K8S_OPERATOR or d.startswith(self.K8S_OPERATOR + ":") or d.startswith("*")
+                       for d in row["dst"]):
+                    reaching.append((surface, row["src"]))
+        self.assertEqual(
+            reaching,
+            [
+                ("acls", ["group:dollhouse-admins", "group:dollhouse-users"]),
+                ("grants", [self.CI_EPHEMERAL]),
+            ],
+        )
+
+    def test_policy_tests_pin_ci_proxy_reach_and_closed_apiserver_hosts(self) -> None:
+        tests = self.policy["tests"]
+        self.assertEqual(
+            tests,
+            [
+                {
+                    "src": self.CI_EPHEMERAL,
+                    "proto": "tcp",
+                    "accept": ["tag:k8s-operator:443", "tag:dev:22"],
+                    "deny": [
+                        "tinyland-honey:6443",
+                        "tinyland-honey:443",
+                        "tinyland-bumble:6443",
+                        "tinyland-sting:6443",
+                    ],
+                },
+                {
+                    "src": "tag:tinyland-lab-deploy",
+                    "proto": "tcp",
+                    "accept": ["tag:dev:22"],
+                    "deny": ["tag:k8s-operator:443", "tinyland-honey:6443"],
+                },
+            ],
+        )
+        # Every field is set, so the post-write read-back cannot drop an
+        # empty key and change the canonical digest.
+        for entry in tests:
+            self.assertEqual(set(entry), {"src", "proto", "accept", "deny"})
+            self.assertTrue(entry["accept"] and entry["deny"])
+        hosts = self.policy["hosts"]
+        for name in ("tinyland-honey", "tinyland-bumble", "tinyland-sting"):
+            self.assertIn(name, hosts)
+
+
 if __name__ == "__main__":
     unittest.main()

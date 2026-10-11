@@ -18,6 +18,8 @@ let AutoApprovers =
 
 let Host = { mapKey : Text, mapValue : Text }
 
+let ACLTest = { src : Text, proto : Text, accept : List Text, deny : List Text }
+
 let Group = { mapKey : Text, mapValue : List Text }
 
 let TagOwner = { mapKey : Text, mapValue : List Text }
@@ -56,6 +58,7 @@ in  { ACLRule
     , NodeAttr
     , AutoApprovers
     , Host
+    , ACLTest
     , Group
     , TagOwner
     , Fragment
