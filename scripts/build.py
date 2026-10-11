@@ -11,6 +11,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import kubernetes_cap
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 POLICY_DHALL = REPO_ROOT / "policy.dhall"
 OUTPUT_DIR = REPO_ROOT / "generated"
@@ -118,6 +120,14 @@ def main() -> int:
         if "users" not in rule:
             print(f"ERROR: SSH rule missing 'users' field: {rule}", file=sys.stderr)
             return 1
+
+    # tailscale.com/cap/kubernetes contract (scripts/kubernetes_cap.py): no
+    # legacy https:// name, and every value strictly matches the admitted shape.
+    cap_problems = kubernetes_cap.violations(policy)
+    if cap_problems:
+        for problem in cap_problems:
+            print(f"ERROR: kubernetes cap: {problem}", file=sys.stderr)
+        return 1
 
     # Step 4: Reorder keys for readability
     policy = reorder_policy(policy)

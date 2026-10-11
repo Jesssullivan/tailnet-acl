@@ -5,6 +5,7 @@ import json
 import sys
 
 from acl_validate import validate_candidate
+from kubernetes_cap import require_compliant
 from github_oidc import resolve_oidc, trusted_context
 from policy_api import fetch_live_acl
 from policy_source import PolicyError, ROOT, _run, canonical_digest, compile_revision, public_summary
@@ -22,6 +23,7 @@ def run(role, context_only=False):
           baseline_ref, candidate_ref], ROOT)
     baseline = compile_revision(baseline_ref)
     candidate = compile_revision(candidate_ref)
+    require_compliant(candidate)
     bearer = resolve_oidc(role)
     if role == "writer":
         promote(bearer, candidate, canonical_digest(baseline), canonical_digest(candidate))

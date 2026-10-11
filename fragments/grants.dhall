@@ -17,6 +17,12 @@
 --     jess@sulliwood.org row that R-C558 had narrowed. Cluster-admin stays
 --     on direct :6443 with a kubeconfig; the proxy serves only scoped CI
 --     groups.
+--   * Every value is held to scripts/kubernetes_cap.py (R-C562 follow-up,
+--     TIN-6192 comments 789060b4 and 7fdfcb61): never the legacy
+--     https://tailscale.com/cap/kubernetes name, and only
+--     [{"impersonate": {"groups": [<non-system groups>]}}]. Upstream v1.102.4
+--     forwards as the operator ServiceAccount when a value fails to decode.
+--     `just build`, the trusted CI driver and push.py all refuse otherwise.
 let C = ../constants.dhall
 
 let G = ../types/Grant.dhall
