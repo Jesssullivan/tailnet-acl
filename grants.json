@@ -37,9 +37,7 @@
 			"subject": "16908883666124"
 		}
 	}]}
-}, {"src": ["tag:k8s-operator"], "dst": ["jess@sulliwood.org"], "app": {
-	"tailscale.com/cap/kubernetes": [{"impersonate": {"groups": ["system:masters"]}}]
-}}, {
+}, {
 	"src": ["autogroup:member"],
 	"dst": ["tag:rj-gateway"],
 	"app": {"tinyland.dev/cap/rj-gateway": [{"role": "reader"}]}
