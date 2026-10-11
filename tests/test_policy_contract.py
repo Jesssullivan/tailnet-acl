@@ -1,4 +1,5 @@
 import ipaddress
+import json
 import unittest
 import sys
 from pathlib import Path
@@ -930,11 +931,12 @@ class PolicyContractTest(unittest.TestCase):
             ],
         )
 
-    # R-C557/R-C558 (TIN-6192 comment 94eb75c0). honey's Tailscale operator
-    # API server proxy (ts-operator-honey, tag:k8s-operator, listening on
-    # :443) reads tailscale.com/cap/kubernetes from WhoIs of the caller, so a
-    # cap only reaches the proxy through a grant whose src is the caller and
-    # whose dst is the proxy tag. Both rows below are inert until blahaj sets
+    # R-C557 (TIN-6192 comment 94eb75c0) and R-C560 (TIN-6192 comment
+    # aa9f7910). honey's Tailscale operator API server proxy
+    # (ts-operator-honey, tag:k8s-operator, listening on :443) reads
+    # tailscale.com/cap/kubernetes from WhoIs of the caller, so a cap only
+    # reaches the proxy through a grant whose src is the caller and whose dst
+    # is the proxy tag. The CI row below is inert until blahaj sets
     # apiServerProxyConfig.mode to "true" (auth mode).
     K8S_CAP = "tailscale.com/cap/kubernetes"
     CI_EPHEMERAL = "tag:tinyland-lab-ci-ephemeral"
@@ -943,15 +945,13 @@ class PolicyContractTest(unittest.TestCase):
     def _kubernetes_cap_grants(self) -> list:
         return [row for row in self.policy["grants"] if self.K8S_CAP in row.get("app", {})]
 
-    def test_kubernetes_cap_grants_are_exactly_the_narrowed_admin_and_ci_rows(self) -> None:
+    def test_kubernetes_cap_grants_are_exactly_the_ci_row(self) -> None:
+        # R-C560 "Delete it (Recommended)": the reversed system:masters row is
+        # gone, so the CI grant (R-C557, R-C561 "Keep the tag") is the only
+        # kubernetes-cap grant.
         self.assertEqual(
             self._kubernetes_cap_grants(),
             [
-                {
-                    "src": [self.K8S_OPERATOR],
-                    "dst": ["jess@sulliwood.org"],
-                    "app": {self.K8S_CAP: [{"impersonate": {"groups": ["system:masters"]}}]},
-                },
                 {
                     "src": [self.CI_EPHEMERAL],
                     "dst": [self.K8S_OPERATOR],
@@ -961,22 +961,12 @@ class PolicyContractTest(unittest.TestCase):
             ],
         )
 
-    def test_system_masters_is_never_granted_to_a_proxy_caller(self) -> None:
-        # R-C558: no identity, group or tag gets system:masters through the
-        # proxy. The remaining row is narrowed to the operator's own login and
-        # has the proxy tag as src, so WhoIs of a caller never carries it.
-        masters = [
-            row for row in self._kubernetes_cap_grants()
-            if any("system:masters" in (rule.get("impersonate") or {}).get("groups", [])
-                   for rule in row["app"][self.K8S_CAP])
-        ]
-        self.assertEqual(len(masters), 1)
-        self.assertEqual(masters[0]["src"], [self.K8S_OPERATOR])
-        self.assertEqual(masters[0]["dst"], ["jess@sulliwood.org"])
-        for row in masters:
-            self.assertNotIn(self.K8S_OPERATOR, row["dst"])
-            self.assertFalse([d for d in row["dst"] if d.startswith(("group:", "tag:", "autogroup:"))])
-            self.assertNotIn("group:dollhouse-admins", row["src"] + row["dst"])
+    def test_no_grant_carries_system_masters(self) -> None:
+        # R-C560: cluster-admin stays on direct :6443 with a kubeconfig. No
+        # grant on any surface, in any direction or cap, names system:masters.
+        for row in self.policy["grants"]:
+            self.assertNotIn("system:masters", json.dumps(row), row)
+        self.assertNotIn("system:masters", json.dumps(self.policy))
 
     def test_ci_proxy_grant_is_tcp_443_and_one_namespaced_group(self) -> None:
         # R-C557: the CI tag reaches the proxy on tcp:443 only, impersonated
