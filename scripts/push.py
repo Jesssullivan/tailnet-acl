@@ -7,6 +7,7 @@ import os
 import sys
 
 from acl_validate import validate_candidate
+from kubernetes_cap import require_compliant
 from policy_api import fetch_live_acl, push_acl, strong_etag
 from policy_source import PolicyError, canonical_digest, compile_revision, head_revision, public_summary, require_digest, require_revision
 from ts_auth import resolve_bearer
@@ -53,6 +54,7 @@ def main():
     try:
         revision = require_revision(args.candidate_ref) if args.candidate_ref is not None else head_revision()
         candidate = compile_revision(revision)
+        require_compliant(candidate)
         if args.baseline_ref is not None:
             if args.expected_live_sha256 or args.expected_policy_sha256:
                 raise PolicyError("choose source revisions or explicit digests, not both")
