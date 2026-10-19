@@ -113,6 +113,10 @@
 	"dst": ["tinyland-relay-1", "tinyland-petting-zoo-mini", "tinyland-neo"],
 	"ip": ["tcp:9100"]
 }, {
+	"src": ["tinyland-relay-1"],
+	"dst": ["tinyland-loki-push"],
+	"ip": ["tcp:443"]
+}, {
 	"src": ["tag:dollhouse"],
 	"dst": ["tag:dollhouse"],
 	"app": {"tailscale.com/cap/relay": [{}]}

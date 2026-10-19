@@ -23,6 +23,16 @@
 --     [{"impersonate": {"groups": [<non-system groups>]}}]. Upstream v1.102.4
 --     forwards as the operator ServiceAccount when a value fails to decode.
 --     `just build`, the trusted CI driver and push.py all refuse otherwise.
+--
+-- Relay log shipper (TIN-6746 P4, blahaj relay-log-shipper runbook): the
+-- public MX relay-1 pushes its journal, fail2ban and nginx logs to the
+-- write-only loki-push Tailscale ingress (tag:k8s device 100.85.50.69,
+-- blahaj deploy/honey/retained-observability-tailnet-services.yaml) on
+-- tcp:443 only. relay-1 is tag:dollhouse today, so R-W52's
+-- tag:dollhouse -> tag:k8s:443 already admits it; this exact host-to-host
+-- grant keeps the shipper working if the relay's tag is ever narrowed, and
+-- names the dependency. Pinned by tests/test_policy_contract.py and by a
+-- policy test in fragments/tests.dhall.
 let C = ../constants.dhall
 
 let G = ../types/Grant.dhall
@@ -162,6 +172,7 @@ let grants
           [ C.tag.k8s_egress_nodeexporter ]
           [ "tinyland-relay-1", "tinyland-petting-zoo-mini", "tinyland-neo" ]
           [ "tcp:9100" ]
+      , G.net [ "tinyland-relay-1" ] [ "tinyland-loki-push" ] [ "tcp:443" ]
       , G.cap [ C.tag.dollhouse ] [ C.tag.dollhouse ] [ G.Cap.Relay ]
       , G.cap [ C.tag.interim_build ] [ C.tag.honey_relay ] [ G.Cap.Relay ]
       , G.net

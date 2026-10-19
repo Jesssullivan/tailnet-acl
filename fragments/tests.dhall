@@ -9,6 +9,9 @@
 -- are pinned by tests/test_policy_contract.py.
 --
 -- R-C557/R-C558 (TIN-6192 comment 94eb75c0).
+--
+-- TIN-6746 P4: the public MX relay-1 reaches the write-only loki-push ingress
+-- on 443 and never Loki's raw 3100 (read and write) on either proxy.
 let T = ../types/ACL.dhall
 
 let C = ../constants.dhall
@@ -29,6 +32,12 @@ let tests
         , proto = "tcp"
         , accept = [ "${C.tag.dev}:22" ]
         , deny = [ "${C.tag.k8s_operator}:443", "tinyland-honey:6443" ]
+        }
+      , { src = "tinyland-relay-1"
+        , proto = "tcp"
+        , accept = [ "tinyland-loki-push:443" ]
+        , deny =
+          [ "tinyland-loki-push:3100", "tinyland-loki-observability:3100" ]
         }
       ]
 

@@ -76,6 +76,7 @@ let host =
       , bumble = "100.88.101.107"
       , sting = "100.85.46.118"
       , loki_observability = "100.64.15.87"
+      , loki_push = "100.85.50.69"
       , grafana_observability = "100.74.127.80"
       , relay_1 = "100.102.229.122"
       , petting_zoo_mini = "100.111.5.80"

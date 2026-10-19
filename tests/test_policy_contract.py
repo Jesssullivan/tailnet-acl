@@ -204,6 +204,29 @@ class PolicyContractTest(unittest.TestCase):
         rule = {"action": "accept", "src": ["tag:dollhouse"], "dst": ["tag:k8s:443"]}
         self.assertEqual(self.policy["acls"].count(rule), 1)
 
+    # TIN-6746 P4: the public MX relay-1 ships its journal, fail2ban and nginx
+    # logs to the write-only loki-push ingress. The grant names exactly that
+    # one device and tcp:443, so a later narrowing of the relay's tag cannot
+    # silently cut the shipper, and the relay gains nothing else from it.
+    RELAY_LOKI_PUSH_GRANT = {
+        "src": ["tinyland-relay-1"], "dst": ["tinyland-loki-push"], "ip": ["tcp:443"],
+    }
+
+    def test_relay_reaches_only_loki_push_443_through_its_own_grant(self) -> None:
+        self.assertEqual(self.policy["hosts"]["tinyland-loki-push"], "100.85.50.69")
+        self.assertEqual(self.policy["hosts"]["tinyland-relay-1"], "100.102.229.122")
+        self.assertEqual(
+            [grant for grant in self.policy["grants"] if "tinyland-relay-1" in grant["src"]],
+            [self.RELAY_LOKI_PUSH_GRANT],
+        )
+        self.assertEqual(
+            [grant for grant in self.policy["grants"] if "tinyland-loki-push" in grant["dst"]],
+            [self.RELAY_LOKI_PUSH_GRANT],
+        )
+        for rule in self.policy["acls"]:
+            self.assertNotIn("tinyland-relay-1", rule["src"], rule)
+            self.assertFalse(any(d.startswith("tinyland-loki-push:") for d in rule["dst"]), rule)
+
     # TIN-4670: raw Loki (3100) and Tempo (3200) on the observability proxies
     # are read only by group:dollhouse-admins and tag:mcp-proxy; Grafana stays
     # the human surface. The proxies carry tag:mcp-proxy alone (operator-side
@@ -1043,6 +1066,13 @@ class PolicyContractTest(unittest.TestCase):
                     "proto": "tcp",
                     "accept": ["tag:dev:22"],
                     "deny": ["tag:k8s-operator:443", "tinyland-honey:6443"],
+                },
+                # TIN-6746 P4: write-only push path, never Loki's raw 3100.
+                {
+                    "src": "tinyland-relay-1",
+                    "proto": "tcp",
+                    "accept": ["tinyland-loki-push:443"],
+                    "deny": ["tinyland-loki-push:3100", "tinyland-loki-observability:3100"],
                 },
             ],
         )
