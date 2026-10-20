@@ -23,6 +23,15 @@
 --     [{"impersonate": {"groups": [<non-system groups>]}}]. Upstream v1.102.4
 --     forwards as the operator ServiceAccount when a value fails to decode.
 --     `just build`, the trusted CI driver and push.py all refuse otherwise.
+--
+-- tag:printstack (R-GOLIVE-20261020-c, TIN-6787; xoxd-ai/printstack STAGED.md
+-- D7). Two rows, tcp:443 only:
+--   * the printstack-mbp13 egress proxy reaches mbp-13's `tailscale serve`
+--     on 443, never Moonraker or ssh;
+--   * the operator's devices (group:dollhouse-admins) and the agent seats
+--     neo, sting and petting-zoo-mini reach the printstack-vision and
+--     printstack-mcp Ingress proxies on 443. Seats are named by host because
+--     they are tagged devices that no group matches.
 let C = ../constants.dhall
 
 let G = ../types/Grant.dhall
@@ -252,6 +261,15 @@ let grants
         , app = Some
           [ G.Cap.Kubernetes { impersonateGroups = [ "adi-sms-deployers" ] } ]
         }
+      , G.net [ C.tag.printstack ] [ "tinyland-mbp-13" ] [ "tcp:443" ]
+      , G.net
+          [ C.group.dollhouse_admins
+          , "tinyland-neo"
+          , "tinyland-sting"
+          , "tinyland-petting-zoo-mini"
+          ]
+          [ C.tag.printstack ]
+          [ "tcp:443" ]
       ]
 
 in  { grants }
