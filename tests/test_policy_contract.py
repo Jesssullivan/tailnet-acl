@@ -331,9 +331,17 @@ class PolicyContractTest(unittest.TestCase):
         loki_writer_service_grant = {
             "src": self.LOKI_WRITERS, "dst": ["svc:o11y-loki"], "ip": ["tcp:3100"],
         }
+        # R-GOLIVE-20261020-c (TIN-6787) adds one source row: petting-zoo-mini
+        # is an agent seat and reaches the printstack Ingress proxies on
+        # tcp:443 only.
+        printstack_seat_grant = {
+            "src": ["group:dollhouse-admins"] + self.PRINTSTACK_SEATS,
+            "dst": [self.PRINTSTACK],
+            "ip": ["tcp:443"],
+        }
         self.assertEqual(
             [grant for grant in self.policy["grants"] if alias in grant["src"]],
-            [self.LOKI_WRITER_GRANT, loki_writer_service_grant],
+            [self.LOKI_WRITER_GRANT, loki_writer_service_grant, printstack_seat_grant],
         )
         self.assertEqual(
             [grant for grant in self.policy["grants"] if alias in grant["dst"]],
