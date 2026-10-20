@@ -95,6 +95,7 @@ let hosts
         , mapValue = C.host.mcp_paper_search
         }
       , { mapKey = "tinyland-mcp-wikipedia", mapValue = C.host.mcp_wikipedia }
+      , { mapKey = "tinyland-mbp-13", mapValue = C.host.mbp_13 }
       ]
 
 in  { aclsEarly, aclsLate, hosts }

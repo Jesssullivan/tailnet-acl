@@ -51,6 +51,20 @@ let tests
         , accept = [ "${C.tag.dev}:22" ]
         , deny = [ "${C.tag.k8s_operator}:443", "tinyland-honey:6443" ]
         }
+      , { src = C.tag.printstack
+        , proto = "tcp"
+        , accept = [ "tinyland-mbp-13:443" ]
+        , deny =
+          [ "tinyland-mbp-13:7125"
+          , "tinyland-mbp-13:22"
+          , "tinyland-honey:6443"
+          ]
+        }
+      , { src = C.user.jess_sulliwood
+        , proto = "tcp"
+        , accept = [ "${C.tag.printstack}:443" ]
+        , deny = [ "${C.tag.printstack}:22" ]
+        }
       , { src = C.tag.mx_relay
         , proto = "tcp"
         , accept =

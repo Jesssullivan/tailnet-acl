@@ -13,6 +13,13 @@
 -- devices). Admin-only owner, like tag:gftb-probe, so no tagged device can
 -- mint it next to another tag.
 --
+-- tag:printstack (R-GOLIVE-20261020-c, operator 2026-10-20, Linear TIN-6787,
+-- verbatim: "Approve the tag:printstack ACL change"): the honey Tailscale
+-- operator mints the printstack-vision and printstack-mcp Ingress proxies and
+-- the printstack-mbp13 egress proxy with it (xoxd-ai/printstack
+-- deploy/k8s/*, STAGED.md D7). Owned like tag:mcp-proxy, by tag:k8s-operator
+-- plus the admins; tag:k8s-operator itself is not broadened.
+--
 -- tag:mx-relay: the public MX relay-1 alone (R-C1011, TIN-5770 comment
 -- 86411716, from the R-C965 exploration). It replaces tag:dollhouse on that
 -- one device so the MX leaves the dollhouse mesh (tag:dollhouse:*) and the
@@ -171,6 +178,10 @@ let tagOwners
       , { mapKey = C.tag.gftb_idp, mapValue = [ C.autogroup.admin ] }
       , { mapKey = C.tag.infra_idp, mapValue = [ C.autogroup.admin ] }
       , { mapKey = C.tag.tofu_state
+        , mapValue =
+          [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
+        }
+      , { mapKey = C.tag.printstack
         , mapValue =
           [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
         }
