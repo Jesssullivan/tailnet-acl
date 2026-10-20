@@ -33,15 +33,30 @@
 --   * honey -> relay on tcp 22 (offsite-irreplaceable push, OpenSSH; the
 --     relay does not run Tailscale SSH), 25 (postfix relayhost), 9100 and
 --     9154 (prometheus-mail scrapes, honey pod SNAT).
---   * neo and group:dollhouse-admins (the operator's untagged devices,
---     break-glass) -> relay on tcp 22 only.
+--   * neo and group:dollhouse-admins -> relay on tcp 22 only. The group row
+--     IS the untagged break-glass path: a group source matches only untagged
+--     devices owned by its members, so R-C1011's "dollhouse-admins" and
+--     "untagged break-glass" sources collapse into one row on purpose.
 --   * relay -> honey on tcp 25 (inbound transport) and 465 (Gmail send-as).
 --   * relay -> the write-only loki-push ingress on tcp 443 (the relay log
 --     shipper, TIN-6746 P4; this supersedes tailnet-acl#55, R-C964).
--- Retired: no grant lets neo, sting or bumble reach relay:25; tailnet SMTP
--- probes run from honey or relay loopback. tag:mx-relay has no SSH rule,
--- nodeAttr or autoApprover. Pinned by tests/test_policy_contract.py and by
--- policy tests in fragments/tests.dhall.
+-- Retired: no grant lets neo, sting or bumble reach relay:25. SMTP probes go
+-- through honey's postfix (inject with sendmail/postdrop in postfix-0; lab's
+-- F7 fence admits relay:25 from socket uid 89 only and drops honey's pod
+-- CIDR) or run on relay loopback. tag:mx-relay has no SSH rule, nodeAttr or
+-- autoApprover (Tailscale SSH stays off on the relay; R-C1016 keeps its
+-- local AdvertiseTags until the next rebuild).
+-- Kept on purpose, outside R-C1011's list (flagged for the operator):
+-- tag:k8s-egress-nodeexporter -> tinyland-relay-1:9100 above, the existing
+-- observability Prometheus node-exporter scrape through the egress proxy
+-- (TIN-4324). It keys on the relay alias, so it survives the retag
+-- unchanged; keeping it changes nothing.
+-- IPv4 only: the tinyland-* host aliases are IPv4 literals, so the honey,
+-- neo and loki-push ends of these rows admit IPv4 only. Every client of
+-- these flows dials an IPv4 literal; a client pointed at a MagicDNS name
+-- (AAAA first) would time out, and that is not an ACL bug.
+-- tag:dollhouse and its rules are out of scope here (R-C1017). Pinned by
+-- tests/test_policy_contract.py and by policy tests in fragments/tests.dhall.
 let C = ../constants.dhall
 
 let G = ../types/Grant.dhall

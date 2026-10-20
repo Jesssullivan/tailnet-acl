@@ -243,6 +243,12 @@ class PolicyContractTest(unittest.TestCase):
             "tinyland-neo:22", "tinyland-petting-zoo-mini:22",
             "tinyland-loki-push:3100", "tinyland-loki-observability:3100",
             "tag:dollhouse:22", "tag:dollhouse:6443",
+            # The wider reach the retag removes. No tag:k8s:443 deny:
+            # loki-push is tag:k8s and granted on 443, so named tag:k8s hosts
+            # stand in for it.
+            "tag:k8s:6443", "tag:k8s-operator:443",
+            "tinyland-mcp-arxiv:443", "tinyland-neo:443",
+            "ai:443", "192.168.30.105:22",
         ],
     }
     HONEY_TO_RELAY_POLICY_TEST = {
@@ -254,10 +260,35 @@ class PolicyContractTest(unittest.TestCase):
         ],
         "deny": ["tinyland-loki-push:3100"],
     }
+    # The operator :22 paths, before the retag (dollhouse mesh) and after it
+    # (the neo and group:dollhouse-admins rows). A user source is an untagged
+    # device of that user, which is the break-glass path.
+    NEO_TO_RELAY_POLICY_TEST = {
+        "src": "tinyland-neo",
+        "proto": "tcp",
+        "accept": ["tinyland-relay-1:22"],
+        "deny": ["tinyland-loki-observability:22"],
+    }
+    ADMIN_USER_TO_RELAY_POLICY_TEST = {
+        "src": "jess@sulliwood.org",
+        "proto": "tcp",
+        "accept": ["tinyland-relay-1:22"],
+        "deny": ["tinyland-loki-observability:22"],
+    }
+    # Kept on purpose, outside R-C1011's list (flagged for the operator): the
+    # observability node-exporter scrape through the egress proxy.
+    EXPORTER_EGRESS_POLICY_TEST = {
+        "src": "tag:k8s-egress-nodeexporter",
+        "proto": "tcp",
+        "accept": ["tinyland-relay-1:9100"],
+        "deny": ["tinyland-relay-1:22", "tinyland-relay-1:25", "tinyland-relay-1:9154"],
+    }
 
     def _names_relay(self, entry: str) -> bool:
         """True when a src or dst entry (no port) covers relay-1 once retagged."""
-        if entry in {self.MX_RELAY, self.RELAY_ALIAS, "*", "autogroup:tagged"}:
+        if entry in {
+            self.MX_RELAY, self.RELAY_ALIAS, "*", "autogroup:tagged", "autogroup:danger-all",
+        }:
             return True
         target = self.policy["hosts"].get(entry, entry)
         try:
@@ -364,6 +395,33 @@ class PolicyContractTest(unittest.TestCase):
             for src in row["src"]
         }
         self.assertEqual(smtp_sources, {"tinyland-honey"})
+
+    def test_exporter_egress_scrape_of_relay_is_an_intentional_keep(self) -> None:
+        # Outside R-C1011's enumerated list, kept on purpose: the existing
+        # observability Prometheus node-exporter scrape (TIN-4324). It keys on
+        # the relay alias, survives the retag unchanged, and is the only
+        # non-R-C1011 row that reaches the relay. Port 9100 only.
+        rows = [
+            row for row in self.policy["grants"]
+            if any(self._names_relay(d) for d in row["dst"]) and self.MX_RELAY not in row["dst"]
+        ]
+        self.assertEqual(rows, [self.EXPORTER_EGRESS_GRANT])
+        self.assertEqual(self.EXPORTER_EGRESS_GRANT["ip"], ["tcp:9100"])
+        self.assertNotIn("app", self.EXPORTER_EGRESS_GRANT)
+        self.assertIn(self.EXPORTER_EGRESS_POLICY_TEST, self.policy["tests"])
+
+    def test_break_glass_is_the_dollhouse_admins_row_for_untagged_devices(self) -> None:
+        # R-C1011 names dollhouse-admins and untagged break-glass separately;
+        # a group source matches only its members' untagged devices, so one
+        # row is both. Its members are exactly the operator's two identities.
+        self.assertIn(self.MX_RELAY_GRANTS[2], self.policy["grants"])
+        self.assertEqual(self.MX_RELAY_GRANTS[2]["src"], ["group:dollhouse-admins"])
+        self.assertEqual(
+            self.policy["groups"]["group:dollhouse-admins"],
+            ["jsullivan2@gmail.com", "jess@sulliwood.org"],
+        )
+        self.assertIn(self.ADMIN_USER_TO_RELAY_POLICY_TEST, self.policy["tests"])
+        self.assertIn(self.NEO_TO_RELAY_POLICY_TEST, self.policy["tests"])
 
     def test_ssh_tests_pin_that_mx_relay_has_no_tailscale_ssh(self) -> None:
         # Tailscale runs sshTests on every validate and write, so a rule that
@@ -1229,6 +1287,9 @@ class PolicyContractTest(unittest.TestCase):
                 },
                 self.MX_RELAY_POLICY_TEST,
                 self.HONEY_TO_RELAY_POLICY_TEST,
+                self.NEO_TO_RELAY_POLICY_TEST,
+                self.ADMIN_USER_TO_RELAY_POLICY_TEST,
+                self.EXPORTER_EGRESS_POLICY_TEST,
             ],
         )
         # Every field is set, so the post-write read-back cannot drop an

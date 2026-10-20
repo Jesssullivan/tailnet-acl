@@ -19,6 +19,12 @@
 -- before the retag (dollhouse mesh) and after it (the tag:mx-relay grant).
 -- Tests that need the retag first (src relay-1 denied the voters; neo,
 -- sting and bumble denied relay-1:25) belong to the post-window PR.
+-- The tag:mx-relay denies also cover the wider reach the retag removes:
+-- tag:k8s:6443, tag:k8s-operator:443, ai:443 and a 192.168.0.0/16 address.
+-- There is no tag:k8s:443 deny: loki-push is a tag:k8s device that R-C1011
+-- grants on 443, so named tag:k8s hosts (an MCP proxy, neo) stand in.
+-- The operator :22 paths (neo, and an untagged dollhouse-admins user) and
+-- the kept exporter-egress scrape (:9100) hold before and after the retag.
 --
 -- sshTests (R-C1011): tag:mx-relay holds no Tailscale SSH right as any user
 -- on the voters, PZM, or any tag:dollhouse, tag:dev or tag:switch device.
@@ -82,6 +88,12 @@ let tests
           , "tinyland-loki-observability:3100"
           , "${C.tag.dollhouse}:22"
           , "${C.tag.dollhouse}:6443"
+          , "${C.tag.k8s}:6443"
+          , "${C.tag.k8s_operator}:443"
+          , "tinyland-mcp-arxiv:443"
+          , "tinyland-neo:443"
+          , "ai:443"
+          , "192.168.30.105:22"
           ]
         }
       , { src = "tinyland-honey"
@@ -93,6 +105,25 @@ let tests
           , "tinyland-relay-1:9154"
           ]
         , deny = [ "tinyland-loki-push:3100" ]
+        }
+      , { src = "tinyland-neo"
+        , proto = "tcp"
+        , accept = [ "tinyland-relay-1:22" ]
+        , deny = [ "tinyland-loki-observability:22" ]
+        }
+      , { src = C.user.jess_sulliwood
+        , proto = "tcp"
+        , accept = [ "tinyland-relay-1:22" ]
+        , deny = [ "tinyland-loki-observability:22" ]
+        }
+      , { src = C.tag.k8s_egress_nodeexporter
+        , proto = "tcp"
+        , accept = [ "tinyland-relay-1:9100" ]
+        , deny =
+          [ "tinyland-relay-1:22"
+          , "tinyland-relay-1:25"
+          , "tinyland-relay-1:9154"
+          ]
         }
       ]
 
