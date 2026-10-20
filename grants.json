@@ -196,4 +196,15 @@
 	"dst": ["tag:k8s-operator"],
 	"app": {"tailscale.com/cap/kubernetes": [{"impersonate": {"groups": ["adi-sms-deployers"]}}]},
 	"ip": ["tcp:443"]
+}, {
+	"src": ["tag:printstack"],
+	"dst": ["tinyland-mbp-13"],
+	"ip": ["tcp:443"]
+}, {
+	"src": [
+		"group:dollhouse-admins", "tinyland-neo", "tinyland-sting",
+		"tinyland-petting-zoo-mini"
+	],
+	"dst": ["tag:printstack"],
+	"ip": ["tcp:443"]
 }]

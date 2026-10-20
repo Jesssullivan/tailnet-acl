@@ -331,9 +331,17 @@ class PolicyContractTest(unittest.TestCase):
         loki_writer_service_grant = {
             "src": self.LOKI_WRITERS, "dst": ["svc:o11y-loki"], "ip": ["tcp:3100"],
         }
+        # R-GOLIVE-20261020-c (TIN-6787) adds one source row: petting-zoo-mini
+        # is an agent seat and reaches the printstack Ingress proxies on
+        # tcp:443 only.
+        printstack_seat_grant = {
+            "src": ["group:dollhouse-admins"] + self.PRINTSTACK_SEATS,
+            "dst": [self.PRINTSTACK],
+            "ip": ["tcp:443"],
+        }
         self.assertEqual(
             [grant for grant in self.policy["grants"] if alias in grant["src"]],
-            [self.LOKI_WRITER_GRANT, loki_writer_service_grant],
+            [self.LOKI_WRITER_GRANT, loki_writer_service_grant, printstack_seat_grant],
         )
         self.assertEqual(
             [grant for grant in self.policy["grants"] if alias in grant["dst"]],
@@ -385,6 +393,7 @@ class PolicyContractTest(unittest.TestCase):
                 "tag:tag-authority", "tag:gftb-idp", "tag:tofu-state", "tag:infra-idp",
                 "tag:interim-build", "tag:honey-relay", "tag:gf-reapi-cell-egress",
                 "tag:gf-reapi-linux-worker", "tag:gf-reapi-rocm-worker",
+                "tag:printstack",
             },
         )
         for row in self.policy["nodeAttrs"]:
@@ -1044,6 +1053,22 @@ class PolicyContractTest(unittest.TestCase):
                     "accept": ["tag:dev:22"],
                     "deny": ["tag:k8s-operator:443", "tinyland-honey:6443"],
                 },
+                {
+                    "src": self.PRINTSTACK,
+                    "proto": "tcp",
+                    "accept": ["tinyland-mbp-13:443"],
+                    "deny": [
+                        "tinyland-mbp-13:7125",
+                        "tinyland-mbp-13:22",
+                        "tinyland-honey:6443",
+                    ],
+                },
+                {
+                    "src": "jess@sulliwood.org",
+                    "proto": "tcp",
+                    "accept": ["tag:printstack:443"],
+                    "deny": ["tag:printstack:22"],
+                },
             ],
         )
         # Every field is set, so the post-write read-back cannot drop an
@@ -1054,6 +1079,64 @@ class PolicyContractTest(unittest.TestCase):
         hosts = self.policy["hosts"]
         for name in ("tinyland-honey", "tinyland-bumble", "tinyland-sting"):
             self.assertIn(name, hosts)
+
+    # tag:printstack (R-GOLIVE-20261020-c, operator 2026-10-20, TIN-6787:
+    # "Approve the tag:printstack ACL change", narrow form). The honey
+    # Tailscale operator mints the printstack Ingress and egress proxies with
+    # it. Exactly two grants, both tcp:443: egress to mbp-13, and the
+    # operator's devices plus the agent seats in to the Ingress proxies.
+    PRINTSTACK = "tag:printstack"
+    MBP_13 = "tinyland-mbp-13"
+    PRINTSTACK_SEATS = ["tinyland-neo", "tinyland-sting", "tinyland-petting-zoo-mini"]
+
+    def test_printstack_tag_is_owned_by_the_kubernetes_operator_like_mcp_proxy(self) -> None:
+        self.assertEqual(
+            self.policy["tagOwners"][self.PRINTSTACK],
+            ["tag:k8s-operator", "autogroup:admin", "group:dollhouse-admins"],
+        )
+        # tag:k8s-operator ownership is not broadened by this change.
+        self.assertEqual(
+            self.policy["tagOwners"]["tag:k8s-operator"],
+            ["tag:tag-authority", "tag:k8s-operator", "autogroup:admin", "group:dollhouse-admins"],
+        )
+        self.assertEqual(self.policy["hosts"][self.MBP_13], "100.122.197.52")
+        for seat in self.PRINTSTACK_SEATS:
+            self.assertIn(seat, self.policy["hosts"])
+
+    def test_printstack_grants_are_exactly_two_tcp_443_rows(self) -> None:
+        tag = self.PRINTSTACK
+        references = [
+            (surface, rule)
+            for surface in ("acls", "grants", "ssh")
+            for rule in self.policy[surface]
+            if any(
+                endpoint == tag or endpoint.startswith(f"{tag}:")
+                for key in ("src", "dst")
+                for endpoint in rule.get(key, [])
+            )
+        ]
+        self.assertEqual(
+            references,
+            [
+                ("grants", {"src": [tag], "dst": [self.MBP_13], "ip": ["tcp:443"]}),
+                ("grants", {
+                    "src": ["group:dollhouse-admins"] + self.PRINTSTACK_SEATS,
+                    "dst": [tag],
+                    "ip": ["tcp:443"],
+                }),
+            ],
+        )
+        # The mbp-13 alias is reached by nothing but the printstack egress row.
+        self.assertEqual(
+            [row for row in self.policy["grants"] if self.MBP_13 in row["dst"]],
+            [{"src": [tag], "dst": [self.MBP_13], "ip": ["tcp:443"]}],
+        )
+        for rule in self.policy["acls"]:
+            self.assertFalse(any(d.startswith(self.MBP_13 + ":") for d in rule["dst"]))
+        for row in self.policy["nodeAttrs"]:
+            self.assertNotIn(tag, row["target"])
+        for tags in self.policy["autoApprovers"]["routes"].values():
+            self.assertNotIn(tag, tags)
 
 
 if __name__ == "__main__":
