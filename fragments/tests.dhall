@@ -19,6 +19,11 @@
 -- before the retag (dollhouse mesh) and after it (the tag:mx-relay grant).
 -- Tests that need the retag first (src relay-1 denied the voters; neo,
 -- sting and bumble denied relay-1:25) belong to the post-window PR.
+--
+-- sshTests (R-C1011): tag:mx-relay holds no Tailscale SSH right as any user
+-- on the voters, PZM, or any tag:dollhouse, tag:dev or tag:switch device.
+-- The relay itself runs OpenSSH, not Tailscale SSH, so no rule names it as
+-- a destination either.
 let T = ../types/ACL.dhall
 
 let C = ../constants.dhall
@@ -91,4 +96,20 @@ let tests
         }
       ]
 
-in  { tests }
+let sshTests
+    : List T.SSHDenyTest
+    = [ { src = C.tag.mx_relay
+        , dst =
+          [ "tinyland-honey"
+          , "tinyland-bumble"
+          , "tinyland-sting"
+          , "tinyland-petting-zoo-mini"
+          , C.tag.dollhouse
+          , C.tag.dev
+          , C.tag.switch
+          ]
+        , deny = [ "root", "jess", "jsullivan2", "admin" ]
+        }
+      ]
+
+in  { tests, sshTests }

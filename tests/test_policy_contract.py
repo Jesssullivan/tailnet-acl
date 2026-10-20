@@ -365,6 +365,27 @@ class PolicyContractTest(unittest.TestCase):
         }
         self.assertEqual(smtp_sources, {"tinyland-honey"})
 
+    def test_ssh_tests_pin_that_mx_relay_has_no_tailscale_ssh(self) -> None:
+        # Tailscale runs sshTests on every validate and write, so a rule that
+        # gave tag:mx-relay SSH as any of these users would be refused
+        # server-side, not only here.
+        self.assertEqual(
+            self.policy["sshTests"],
+            [{
+                "src": self.MX_RELAY,
+                "dst": [
+                    "tinyland-honey", "tinyland-bumble", "tinyland-sting",
+                    "tinyland-petting-zoo-mini", "tag:dollhouse", "tag:dev", "tag:switch",
+                ],
+                "deny": ["root", "jess", "jsullivan2", "admin"],
+            }],
+        )
+        for entry in self.policy["sshTests"]:
+            self.assertTrue(all(entry[key] for key in entry), entry)
+        hosts = self.policy["hosts"]
+        for name in ("tinyland-honey", "tinyland-bumble", "tinyland-sting", "tinyland-petting-zoo-mini"):
+            self.assertIn(name, hosts)
+
     # TIN-4670: raw Loki (3100) and Tempo (3200) on the observability proxies
     # are read only by group:dollhouse-admins and tag:mcp-proxy; Grafana stays
     # the human surface. The proxies carry tag:mcp-proxy alone (operator-side
