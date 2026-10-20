@@ -98,7 +98,7 @@ let tests
 
 let sshTests
     : List T.SSHDenyTest
-    = [ { src = C.tag.mx_relay
+    = [ { src = C.group.dollhouse_admins
         , dst =
           [ "tinyland-honey"
           , "tinyland-bumble"
