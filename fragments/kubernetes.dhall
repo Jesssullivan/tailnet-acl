@@ -84,6 +84,7 @@ let hosts
       , { mapKey = "tinyland-loki-observability"
         , mapValue = C.host.loki_observability
         }
+      , { mapKey = "tinyland-loki-push", mapValue = C.host.loki_push }
       , { mapKey = "tinyland-grafana-observability"
         , mapValue = C.host.grafana_observability
         }

@@ -204,6 +204,167 @@ class PolicyContractTest(unittest.TestCase):
         rule = {"action": "accept", "src": ["tag:dollhouse"], "dst": ["tag:k8s:443"]}
         self.assertEqual(self.policy["acls"].count(rule), 1)
 
+    # R-C1011 (TIN-5770 comment 86411716; exploration blahaj #2328): the
+    # public MX relay-1 moves alone from tag:dollhouse to tag:mx-relay, which
+    # leaves the dollhouse mesh (tag:dollhouse:*, every voter port) and the
+    # dollhouse root Tailscale SSH rule. The change is additive: these five
+    # grants are the tag's only rules and tag:dollhouse is unchanged. The
+    # loki-push row supersedes tailnet-acl#55 (R-C964).
+    MX_RELAY = "tag:mx-relay"
+    RELAY_ALIAS = "tinyland-relay-1"
+    RELAY_IP = "100.102.229.122"
+    MX_RELAY_GRANTS = [
+        {"src": ["tinyland-honey"], "dst": ["tag:mx-relay"],
+         "ip": ["tcp:22", "tcp:25", "tcp:9100", "tcp:9154"]},
+        {"src": ["tinyland-neo"], "dst": ["tag:mx-relay"], "ip": ["tcp:22"]},
+        {"src": ["group:dollhouse-admins"], "dst": ["tag:mx-relay"], "ip": ["tcp:22"]},
+        {"src": ["tag:mx-relay"], "dst": ["tinyland-honey"], "ip": ["tcp:25", "tcp:465"]},
+        {"src": ["tag:mx-relay"], "dst": ["tinyland-loki-push"], "ip": ["tcp:443"]},
+    ]
+    EXPORTER_EGRESS_GRANT = {
+        "src": ["tag:k8s-egress-nodeexporter"],
+        "dst": ["tinyland-relay-1", "tinyland-petting-zoo-mini", "tinyland-neo"],
+        "ip": ["tcp:9100"],
+    }
+    MX_RELAY_POLICY_TEST = {
+        "src": "tag:mx-relay",
+        "proto": "tcp",
+        "accept": ["tinyland-honey:25", "tinyland-honey:465", "tinyland-loki-push:443"],
+        "deny": [
+            "tinyland-honey:22", "tinyland-honey:80", "tinyland-honey:443",
+            "tinyland-honey:587", "tinyland-honey:2379", "tinyland-honey:6443",
+            "tinyland-honey:9100", "tinyland-honey:9345", "tinyland-honey:10250",
+            "tinyland-bumble:22", "tinyland-bumble:25", "tinyland-bumble:443",
+            "tinyland-bumble:465", "tinyland-bumble:6443", "tinyland-bumble:9345",
+            "tinyland-bumble:10250",
+            "tinyland-sting:22", "tinyland-sting:25", "tinyland-sting:443",
+            "tinyland-sting:465", "tinyland-sting:6443", "tinyland-sting:9345",
+            "tinyland-sting:10250",
+            "tinyland-neo:22", "tinyland-petting-zoo-mini:22",
+            "tinyland-loki-push:3100", "tinyland-loki-observability:3100",
+            "tag:dollhouse:22", "tag:dollhouse:6443",
+        ],
+    }
+    HONEY_TO_RELAY_POLICY_TEST = {
+        "src": "tinyland-honey",
+        "proto": "tcp",
+        "accept": [
+            "tinyland-relay-1:22", "tinyland-relay-1:25",
+            "tinyland-relay-1:9100", "tinyland-relay-1:9154",
+        ],
+        "deny": ["tinyland-loki-push:3100"],
+    }
+
+    def _names_relay(self, entry: str) -> bool:
+        """True when a src or dst entry (no port) covers relay-1 once retagged."""
+        if entry in {self.MX_RELAY, self.RELAY_ALIAS, "*", "autogroup:tagged"}:
+            return True
+        target = self.policy["hosts"].get(entry, entry)
+        try:
+            return ipaddress.ip_address(self.RELAY_IP) in ipaddress.ip_network(target, strict=False)
+        except ValueError:
+            return False  # another tag, group, autogroup, user or service
+
+    def test_mx_relay_is_owned_by_admins_only_and_owns_no_tag(self) -> None:
+        owners = self.policy["tagOwners"]
+        self.assertEqual(owners[self.MX_RELAY], ["autogroup:admin", "group:dollhouse-admins"])
+        self.assertNotIn("tag:tag-authority", owners[self.MX_RELAY])
+        self.assertFalse(
+            [tag for tag, who in owners.items() if self.MX_RELAY in who],
+            "tag:mx-relay must own no tag, or the relay could advertise a second one",
+        )
+        # tag:dollhouse itself is unchanged: same owners, same mesh, same SSH.
+        self.assertEqual(
+            owners["tag:dollhouse"],
+            ["tag:tag-authority", "autogroup:admin", "group:dollhouse-admins"],
+        )
+        mesh = {"action": "accept", "src": ["tag:dollhouse"], "dst": ["tag:dollhouse:*"]}
+        self.assertEqual(self.policy["acls"].count(mesh), 1)
+
+    def test_mx_relay_rules_are_exactly_the_five_ruled_grants(self) -> None:
+        tag = self.MX_RELAY
+        self.assertEqual(
+            [row for row in self.policy["grants"] if tag in row["src"] + row["dst"]],
+            self.MX_RELAY_GRANTS,
+        )
+        for row in self.policy["acls"]:
+            self.assertFalse(
+                any(e == tag or e.startswith(tag + ":") for e in row["src"] + row["dst"]), row
+            )
+        hosts = self.policy["hosts"]
+        self.assertEqual(hosts[self.RELAY_ALIAS], self.RELAY_IP)
+        self.assertEqual(hosts["tinyland-honey"], "100.113.89.12")
+        self.assertEqual(hosts["tinyland-neo"], "100.67.93.34")
+        self.assertEqual(hosts["tinyland-loki-push"], "100.85.50.69")
+        # The loki-push alias is reached only by the relay shipper row.
+        self.assertEqual(
+            [row for row in self.policy["grants"] if "tinyland-loki-push" in row["dst"]],
+            [self.MX_RELAY_GRANTS[4]],
+        )
+        for row in self.policy["acls"]:
+            self.assertFalse(any(d.startswith("tinyland-loki-push:") for d in row["dst"]), row)
+
+    def test_mx_relay_reaches_only_honey_25_465_and_loki_push_443(self) -> None:
+        # Every rule that would apply to relay-1 as a source after the retag:
+        # its tag, its alias, an address range holding it, or a universal
+        # source. Policy is additive, so this set is its whole reach.
+        reach = set()
+        for row in self.policy["acls"]:
+            if any(self._names_relay(src) for src in row["src"]):
+                reach.update(("acl", d) for d in row["dst"])
+        for row in self.policy["grants"]:
+            if any(self._names_relay(src) for src in row["src"]):
+                self.assertNotIn("app", row)
+                reach.update((d, ip) for d in row["dst"] for ip in row.get("ip", ["*"]))
+        self.assertEqual(
+            reach,
+            {
+                ("tinyland-honey", "tcp:25"),
+                ("tinyland-honey", "tcp:465"),
+                ("tinyland-loki-push", "tcp:443"),
+            },
+        )
+        # So no other honey port (22, 6443, 9345, 10250, ...), and nothing on
+        # bumble or sting by alias, address or a tag they carry.
+        voters = {
+            "tinyland-bumble", "tinyland-sting", "100.88.101.107", "100.85.46.118",
+            "tag:dollhouse", "tag:k8s",
+        }
+        self.assertFalse({host for host, _ in reach} & voters)
+
+    def test_mx_relay_has_no_ssh_rule_node_attr_or_auto_approver(self) -> None:
+        for rule in self.policy["ssh"]:
+            for party in rule["src"] + rule["dst"]:
+                self.assertFalse(self._names_relay(party), rule)
+        for row in self.policy["nodeAttrs"]:
+            self.assertFalse(any(self._names_relay(t) for t in row["target"]), row)
+        approvers = self.policy["autoApprovers"]
+        self.assertNotIn(self.MX_RELAY, approvers["exitNode"])
+        for section in ("routes", "services"):
+            for owners in approvers.get(section, {}).values():
+                self.assertNotIn(self.MX_RELAY, owners)
+
+    def test_relay_inbound_is_exact_and_only_honey_reaches_smtp(self) -> None:
+        # After the retag, these are the only rules with relay-1 as a
+        # destination. Tailnet SMTP probes from neo, sting and bumble to
+        # relay:25 are retired (R-C1011); honey is the one tailnet SMTP client.
+        self.assertEqual(
+            [row for row in self.policy["grants"] if any(self._names_relay(d) for d in row["dst"])],
+            [self.EXPORTER_EGRESS_GRANT] + self.MX_RELAY_GRANTS[:3],
+        )
+        for row in self.policy["acls"]:
+            self.assertFalse(
+                any(self._names_relay(d.rpartition(":")[0]) for d in row["dst"]), row
+            )
+        smtp_sources = {
+            src
+            for row in self.policy["grants"]
+            if any(self._names_relay(d) for d in row["dst"])
+            and {"tcp:25", "*"} & set(row.get("ip", ["*"]))
+            for src in row["src"]
+        }
+        self.assertEqual(smtp_sources, {"tinyland-honey"})
+
     # TIN-4670: raw Loki (3100) and Tempo (3200) on the observability proxies
     # are read only by group:dollhouse-admins and tag:mcp-proxy; Grafana stays
     # the human surface. The proxies carry tag:mcp-proxy alone (operator-side
@@ -383,8 +544,9 @@ class PolicyContractTest(unittest.TestCase):
                 "tag:tinyland-lab-ci-ephemeral", "tag:tinyland-lab-nix-target",
                 "tag:rj-gateway", "tag:setec", "tag:ci-agent", "tag:kvm-proxy",
                 "tag:tag-authority", "tag:gftb-idp", "tag:tofu-state", "tag:infra-idp",
-                "tag:interim-build", "tag:honey-relay", "tag:gf-reapi-cell-egress",
-                "tag:gf-reapi-linux-worker", "tag:gf-reapi-rocm-worker",
+                "tag:interim-build", "tag:honey-relay", "tag:mx-relay",
+                "tag:gf-reapi-cell-egress", "tag:gf-reapi-linux-worker",
+                "tag:gf-reapi-rocm-worker",
             },
         )
         for row in self.policy["nodeAttrs"]:
@@ -1044,6 +1206,8 @@ class PolicyContractTest(unittest.TestCase):
                     "accept": ["tag:dev:22"],
                     "deny": ["tag:k8s-operator:443", "tinyland-honey:6443"],
                 },
+                self.MX_RELAY_POLICY_TEST,
+                self.HONEY_TO_RELAY_POLICY_TEST,
             ],
         )
         # Every field is set, so the post-write read-back cannot drop an

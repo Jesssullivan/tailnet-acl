@@ -12,6 +12,13 @@
 -- device inherits its grants or Funnel (tag:tsidp is held by several
 -- devices). Admin-only owner, like tag:gftb-probe, so no tagged device can
 -- mint it next to another tag.
+--
+-- tag:mx-relay: the public MX relay-1 alone (R-C1011, TIN-5770 comment
+-- 86411716, from the R-C965 exploration). It replaces tag:dollhouse on that
+-- one device so the MX leaves the dollhouse mesh (tag:dollhouse:*) and the
+-- dollhouse root Tailscale SSH rule. Owned by autogroup:admin and
+-- group:dollhouse-admins only: not tag:tag-authority, so no tagged device
+-- can mint it. Its only grants live in fragments/grants.dhall.
 let T = ../types/ACL.dhall
 
 let C = ../constants.dhall
@@ -49,6 +56,9 @@ let tagOwners
       , { mapKey = C.tag.honey_relay
         , mapValue =
           [ C.tag.tag_authority, C.autogroup.admin, C.group.dollhouse_admins ]
+        }
+      , { mapKey = C.tag.mx_relay
+        , mapValue = [ C.autogroup.admin, C.group.dollhouse_admins ]
         }
       , { mapKey = C.tag.gf_reapi_cell_egress
         , mapValue =

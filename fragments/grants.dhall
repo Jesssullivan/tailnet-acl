@@ -23,6 +23,25 @@
 --     [{"impersonate": {"groups": [<non-system groups>]}}]. Upstream v1.102.4
 --     forwards as the operator ServiceAccount when a value fails to decode.
 --     `just build`, the trusted CI driver and push.py all refuse otherwise.
+--
+-- tag:mx-relay, the public MX relay-1 (R-C1011, TIN-5770 comment 86411716;
+-- exploration blahaj #2328). These five rows are the tag's only rules, and
+-- they are additive: tag:dollhouse and every other rule are unchanged. They
+-- take effect when the operator retags relay-1 from tag:dollhouse to
+-- tag:mx-relay in an attended window; until then the dollhouse mesh still
+-- carries the same flows.
+--   * honey -> relay on tcp 22 (offsite-irreplaceable push, OpenSSH; the
+--     relay does not run Tailscale SSH), 25 (postfix relayhost), 9100 and
+--     9154 (prometheus-mail scrapes, honey pod SNAT).
+--   * neo and group:dollhouse-admins (the operator's untagged devices,
+--     break-glass) -> relay on tcp 22 only.
+--   * relay -> honey on tcp 25 (inbound transport) and 465 (Gmail send-as).
+--   * relay -> the write-only loki-push ingress on tcp 443 (the relay log
+--     shipper, TIN-6746 P4; this supersedes tailnet-acl#55, R-C964).
+-- Retired: no grant lets neo, sting or bumble reach relay:25; tailnet SMTP
+-- probes run from honey or relay loopback. tag:mx-relay has no SSH rule,
+-- nodeAttr or autoApprover. Pinned by tests/test_policy_contract.py and by
+-- policy tests in fragments/tests.dhall.
 let C = ../constants.dhall
 
 let G = ../types/Grant.dhall
@@ -162,6 +181,14 @@ let grants
           [ C.tag.k8s_egress_nodeexporter ]
           [ "tinyland-relay-1", "tinyland-petting-zoo-mini", "tinyland-neo" ]
           [ "tcp:9100" ]
+      , G.net
+          [ "tinyland-honey" ]
+          [ C.tag.mx_relay ]
+          [ "tcp:22", "tcp:25", "tcp:9100", "tcp:9154" ]
+      , G.net [ "tinyland-neo" ] [ C.tag.mx_relay ] [ "tcp:22" ]
+      , G.net [ C.group.dollhouse_admins ] [ C.tag.mx_relay ] [ "tcp:22" ]
+      , G.net [ C.tag.mx_relay ] [ "tinyland-honey" ] [ "tcp:25", "tcp:465" ]
+      , G.net [ C.tag.mx_relay ] [ "tinyland-loki-push" ] [ "tcp:443" ]
       , G.cap [ C.tag.dollhouse ] [ C.tag.dollhouse ] [ G.Cap.Relay ]
       , G.cap [ C.tag.interim_build ] [ C.tag.honey_relay ] [ G.Cap.Relay ]
       , G.net

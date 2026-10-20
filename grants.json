@@ -113,6 +113,26 @@
 	"dst": ["tinyland-relay-1", "tinyland-petting-zoo-mini", "tinyland-neo"],
 	"ip": ["tcp:9100"]
 }, {
+	"src": ["tinyland-honey"],
+	"dst": ["tag:mx-relay"],
+	"ip": ["tcp:22", "tcp:25", "tcp:9100", "tcp:9154"]
+}, {
+	"src": ["tinyland-neo"],
+	"dst": ["tag:mx-relay"],
+	"ip": ["tcp:22"]
+}, {
+	"src": ["group:dollhouse-admins"],
+	"dst": ["tag:mx-relay"],
+	"ip": ["tcp:22"]
+}, {
+	"src": ["tag:mx-relay"],
+	"dst": ["tinyland-honey"],
+	"ip": ["tcp:25", "tcp:465"]
+}, {
+	"src": ["tag:mx-relay"],
+	"dst": ["tinyland-loki-push"],
+	"ip": ["tcp:443"]
+}, {
 	"src": ["tag:dollhouse"],
 	"dst": ["tag:dollhouse"],
 	"app": {"tailscale.com/cap/relay": [{}]}

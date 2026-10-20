@@ -9,6 +9,16 @@
 -- are pinned by tests/test_policy_contract.py.
 --
 -- R-C557/R-C558 (TIN-6192 comment 94eb75c0).
+--
+-- R-C1011 (TIN-5770 comment 86411716): tag:mx-relay, the public MX alone.
+-- It reaches honey on 25 and 465 and the loki-push ingress on 443, and
+-- nothing else: no other honey port (22, the k8s 6443/9345/10250, etcd),
+-- no port on bumble or sting, no :22 anywhere. Tests take single ports, so
+-- the "no other port" half is proved by tests/test_policy_contract.py over
+-- every rule. honey's inbound flows to relay-1 (22, 25, 9100, 9154) hold
+-- before the retag (dollhouse mesh) and after it (the tag:mx-relay grant).
+-- Tests that need the retag first (src relay-1 denied the voters; neo,
+-- sting and bumble denied relay-1:25) belong to the post-window PR.
 let T = ../types/ACL.dhall
 
 let C = ../constants.dhall
@@ -29,6 +39,55 @@ let tests
         , proto = "tcp"
         , accept = [ "${C.tag.dev}:22" ]
         , deny = [ "${C.tag.k8s_operator}:443", "tinyland-honey:6443" ]
+        }
+      , { src = C.tag.mx_relay
+        , proto = "tcp"
+        , accept =
+          [ "tinyland-honey:25"
+          , "tinyland-honey:465"
+          , "tinyland-loki-push:443"
+          ]
+        , deny =
+          [ "tinyland-honey:22"
+          , "tinyland-honey:80"
+          , "tinyland-honey:443"
+          , "tinyland-honey:587"
+          , "tinyland-honey:2379"
+          , "tinyland-honey:6443"
+          , "tinyland-honey:9100"
+          , "tinyland-honey:9345"
+          , "tinyland-honey:10250"
+          , "tinyland-bumble:22"
+          , "tinyland-bumble:25"
+          , "tinyland-bumble:443"
+          , "tinyland-bumble:465"
+          , "tinyland-bumble:6443"
+          , "tinyland-bumble:9345"
+          , "tinyland-bumble:10250"
+          , "tinyland-sting:22"
+          , "tinyland-sting:25"
+          , "tinyland-sting:443"
+          , "tinyland-sting:465"
+          , "tinyland-sting:6443"
+          , "tinyland-sting:9345"
+          , "tinyland-sting:10250"
+          , "tinyland-neo:22"
+          , "tinyland-petting-zoo-mini:22"
+          , "tinyland-loki-push:3100"
+          , "tinyland-loki-observability:3100"
+          , "${C.tag.dollhouse}:22"
+          , "${C.tag.dollhouse}:6443"
+          ]
+        }
+      , { src = "tinyland-honey"
+        , proto = "tcp"
+        , accept =
+          [ "tinyland-relay-1:22"
+          , "tinyland-relay-1:25"
+          , "tinyland-relay-1:9100"
+          , "tinyland-relay-1:9154"
+          ]
+        , deny = [ "tinyland-loki-push:3100" ]
         }
       ]
 
