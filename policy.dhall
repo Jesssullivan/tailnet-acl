@@ -91,4 +91,5 @@ in  { groups = core.groups
     , autoApprovers
     , hosts = aperture.hosts # kubernetes.hosts
     , tests = tests.tests
+    , sshTests = tests.sshTests
     }

@@ -3,6 +3,10 @@
 -- See: https://tailscale.com/kb/1018/acls
 --
 -- Grants are excluded (handled as raw JSON due to polymorphic app field).
+--
+-- SSHDenyTest: an sshTests row with only the fields it sets. Tailscale's
+-- read-back may drop an empty list and change the canonical digest, so the
+-- type gains accept or check only when a test needs a non-empty one.
 let ACLRule = { action : Text, src : List Text, dst : List Text }
 
 let SSHRule =
@@ -19,6 +23,8 @@ let AutoApprovers =
 let Host = { mapKey : Text, mapValue : Text }
 
 let ACLTest = { src : Text, proto : Text, accept : List Text, deny : List Text }
+
+let SSHDenyTest = { src : Text, dst : List Text, deny : List Text }
 
 let Group = { mapKey : Text, mapValue : List Text }
 
@@ -59,6 +65,7 @@ in  { ACLRule
     , AutoApprovers
     , Host
     , ACLTest
+    , SSHDenyTest
     , Group
     , TagOwner
     , Fragment
