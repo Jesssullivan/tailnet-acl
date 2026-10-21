@@ -423,6 +423,62 @@ class PolicyContractTest(unittest.TestCase):
         self.assertIn(self.ADMIN_USER_TO_RELAY_POLICY_TEST, self.policy["tests"])
         self.assertIn(self.NEO_TO_RELAY_POLICY_TEST, self.policy["tests"])
 
+    # R-C1011 closeout step 3 (R-C1033; T0 2026-10-21T05:52:46Z, receipt
+    # TIN-5770 8c460876). Tests that name the relay by its alias, which
+    # Tailscale resolves against the live device. They pass only while relay-1
+    # is tag:mx-relay alone, so every validate re-reads the retag server-side.
+    POST_RETAG_RATCHET_TESTS = [
+        {
+            "src": "tinyland-relay-1",
+            "proto": "tcp",
+            "accept": ["tinyland-honey:25", "tinyland-honey:465"],
+            "deny": [
+                "tinyland-honey:22", "tinyland-honey:6443", "tinyland-honey:9345",
+                "tinyland-honey:10250",
+                "tinyland-bumble:22", "tinyland-bumble:6443", "tinyland-bumble:10250",
+                "tinyland-sting:22", "tinyland-sting:6443", "tinyland-sting:10250",
+            ],
+        },
+        {
+            "src": "tinyland-neo",
+            "proto": "tcp",
+            "accept": ["tinyland-relay-1:22"],
+            "deny": ["tinyland-relay-1:25"],
+        },
+        {
+            "src": "tinyland-sting",
+            "proto": "tcp",
+            "accept": ["tinyland-loki-observability:3100"],
+            "deny": ["tinyland-relay-1:25", "tinyland-relay-1:22"],
+        },
+        {
+            "src": "tinyland-bumble",
+            "proto": "tcp",
+            "accept": ["tinyland-loki-observability:3100"],
+            "deny": ["tinyland-relay-1:25", "tinyland-relay-1:22"],
+        },
+    ]
+    RELAY_ALIAS_SSH_RATCHET = {
+        "src": "tinyland-relay-1",
+        "dst": ["tinyland-honey", "tinyland-bumble", "tinyland-sting"],
+        "deny": ["root"],
+    }
+
+    def test_post_retag_ratchet_names_the_relay_by_alias(self) -> None:
+        # The ratchet must key on the relay's alias, the live device, and not
+        # on the tag; a tag-sourced test would pass whatever the relay's tags.
+        for entry in self.POST_RETAG_RATCHET_TESTS:
+            self.assertIn(entry, self.policy["tests"])
+        self.assertEqual(self.policy["hosts"][self.RELAY_ALIAS], self.RELAY_IP)
+        relay_src = [t for t in self.policy["tests"] if t["src"] == self.RELAY_ALIAS]
+        self.assertEqual(relay_src, [self.POST_RETAG_RATCHET_TESTS[0]])
+        # The tailnet SMTP probe retirement: no neo, sting or bumble source
+        # reaches relay-1:25 in policy, and every one is denied it in a test.
+        for src in ("tinyland-neo", "tinyland-sting", "tinyland-bumble"):
+            denies = [d for t in self.policy["tests"] if t["src"] == src for d in t["deny"]]
+            self.assertIn("tinyland-relay-1:25", denies, src)
+        self.assertIn(self.RELAY_ALIAS_SSH_RATCHET, self.policy["sshTests"])
+
     def test_ssh_tests_pin_that_mx_relay_has_no_tailscale_ssh(self) -> None:
         # Tailscale runs sshTests on every validate and write, so a rule that
         # gave tag:mx-relay SSH as any of these users would be refused
@@ -436,7 +492,7 @@ class PolicyContractTest(unittest.TestCase):
                     "tinyland-petting-zoo-mini", "tag:dollhouse", "tag:dev", "tag:switch",
                 ],
                 "deny": ["root", "jess", "jsullivan2", "admin"],
-            }],
+            }, self.RELAY_ALIAS_SSH_RATCHET],
         )
         for entry in self.policy["sshTests"]:
             self.assertTrue(all(entry[key] for key in entry), entry)
@@ -1314,6 +1370,7 @@ class PolicyContractTest(unittest.TestCase):
                 self.NEO_TO_RELAY_POLICY_TEST,
                 self.ADMIN_USER_TO_RELAY_POLICY_TEST,
                 self.EXPORTER_EGRESS_POLICY_TEST,
+                *self.POST_RETAG_RATCHET_TESTS,
             ],
         )
         # Every field is set, so the post-write read-back cannot drop an

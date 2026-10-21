@@ -26,6 +26,19 @@
 -- The operator :22 paths (neo, and an untagged dollhouse-admins user) and
 -- the kept exporter-egress scrape (:9100) hold before and after the retag.
 --
+-- Post-retag ratchet (R-C1011 closeout step 3, R-C1033; retag T0
+-- 2026-10-21T05:52:46Z, receipt TIN-5770 8c460876). These tests name the
+-- relay by its host alias, so Tailscale evaluates them against the live
+-- device and its tag. They pass only while relay-1 carries tag:mx-relay
+-- alone. A rollback to tag:dollhouse fails them, and so does any later
+-- re-widening of the relay's tag. Each run of "Validate against live ACL"
+-- is therefore a control-side readback of the retag:
+--   * relay-1 reaches honey:25/465 and not honey's 22, 6443, 9345 or 10250,
+--     nor bumble's or sting's 22, 6443 or 10250;
+--   * neo, sting and bumble no longer reach relay-1:25 (the tailnet SMTP
+--     probe retirement); sting and bumble do not reach relay-1:22 either;
+--   * sshTests: relay-1 has no root Tailscale SSH on the three voters.
+--
 -- sshTests (R-C1011): tag:mx-relay holds no Tailscale SSH right as any user
 -- on the voters, PZM, or any tag:dollhouse, tag:dev or tag:switch device.
 -- The relay itself runs OpenSSH, not Tailscale SSH, so no rule names it as
@@ -139,6 +152,37 @@ let tests
           , "tinyland-relay-1:9154"
           ]
         }
+      , { src = "tinyland-relay-1"
+        , proto = "tcp"
+        , accept = [ "tinyland-honey:25", "tinyland-honey:465" ]
+        , deny =
+          [ "tinyland-honey:22"
+          , "tinyland-honey:6443"
+          , "tinyland-honey:9345"
+          , "tinyland-honey:10250"
+          , "tinyland-bumble:22"
+          , "tinyland-bumble:6443"
+          , "tinyland-bumble:10250"
+          , "tinyland-sting:22"
+          , "tinyland-sting:6443"
+          , "tinyland-sting:10250"
+          ]
+        }
+      , { src = "tinyland-neo"
+        , proto = "tcp"
+        , accept = [ "tinyland-relay-1:22" ]
+        , deny = [ "tinyland-relay-1:25" ]
+        }
+      , { src = "tinyland-sting"
+        , proto = "tcp"
+        , accept = [ "tinyland-loki-observability:3100" ]
+        , deny = [ "tinyland-relay-1:25", "tinyland-relay-1:22" ]
+        }
+      , { src = "tinyland-bumble"
+        , proto = "tcp"
+        , accept = [ "tinyland-loki-observability:3100" ]
+        , deny = [ "tinyland-relay-1:25", "tinyland-relay-1:22" ]
+        }
       ]
 
 let sshTests
@@ -154,6 +198,10 @@ let sshTests
           , C.tag.switch
           ]
         , deny = [ "root", "jess", "jsullivan2", "admin" ]
+        }
+      , { src = "tinyland-relay-1"
+        , dst = [ "tinyland-honey", "tinyland-bumble", "tinyland-sting" ]
+        , deny = [ "root" ]
         }
       ]
 
