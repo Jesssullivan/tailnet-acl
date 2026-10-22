@@ -158,14 +158,6 @@ let tagOwners
       , { mapKey = C.tag.tinyland_lab_nix_target
         , mapValue = [ C.autogroup.admin, C.group.dollhouse_admins ]
         }
-      , { mapKey = C.tag.rj_gateway
-        , mapValue =
-          [ C.tag.tag_authority, C.autogroup.admin, C.group.dollhouse_admins ]
-        }
-      , { mapKey = C.tag.setec
-        , mapValue =
-          [ C.tag.tag_authority, C.autogroup.admin, C.group.dollhouse_admins ]
-        }
       , { mapKey = C.tag.ci_agent
         , mapValue = [ C.autogroup.admin, C.group.dollhouse_admins ]
         }

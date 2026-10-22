@@ -117,39 +117,6 @@ let grants
                     }
               )
           ]
-      , G.cap
-          [ C.autogroup.member ]
-          [ C.tag.rj_gateway ]
-          [ G.Cap.RjGateway { role = "reader", secrets = None (List Text) } ]
-      , G.cap
-          [ C.autogroup.admin ]
-          [ C.tag.rj_gateway ]
-          [ G.Cap.RjGateway { role = "admin", secrets = None (List Text) } ]
-      , G.cap
-          [ C.tag.ci_agent ]
-          [ C.tag.rj_gateway ]
-          [ G.Cap.RjGateway
-              { role = "reader"
-              , secrets = Some
-                [ "github-token", "gitlab-token", "neon-database-url" ]
-              }
-          ]
-      , G.cap
-          [ C.tag.rj_gateway ]
-          [ C.tag.setec ]
-          [ G.Cap.Secrets
-              { action = [ "get", "info", "put", "activate", "delete" ]
-              , secret = [ "*" ]
-              }
-          ]
-      , G.cap
-          [ C.autogroup.admin ]
-          [ C.tag.setec ]
-          [ G.Cap.Secrets
-              { action = [ "get", "info", "put", "activate", "delete" ]
-              , secret = [ "*" ]
-              }
-          ]
       , G.net [ "tinyland-honey" ] [ C.tag.mcp_proxy ] [ "tcp:8080" ]
       , G.net
           [ "tinyland-honey" ]

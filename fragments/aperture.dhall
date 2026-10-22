@@ -11,7 +11,6 @@ let acls
           , C.group.dollhouse_users
           , C.tag.dev
           , C.tag.dollhouse
-          , C.tag.rj_gateway
           , C.tag.ci_agent
           , C.tag.k8s_operator
           , C.tag.k8s
