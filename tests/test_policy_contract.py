@@ -721,7 +721,7 @@ class PolicyContractTest(unittest.TestCase):
                 "tag:tag-authority", "tag:gftb-idp", "tag:tofu-state", "tag:infra-idp",
                 "tag:interim-build", "tag:honey-relay", "tag:mx-relay",
                 "tag:gf-reapi-cell-egress", "tag:gf-reapi-linux-worker",
-                "tag:gf-reapi-rocm-worker", "tag:printstack",
+                "tag:gf-reapi-rocm-worker", "tag:printstack", "tag:codespace",
             },
         )
         for row in self.policy["nodeAttrs"]:
@@ -1397,6 +1397,7 @@ class PolicyContractTest(unittest.TestCase):
                     "accept": ["tag:printstack:443"],
                     "deny": ["tag:printstack:22"],
                 },
+                self.CODESPACE_POLICY_TEST,
                 self.MX_RELAY_POLICY_TEST,
                 self.HONEY_TO_RELAY_POLICY_TEST,
                 self.NEO_TO_RELAY_POLICY_TEST,
@@ -1471,6 +1472,57 @@ class PolicyContractTest(unittest.TestCase):
             self.assertNotIn(tag, row["target"])
         for tags in self.policy["autoApprovers"]["routes"].values():
             self.assertNotIn(tag, tags)
+
+
+    # tag:codespace (DRAFT, TIN-6841 B4 spike; not ratified). The Codespaces
+    # seat node reaches id.xoxd.ai and bao.xoxd.ai on 443 and mcp-mux on
+    # honey:8120, nothing else; no rule names it as a destination or in ssh.
+    CODESPACE = "tag:codespace"
+    CODESPACE_POLICY_TEST = {
+        "src": "tag:codespace",
+        "proto": "tcp",
+        "accept": ["tinyland-id-xoxd:443", "tinyland-bao-xoxd:443", "tinyland-honey:8120"],
+        "deny": [
+            "tinyland-honey:22",
+            "tinyland-sting:22",
+            "tinyland-honey:6443",
+            "tinyland-bao-xoxd:8200",
+            "tinyland-neo:22",
+            "tinyland-bumble:22",
+        ],
+    }
+
+    def test_codespace_tag_is_admin_owned_and_reaches_only_id_bao_and_mux(self) -> None:
+        tag = self.CODESPACE
+        self.assertEqual(self.policy["tagOwners"][tag], ["autogroup:admin"])
+        self.assertEqual(self.policy["hosts"]["tinyland-id-xoxd"], "100.71.183.2")
+        self.assertEqual(self.policy["hosts"]["tinyland-bao-xoxd"], "100.72.126.82")
+        references = [
+            (surface, rule)
+            for surface in ("acls", "grants", "ssh")
+            for rule in self.policy[surface]
+            if any(
+                endpoint == tag or endpoint.startswith(f"{tag}:")
+                for key in ("src", "dst")
+                for endpoint in rule.get(key, [])
+            )
+        ]
+        self.assertEqual(
+            references,
+            [
+                ("grants", {
+                    "src": [tag],
+                    "dst": ["tinyland-id-xoxd", "tinyland-bao-xoxd"],
+                    "ip": ["tcp:443"],
+                }),
+                ("grants", {"src": [tag], "dst": ["tinyland-honey"], "ip": ["tcp:8120"]}),
+            ],
+        )
+        for row in self.policy["nodeAttrs"]:
+            self.assertNotIn(tag, row["target"])
+        for tags in self.policy["autoApprovers"]["routes"].values():
+            self.assertNotIn(tag, tags)
+        self.assertNotIn(tag, self.policy["autoApprovers"].get("exitNode", []))
 
 
 if __name__ == "__main__":

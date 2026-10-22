@@ -66,6 +66,13 @@
 -- (AAAA first) would time out, and that is not an ACL bug.
 -- tag:dollhouse and its rules are out of scope here (R-C1017). Pinned by
 -- tests/test_policy_contract.py and by policy tests in fragments/tests.dhall.
+--
+-- tag:codespace (DRAFT, TIN-6841 B4 spike; needs an operator GO). The
+-- Codespaces seat node reaches exactly: Keycloak id.xoxd.ai and OpenBao
+-- bao.xoxd.ai on tcp:443 (their Tailscale-operator proxies, by address), and
+-- mcp-mux on honey tcp:8120 (mux.mcp.xoxd.ai). Nothing grants anything to
+-- tag:codespace, so no tailnet device can reach into a Codespace. No SSH,
+-- no exit node, no internet egress through the tailnet.
 let C = ../constants.dhall
 
 let G = ../types/Grant.dhall
@@ -279,6 +286,11 @@ let grants
           ]
           [ C.tag.printstack ]
           [ "tcp:443" ]
+      , G.net
+          [ C.tag.codespace ]
+          [ "tinyland-id-xoxd", "tinyland-bao-xoxd" ]
+          [ "tcp:443" ]
+      , G.net [ C.tag.codespace ] [ "tinyland-honey" ] [ "tcp:8120" ]
       ]
 
 in  { grants }

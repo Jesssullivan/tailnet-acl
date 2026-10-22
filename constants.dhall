@@ -59,6 +59,7 @@ let tag =
       , gf_reapi_linux_worker = "tag:gf-reapi-linux-worker"
       , gf_reapi_rocm_worker = "tag:gf-reapi-rocm-worker"
       , printstack = "tag:printstack"
+      , codespace = "tag:codespace"
       }
 
 let service =
@@ -87,6 +88,8 @@ let host =
       , mcp_paper_search = "100.77.215.50"
       , mcp_wikipedia = "100.78.235.88"
       , mbp_13 = "100.122.197.52"
+      , id_xoxd = "100.71.183.2"
+      , bao_xoxd = "100.72.126.82"
       }
 
 in  { user, group, autogroup, tag, service, host }
