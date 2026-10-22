@@ -38,33 +38,6 @@
 		}
 	}]}
 }, {
-	"src": ["autogroup:member"],
-	"dst": ["tag:rj-gateway"],
-	"app": {"tinyland.dev/cap/rj-gateway": [{"role": "reader"}]}
-}, {
-	"src": ["autogroup:admin"],
-	"dst": ["tag:rj-gateway"],
-	"app": {"tinyland.dev/cap/rj-gateway": [{"role": "admin"}]}
-}, {
-	"src": ["tag:ci-agent"],
-	"dst": ["tag:rj-gateway"],
-	"app": {"tinyland.dev/cap/rj-gateway": [{
-		"role":    "reader",
-		"secrets": ["github-token", "gitlab-token", "neon-database-url"]
-	}]}
-}, {
-	"src": ["tag:rj-gateway"],
-	"dst": ["tag:setec"],
-	"app": {"tailscale.com/cap/secrets": [
-		{"action": ["get", "info", "put", "activate", "delete"], "secret": ["*"]}
-	]}
-}, {
-	"src": ["autogroup:admin"],
-	"dst": ["tag:setec"],
-	"app": {"tailscale.com/cap/secrets": [
-		{"action": ["get", "info", "put", "activate", "delete"], "secret": ["*"]}
-	]}
-}, {
 	"src": ["tinyland-honey"],
 	"dst": ["tag:mcp-proxy"],
 	"ip": ["tcp:8080"]

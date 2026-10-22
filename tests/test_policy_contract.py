@@ -36,6 +36,38 @@ class PolicyContractTest(unittest.TestCase):
         for row in self.policy["acls"] + self.policy["grants"]:
             self.assertFalse(universal.intersection(row["src"]))
 
+    # RemoteJuggler teardown (TIN-6890, SSOT ruling J70, Jess 2026-10-22).
+    # rj-gateway and setec are retired: no tag, rule, grant or capability may
+    # name them, and nothing may hold the tailscale.com/cap/secrets grant they
+    # used. tag:ci-agent stays (the Aperture ai:* row and observability grants
+    # still list it), but its RemoteJuggler-era reach is gone: no dev/k8s reach
+    # and no autogroup:internet egress.
+    RJ_TAGS = ("tag:rj-gateway", "tag:setec")
+
+    def test_remotejuggler_tags_are_gone(self) -> None:
+        for tag in self.RJ_TAGS:
+            self.assertNotIn(tag, self.policy["tagOwners"])
+            self.assertNotIn(tag, json.dumps(self.policy))
+
+    def test_remotejuggler_caps_are_gone(self) -> None:
+        for row in self.policy["grants"]:
+            app = row.get("app", {})
+            self.assertNotIn("tinyland.dev/cap/rj-gateway", app)
+            self.assertNotIn("tailscale.com/cap/secrets", app)
+
+    def test_ci_agent_has_no_acl_reach_or_internet_egress(self) -> None:
+        tag = "tag:ci-agent"
+        self.assertEqual(
+            self.policy["tagOwners"][tag], ["autogroup:admin", "group:dollhouse-admins"]
+        )
+        for row in self.policy["acls"]:
+            if tag in row["src"]:
+                self.assertEqual(row["dst"], ["ai:*"])
+        for row in self.policy["grants"]:
+            if tag in row["src"]:
+                self.assertNotIn("autogroup:internet", row["dst"])
+                self.assertNotIn("app", row)
+
     # gftb-probe (operator rulings 2026-10-03; lab design
     # docs/operations/TAILNET_MEMBERSHIP_DETECTION_DESIGN_2026-10-03.md, 3.5):
     # the public greatfallstoolbus.org bundle image-probes this node to learn
@@ -685,7 +717,7 @@ class PolicyContractTest(unittest.TestCase):
                 "tag:tinyland-lab-moonlight", "tag:tinyland-lab-crush",
                 "tag:tinyland-lab-runner", "tag:tinyland-lab-deploy",
                 "tag:tinyland-lab-ci-ephemeral", "tag:tinyland-lab-nix-target",
-                "tag:rj-gateway", "tag:setec", "tag:ci-agent", "tag:kvm-proxy",
+                "tag:ci-agent", "tag:kvm-proxy",
                 "tag:tag-authority", "tag:gftb-idp", "tag:tofu-state", "tag:infra-idp",
                 "tag:interim-build", "tag:honey-relay", "tag:mx-relay",
                 "tag:gf-reapi-cell-egress", "tag:gf-reapi-linux-worker",

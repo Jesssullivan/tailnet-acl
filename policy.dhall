@@ -28,8 +28,6 @@ let lab = ./fragments/lab.dhall
 
 let network = ./fragments/network.dhall
 
-let remotejuggler = ./fragments/remotejuggler.dhall
-
 let aperture = ./fragments/aperture.dhall
 
 let ssh = ./fragments/ssh.dhall
@@ -50,9 +48,7 @@ let allACLs =
       # devEnvs.aclsLate
       # lab.acls
       # network.aclsLate
-      # remotejuggler.aclsEarly
       # aperture.acls
-      # remotejuggler.aclsLate
 
 let allNodeAttrs
     : List T.NodeAttr

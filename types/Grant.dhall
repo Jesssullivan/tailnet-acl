@@ -40,7 +40,6 @@ let Cap =
       | ProbeUser : { cap : Text, flag : Text, user : Text }
       | Tsidp : Tsidp
       | Kubernetes : { impersonateGroups : List Text }
-      | RjGateway : { role : Text, secrets : Optional (List Text) }
       | Secrets : { action : List Text, secret : List Text }
       | Relay
       | Custom : { name : Text, json : J.Type }
@@ -142,18 +141,6 @@ let renderCap
                                   ]
                             }
                           ]
-                      ]
-                }
-          , RjGateway =
-              \(r : { role : Text, secrets : Optional (List Text) }) ->
-                { mapKey = "tinyland.dev/cap/rj-gateway"
-                , mapValue =
-                    J.array
-                      [ J.object
-                          (   [ { mapKey = "role", mapValue = J.string r.role }
-                              ]
-                            # field (List Text) "secrets" J.strings r.secrets
-                          )
                       ]
                 }
           , Secrets =
