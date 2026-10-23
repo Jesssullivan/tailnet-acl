@@ -78,6 +78,19 @@ let tests
         , accept = [ "${C.tag.printstack}:443" ]
         , deny = [ "${C.tag.printstack}:22" ]
         }
+      , { src = C.tag.codespace
+        , proto = "tcp"
+        , accept = [ "tinyland-id-xoxd:443", "tinyland-bao-xoxd:443" ]
+        , deny =
+          [ "tinyland-honey:8120"
+          , "tinyland-honey:22"
+          , "tinyland-sting:22"
+          , "tinyland-honey:6443"
+          , "tinyland-bao-xoxd:8200"
+          , "tinyland-neo:22"
+          , "tinyland-bumble:22"
+          ]
+        }
       , { src = C.tag.mx_relay
         , proto = "tcp"
         , accept =

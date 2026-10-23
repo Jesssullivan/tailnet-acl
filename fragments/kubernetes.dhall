@@ -96,6 +96,8 @@ let hosts
         }
       , { mapKey = "tinyland-mcp-wikipedia", mapValue = C.host.mcp_wikipedia }
       , { mapKey = "tinyland-mbp-13", mapValue = C.host.mbp_13 }
+      , { mapKey = "tinyland-id-xoxd", mapValue = C.host.id_xoxd }
+      , { mapKey = "tinyland-bao-xoxd", mapValue = C.host.bao_xoxd }
       ]
 
 in  { aclsEarly, aclsLate, hosts }

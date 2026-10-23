@@ -26,6 +26,12 @@
 -- dollhouse root Tailscale SSH rule. Owned by autogroup:admin and
 -- group:dollhouse-admins only: not tag:tag-authority, so no tagged device
 -- can mint it. Its only grants live in fragments/grants.dhall.
+--
+-- tag:codespace (TIN-6841 A2, ruled 042e8796): the Codespaces seat lane's
+-- node, joined with a neo-minted, single-use, ephemeral, preauthorized key.
+-- Owned by autogroup:admin alone, like tag:mx-relay and tag:gftb-probe, so
+-- no tagged device can mint it; the minting OAuth client carries this tag
+-- only.
 let T = ../types/ACL.dhall
 
 let C = ../constants.dhall
@@ -177,6 +183,7 @@ let tagOwners
         , mapValue =
           [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
         }
+      , { mapKey = C.tag.codespace, mapValue = [ C.autogroup.admin ] }
       ]
 
 let acls

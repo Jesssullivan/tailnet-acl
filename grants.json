@@ -200,4 +200,8 @@
 	],
 	"dst": ["tag:printstack"],
 	"ip": ["tcp:443"]
+}, {
+	"src": ["tag:codespace"],
+	"dst": ["tinyland-id-xoxd", "tinyland-bao-xoxd"],
+	"ip": ["tcp:443"]
 }]
