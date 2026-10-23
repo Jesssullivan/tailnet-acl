@@ -1474,15 +1474,18 @@ class PolicyContractTest(unittest.TestCase):
             self.assertNotIn(tag, tags)
 
 
-    # tag:codespace (DRAFT, TIN-6841 B4 spike; not ratified). The Codespaces
-    # seat node reaches id.xoxd.ai and bao.xoxd.ai on 443 and mcp-mux on
-    # honey:8120, nothing else; no rule names it as a destination or in ssh.
+    # tag:codespace (TIN-6841 A2, ruled 042e8796; OD-A "id + bao only for
+    # now", TIN-5770 25e097d7). The Codespaces seat node reaches id.xoxd.ai
+    # and bao.xoxd.ai on 443 and nothing else. mcp-mux on honey:8120 is
+    # denied until mux authenticates clients. No rule names it as a
+    # destination or in ssh, and no wildcard rule can reach it.
     CODESPACE = "tag:codespace"
     CODESPACE_POLICY_TEST = {
         "src": "tag:codespace",
         "proto": "tcp",
-        "accept": ["tinyland-id-xoxd:443", "tinyland-bao-xoxd:443", "tinyland-honey:8120"],
+        "accept": ["tinyland-id-xoxd:443", "tinyland-bao-xoxd:443"],
         "deny": [
+            "tinyland-honey:8120",
             "tinyland-honey:22",
             "tinyland-sting:22",
             "tinyland-honey:6443",
@@ -1492,7 +1495,7 @@ class PolicyContractTest(unittest.TestCase):
         ],
     }
 
-    def test_codespace_tag_is_admin_owned_and_reaches_only_id_bao_and_mux(self) -> None:
+    def test_codespace_tag_is_admin_owned_and_reaches_only_id_and_bao(self) -> None:
         tag = self.CODESPACE
         self.assertEqual(self.policy["tagOwners"][tag], ["autogroup:admin"])
         self.assertEqual(self.policy["hosts"]["tinyland-id-xoxd"], "100.71.183.2")
@@ -1515,7 +1518,6 @@ class PolicyContractTest(unittest.TestCase):
                     "dst": ["tinyland-id-xoxd", "tinyland-bao-xoxd"],
                     "ip": ["tcp:443"],
                 }),
-                ("grants", {"src": [tag], "dst": ["tinyland-honey"], "ip": ["tcp:8120"]}),
             ],
         )
         for row in self.policy["nodeAttrs"]:
@@ -1523,6 +1525,21 @@ class PolicyContractTest(unittest.TestCase):
         for tags in self.policy["autoApprovers"]["routes"].values():
             self.assertNotIn(tag, tags)
         self.assertNotIn(tag, self.policy["autoApprovers"].get("exitNode", []))
+
+    def test_no_wildcard_selector_can_reach_a_codespace(self) -> None:
+        # The tag:codespace reference check above only sees rules that name
+        # the tag. A "*" or autogroup:tagged src/dst would include a
+        # Codespace silently, so none may exist.
+        for surface in ("acls", "grants", "ssh"):
+            for rule in self.policy[surface]:
+                for key in ("src", "dst"):
+                    for endpoint in rule.get(key, []):
+                        self.assertFalse(
+                            endpoint in ("*", "*:*")
+                            or endpoint == "autogroup:tagged"
+                            or endpoint.startswith("autogroup:tagged:"),
+                            f"{surface} {key} {endpoint!r} would match tag:codespace",
+                        )
 
 
 if __name__ == "__main__":

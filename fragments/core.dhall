@@ -27,11 +27,11 @@
 -- group:dollhouse-admins only: not tag:tag-authority, so no tagged device
 -- can mint it. Its only grants live in fragments/grants.dhall.
 --
--- tag:codespace (DRAFT, TIN-6841 B4 spike; NOT ratified, needs an operator
--- GO): the Codespaces seat lane's node, if OD-3 moves from A1 (user-owned)
--- to A2 (a neo-minted, single-use, ephemeral, preauthorized key). Owned by
--- autogroup:admin alone, like tag:mx-relay and tag:gftb-probe, so no tagged
--- device can mint it; the minting OAuth client carries this tag only.
+-- tag:codespace (TIN-6841 A2, ruled 042e8796): the Codespaces seat lane's
+-- node, joined with a neo-minted, single-use, ephemeral, preauthorized key.
+-- Owned by autogroup:admin alone, like tag:mx-relay and tag:gftb-probe, so
+-- no tagged device can mint it; the minting OAuth client carries this tag
+-- only.
 let T = ../types/ACL.dhall
 
 let C = ../constants.dhall
@@ -182,7 +182,8 @@ let tagOwners
       , { mapKey = C.tag.printstack
         , mapValue =
           [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
-        }      , { mapKey = C.tag.codespace, mapValue = [ C.autogroup.admin ] }
+        }
+      , { mapKey = C.tag.codespace, mapValue = [ C.autogroup.admin ] }
       ]
 
 let acls

@@ -80,13 +80,10 @@ let tests
         }
       , { src = C.tag.codespace
         , proto = "tcp"
-        , accept =
-          [ "tinyland-id-xoxd:443"
-          , "tinyland-bao-xoxd:443"
-          , "tinyland-honey:8120"
-          ]
+        , accept = [ "tinyland-id-xoxd:443", "tinyland-bao-xoxd:443" ]
         , deny =
-          [ "tinyland-honey:22"
+          [ "tinyland-honey:8120"
+          , "tinyland-honey:22"
           , "tinyland-sting:22"
           , "tinyland-honey:6443"
           , "tinyland-bao-xoxd:8200"

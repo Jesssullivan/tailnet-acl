@@ -67,12 +67,15 @@
 -- tag:dollhouse and its rules are out of scope here (R-C1017). Pinned by
 -- tests/test_policy_contract.py and by policy tests in fragments/tests.dhall.
 --
--- tag:codespace (DRAFT, TIN-6841 B4 spike; needs an operator GO). The
--- Codespaces seat node reaches exactly: Keycloak id.xoxd.ai and OpenBao
--- bao.xoxd.ai on tcp:443 (their Tailscale-operator proxies, by address), and
--- mcp-mux on honey tcp:8120 (mux.mcp.xoxd.ai). Nothing grants anything to
--- tag:codespace, so no tailnet device can reach into a Codespace. No SSH,
--- no exit node, no internet egress through the tailnet.
+-- tag:codespace (TIN-6841 A2, ruled 042e8796; OD-A "id + bao only for now",
+-- TIN-5770 25e097d7). The Codespaces seat node reaches exactly Keycloak
+-- id.xoxd.ai and OpenBao bao.xoxd.ai on tcp:443 (their Tailscale-operator
+-- proxies, by address). mcp-mux on honey:8120 is deliberately absent: mux
+-- has no client authentication and holds honey's Linear and GitHub bearers,
+-- so mux reach returns only after mux authenticates clients. Nothing grants
+-- anything to tag:codespace, so no tailnet device can reach into a
+-- Codespace. No SSH, no exit node, no internet egress through the tailnet.
+-- Merging this is the apply (cd.yml); that is its own operator GO (G1).
 let C = ../constants.dhall
 
 let G = ../types/Grant.dhall
@@ -290,7 +293,6 @@ let grants
           [ C.tag.codespace ]
           [ "tinyland-id-xoxd", "tinyland-bao-xoxd" ]
           [ "tcp:443" ]
-      , G.net [ C.tag.codespace ] [ "tinyland-honey" ] [ "tcp:8120" ]
       ]
 
 in  { grants }
