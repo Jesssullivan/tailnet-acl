@@ -38,7 +38,7 @@
 		}
 	}]}
 }, {
-	"src": ["tinyland-honey"],
+	"src": ["tinyland-honey", "tinyland-bumble"],
 	"dst": ["tag:mcp-proxy"],
 	"ip": ["tcp:8080"]
 }, {

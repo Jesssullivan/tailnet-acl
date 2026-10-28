@@ -196,13 +196,12 @@ class PolicyContractTest(unittest.TestCase):
         owners = self.policy["tagOwners"]["tag:mcp-proxy"]
         self.assertIn("tag:k8s-operator", owners)
 
-    def test_honey_mcp_access_is_tcp_only_and_tag_scoped(self) -> None:
-        expected = {
-            "src": ["tinyland-honey"],
-            "dst": ["tag:mcp-proxy"],
-            "ip": ["tcp:8080"],
-        }
-        self.assertEqual(self.policy["grants"].count(expected), 1)
+    def test_honey_and_bumble_mcp_access_is_tcp_only_and_tag_scoped(self) -> None:
+        # Operator ruling 2026-10-28 (TIN-4655): bumble joins honey on the
+        # switchboard broker proxy, tag:mcp-proxy tcp:8080. bumble carries
+        # tag:dollhouse only, so it is named by alias. sting is not added.
+        self.assertEqual(self.policy["grants"].count(self.MCP_PROXY_8080_GRANT), 1)
+        self.assertNotIn("tinyland-sting", self.MCP_PROXY_8080_GRANT["src"])
 
     def test_honey_interim_mcp_proxy_host_grant_is_exact(self) -> None:
         # lab TIN-4415 (2026-09-19): the five mcp-services proxies carry
@@ -554,8 +553,10 @@ class PolicyContractTest(unittest.TestCase):
         "dst": ["tag:mcp-proxy"],
         "ip": ["tcp:3100"],
     }
-    HONEY_MCP_GRANT = {
-        "src": ["tinyland-honey"],
+    # Operator ruling 2026-10-28 (TIN-4655): honey and bumble reach the
+    # switchboard broker proxy (agents.xoxd.ai, mcp-agents) on tcp:8080.
+    MCP_PROXY_8080_GRANT = {
+        "src": ["tinyland-honey", "tinyland-bumble"],
         "dst": ["tag:mcp-proxy"],
         "ip": ["tcp:8080"],
     }
@@ -599,7 +600,7 @@ class PolicyContractTest(unittest.TestCase):
         "ip": ["tcp:3000", "tcp:4318"],
     }
     MCP_PROXY_GRANTS = [
-        HONEY_MCP_GRANT,
+        MCP_PROXY_8080_GRANT,
         OBSERVABILITY_READ_GRANT,
         LOKI_WRITER_GRANT,
         MIMIR_DEVICE_TWIN,
@@ -958,8 +959,8 @@ class PolicyContractTest(unittest.TestCase):
         self.assertFalse(any("tag:mcp-proxy" in tags for tags in approvers["routes"].values()))
 
     def test_o11y_services_change_leaves_tag_mcp_proxy_grants_untouched(self) -> None:
-        # The tailnet-acl#29 grants and honey's tcp:8080 grant are unchanged;
-        # with the TIN-4686 device twins they are the only grants whose
+        # The tailnet-acl#29 grants, the TIN-4686 device twins and the honey
+        # and bumble tcp:8080 grant (TIN-4655) are the only grants whose
         # destination is tag:mcp-proxy.
         self.assertEqual(
             [grant for grant in self.policy["grants"] if "tag:mcp-proxy" in grant["dst"]],
