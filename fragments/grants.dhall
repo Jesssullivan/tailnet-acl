@@ -117,7 +117,10 @@ let grants
                     }
               )
           ]
-      , G.net [ "tinyland-honey" ] [ C.tag.mcp_proxy ] [ "tcp:8080" ]
+      , G.net
+          [ "tinyland-honey", "tinyland-bumble" ]
+          [ C.tag.mcp_proxy ]
+          [ "tcp:8080" ]
       , G.net
           [ "tinyland-honey" ]
           [ "tinyland-mcp-arxiv"
