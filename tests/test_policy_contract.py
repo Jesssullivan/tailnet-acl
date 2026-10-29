@@ -722,7 +722,7 @@ class PolicyContractTest(unittest.TestCase):
                 "tag:tag-authority", "tag:gftb-idp", "tag:tofu-state", "tag:infra-idp",
                 "tag:interim-build", "tag:honey-relay", "tag:mx-relay",
                 "tag:gf-reapi-cell-egress", "tag:gf-reapi-linux-worker",
-                "tag:gf-reapi-rocm-worker", "tag:printstack",
+                "tag:gf-reapi-rocm-worker", "tag:printstack", "tag:softproxy",
             },
         )
         for row in self.policy["nodeAttrs"]:
@@ -1398,6 +1398,7 @@ class PolicyContractTest(unittest.TestCase):
                     "accept": ["tag:printstack:443"],
                     "deny": ["tag:printstack:22"],
                 },
+                *self.SOFTPROXY_POLICY_TESTS,
                 self.MX_RELAY_POLICY_TEST,
                 self.HONEY_TO_RELAY_POLICY_TEST,
                 self.NEO_TO_RELAY_POLICY_TEST,
@@ -1472,6 +1473,131 @@ class PolicyContractTest(unittest.TestCase):
             self.assertNotIn(tag, row["target"])
         for tags in self.policy["autoApprovers"]["routes"].values():
             self.assertNotIn(tag, tags)
+
+    # tag:softproxy (GO-02 step 1, Linear TIN-7729). xoxd-ai/softproxy SP-1
+    # keeps it tailnet only with Funnel off, and SP-25 gives it its own
+    # tailscale node. The one grant lets the operator's own untagged devices
+    # reach it on tcp:443. Nothing else names it, so it has no outbound
+    # reach, no Funnel, no SSH and no autoApprover.
+    SOFTPROXY = "tag:softproxy"
+    SOFTPROXY_GRANT = {
+        "src": ["group:dollhouse-admins"],
+        "dst": ["tag:softproxy"],
+        "ip": ["tcp:443"],
+    }
+    SOFTPROXY_POLICY_TESTS = [
+        {
+            "src": "jess@sulliwood.org",
+            "proto": "tcp",
+            "accept": ["tag:softproxy:443"],
+            "deny": [
+                "tag:softproxy:80",
+                "tag:softproxy:22",
+                "tag:softproxy:8080",
+                "tag:softproxy:43140",
+            ],
+        },
+        {
+            "src": "jsullivan2@gmail.com",
+            "proto": "tcp",
+            "accept": ["tag:softproxy:443"],
+            "deny": ["tag:softproxy:80", "tag:softproxy:22"],
+        },
+        {
+            "src": "tag:dev",
+            "proto": "tcp",
+            "accept": ["tag:dev:22"],
+            "deny": ["tag:softproxy:443", "tag:softproxy:80"],
+        },
+        {
+            "src": "tag:dollhouse",
+            "proto": "tcp",
+            "accept": ["tag:dollhouse:22"],
+            "deny": ["tag:softproxy:443", "tag:softproxy:80"],
+        },
+        {
+            "src": "tag:k8s-operator",
+            "proto": "tcp",
+            "accept": ["tag:k8s:443"],
+            "deny": ["tag:softproxy:443", "tag:softproxy:80"],
+        },
+        {
+            "src": "tag:mcp-proxy",
+            "proto": "tcp",
+            "accept": ["tag:mcp-proxy:3100"],
+            "deny": ["tag:softproxy:443", "tag:softproxy:80"],
+        },
+        {
+            "src": "tinyland-neo",
+            "proto": "tcp",
+            "accept": ["tinyland-relay-1:22"],
+            "deny": ["tag:softproxy:443", "tag:softproxy:80"],
+        },
+        {
+            "src": "tinyland-sting",
+            "proto": "tcp",
+            "accept": ["tinyland-loki-observability:3100"],
+            "deny": ["tag:softproxy:443", "tag:softproxy:80"],
+        },
+    ]
+
+    def test_softproxy_tag_is_admin_owned_and_owns_no_tag(self) -> None:
+        tag = self.SOFTPROXY
+        self.assertEqual(self.policy["tagOwners"][tag], ["autogroup:admin"])
+        self.assertFalse([t for t, owners in self.policy["tagOwners"].items() if tag in owners])
+        self.assertNotIn(tag, self.policy["hosts"])
+
+    def test_softproxy_has_exactly_one_inbound_tcp_443_grant(self) -> None:
+        tag = self.SOFTPROXY
+        references = [
+            (surface, rule)
+            for surface in ("acls", "grants", "ssh")
+            for rule in self.policy[surface]
+            if any(
+                endpoint == tag or endpoint.startswith(f"{tag}:")
+                for key in ("src", "dst")
+                for endpoint in rule.get(key, [])
+            )
+        ]
+        self.assertEqual(references, [("grants", self.SOFTPROXY_GRANT)])
+        # The source group is exactly the operator's two identities.
+        self.assertEqual(
+            self.policy["groups"]["group:dollhouse-admins"],
+            ["jsullivan2@gmail.com", "jess@sulliwood.org"],
+        )
+
+    def test_softproxy_is_tailnet_only_with_no_node_attr_or_auto_approver(self) -> None:
+        tag = self.SOFTPROXY
+        for row in self.policy["nodeAttrs"]:
+            self.assertNotIn(tag, row["target"], row)
+            if "funnel" in row["attr"]:
+                self.assertFalse({"*", "autogroup:tagged", "autogroup:member"} & set(row["target"]), row)
+        for tags in self.policy["autoApprovers"]["routes"].values():
+            self.assertNotIn(tag, tags)
+        self.assertNotIn(tag, self.policy["autoApprovers"]["exitNode"])
+        for tags in self.policy["autoApprovers"]["services"].values():
+            self.assertNotIn(tag, tags)
+
+    def test_no_wide_selector_reaches_softproxy(self) -> None:
+        # The reference check sees only rules that name the tag. A "*" or
+        # autogroup:tagged destination, or a tailnet CIDR wider than one
+        # address, would reach the node without naming it.
+        cgnat = ipaddress.ip_network("100.64.0.0/10")
+        for surface in ("acls", "grants"):
+            for rule in self.policy[surface]:
+                for endpoint in rule["dst"]:
+                    host = endpoint.rpartition(":")[0] if surface == "acls" else endpoint
+                    self.assertNotIn(host, {"*", "autogroup:tagged"}, rule)
+                    try:
+                        network = ipaddress.ip_network(host, strict=False)
+                    except ValueError:
+                        continue
+                    if network.version == 4 and network.overlaps(cgnat):
+                        self.assertEqual(network.num_addresses, 1, rule)
+        for alias, address in self.policy["hosts"].items():
+            network = ipaddress.ip_network(address, strict=False)
+            if network.version == 4 and network.overlaps(cgnat):
+                self.assertEqual(network.num_addresses, 1, alias)
 
 
 if __name__ == "__main__":
