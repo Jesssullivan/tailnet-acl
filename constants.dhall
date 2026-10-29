@@ -59,6 +59,7 @@ let tag =
       , gf_reapi_linux_worker = "tag:gf-reapi-linux-worker"
       , gf_reapi_rocm_worker = "tag:gf-reapi-rocm-worker"
       , printstack = "tag:printstack"
+      , softproxy = "tag:softproxy"
       }
 
 let service =

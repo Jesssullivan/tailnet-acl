@@ -26,6 +26,12 @@
 -- dollhouse root Tailscale SSH rule. Owned by autogroup:admin and
 -- group:dollhouse-admins only: not tag:tag-authority, so no tagged device
 -- can mint it. Its only grants live in fragments/grants.dhall.
+--
+-- tag:softproxy (GO-02 step 1, Linear TIN-7729; xoxd-ai/softproxy rulings
+-- SP-1 and SP-25): Softproxy's own userspace tailscaled node on honey,
+-- joined with one single-use auth key the operator mints. Owned by
+-- autogroup:admin alone, like tag:gftb-idp and tag:infra-idp, so no tagged
+-- device can mint it. Its one grant lives in fragments/grants.dhall.
 let T = ../types/ACL.dhall
 
 let C = ../constants.dhall
@@ -177,6 +183,7 @@ let tagOwners
         , mapValue =
           [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
         }
+      , { mapKey = C.tag.softproxy, mapValue = [ C.autogroup.admin ] }
       ]
 
 let acls
