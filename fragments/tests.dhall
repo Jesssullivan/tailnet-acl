@@ -61,11 +61,15 @@
 -- only the console on 443: not the other device tag, its own tag,
 -- tag:dollhouse:22, honey on 443 or 6443, ai:443 or a 192.168.0.0/16
 -- address. The prober reaches both device tags on 22 and 443 only.
+-- tag:icebox-member (IB-10) reaches every port on tag:icebox-dev,
+-- tag:icebox-prod on 22 and 443 but not 80, and the console on 443 but
+-- not 22. It is denied tag:dollhouse:22, honey on 443 or 6443, ai:443 and
+-- a 192.168.0.0/16 address.
 -- tag:dev and sting reach neither the console nor a device. Jess is also a
 -- dollhouse admin, so her rows cannot prove the denials for an
 -- icebox-only person. The contract test proves them for a synthetic
--- icebox-only member. A policy row naming invitee 1 lands with the
--- invitee, after this repository is private (IB-6).
+-- icebox-only member. Under IB-10 an invitee's device carries
+-- tag:icebox-member, and the row for that tag stands in for the invitee.
 let T = ../types/ACL.dhall
 
 let C = ../constants.dhall
@@ -327,6 +331,25 @@ let tests
         , deny =
           [ "${C.tag.icebox_dev}:80"
           , "${C.tag.icebox_console}:443"
+          , "${C.tag.dollhouse}:22"
+          , "tinyland-honey:443"
+          , "tinyland-honey:6443"
+          , "ai:443"
+          , "192.168.30.105:22"
+          ]
+        }
+      , { src = C.tag.icebox_member
+        , proto = "tcp"
+        , accept =
+          [ "${C.tag.icebox_dev}:22"
+          , "${C.tag.icebox_dev}:8080"
+          , "${C.tag.icebox_prod}:22"
+          , "${C.tag.icebox_prod}:443"
+          , "${C.tag.icebox_console}:443"
+          ]
+        , deny =
+          [ "${C.tag.icebox_prod}:80"
+          , "${C.tag.icebox_console}:22"
           , "${C.tag.dollhouse}:22"
           , "tinyland-honey:443"
           , "tinyland-honey:6443"

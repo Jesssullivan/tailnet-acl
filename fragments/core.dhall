@@ -38,7 +38,8 @@
 -- icebox (Linear TIN-7812, Jess's rulings IB-1 and IB-3 to IB-7 in comments
 -- b0d7c34e and ba40e1a6; folds Jesssullivan/tailnet-acl#65, TIN-7811;
 -- xoxd-ai/icebox is owned by the PZM icebox seat under
--- R-ICEBOX-20261030-a). Four groups and four tags:
+-- R-ICEBOX-20261030-a; IB-10 for tag:icebox-member). Four groups and five
+-- tags:
 --   * group:icebox-dev holds the developers. group:icebox-prod holds every
 --     dev member (IB-1). Tailscale groups cannot nest, so both lists come
 --     from one Dhall list. The contract test pins dev as a subset of prod.
@@ -47,11 +48,14 @@
 --   * tag:icebox-dev marks bench devices and tag:icebox-prod deployed
 --     devices. They replace #65's tag:icebox. tag:icebox-console is the
 --     console and ingest node, and tag:icebox-prober is the device prober.
+--   * tag:icebox-member marks an icebox member's own device (IB-10,
+--     "Tag-based access instead"). It reaches what group:icebox-prod
+--     reaches, and every port on tag:icebox-dev.
 --     autogroup:admin alone owns each tag (Q5), so no tagged device can
 --     mint one.
--- Every group starts with Jess's two identities. Invitee 1 joins
--- group:icebox-dev in a later change, after this repository is private
--- (IB-6). The icebox rows live in fragments/grants.dhall and
+-- Every group starts with Jess's two identities. Under IB-10 an invitee
+-- joins by tagging a device tag:icebox-member, so no personal address
+-- enters this public file. The icebox rows live in fragments/grants.dhall and
 -- fragments/ssh.dhall.
 let T = ../types/ACL.dhall
 
@@ -219,6 +223,7 @@ let tagOwners
       , { mapKey = C.tag.icebox_prod, mapValue = [ C.autogroup.admin ] }
       , { mapKey = C.tag.icebox_prober, mapValue = [ C.autogroup.admin ] }
       , { mapKey = C.tag.icebox_console, mapValue = [ C.autogroup.admin ] }
+      , { mapKey = C.tag.icebox_member, mapValue = [ C.autogroup.admin ] }
       ]
 
 let acls

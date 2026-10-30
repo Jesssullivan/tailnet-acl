@@ -232,4 +232,20 @@
 	"src": ["group:icebox-prod"],
 	"dst": ["tag:gftb-idp"],
 	"ip": ["tcp:443"]
+}, {
+	"src": ["tag:icebox-member"],
+	"dst": ["tag:icebox-dev"],
+	"ip": ["*"]
+}, {
+	"src": ["tag:icebox-member"],
+	"dst": ["tag:icebox-prod"],
+	"ip": ["tcp:22", "tcp:443"]
+}, {
+	"src": ["tag:icebox-member"],
+	"dst": ["tag:icebox-console"],
+	"ip": ["tcp:443"]
+}, {
+	"src": ["tag:icebox-member"],
+	"dst": ["tag:gftb-idp"],
+	"ip": ["tcp:443"]
 }]
