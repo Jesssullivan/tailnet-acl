@@ -723,6 +723,8 @@ class PolicyContractTest(unittest.TestCase):
                 "tag:interim-build", "tag:honey-relay", "tag:mx-relay",
                 "tag:gf-reapi-cell-egress", "tag:gf-reapi-linux-worker",
                 "tag:gf-reapi-rocm-worker", "tag:printstack", "tag:softproxy",
+                "tag:icebox-dev", "tag:icebox-prod", "tag:icebox-prober",
+                "tag:icebox-console",
             },
         )
         for row in self.policy["nodeAttrs"]:
@@ -1047,6 +1049,14 @@ class PolicyContractTest(unittest.TestCase):
                 },
             }]},
         },
+        # IB-5 (Linear TIN-7812 comment b0d7c34e): a scoped exception to
+        # TIN-5748. group:icebox-prod reaches the IdP on tcp:443 only, with
+        # no tsidp capability: no member claim, admin UI or tagged identity.
+        {
+            "src": ["group:icebox-prod"],
+            "dst": ["tag:gftb-idp"],
+            "ip": ["tcp:443"],
+        },
     ]
     # Every rule naming tag:tsidp, exactly as on main (1342ef0). Retiring
     # them is a separate change after those devices are retagged.
@@ -1255,6 +1265,8 @@ class PolicyContractTest(unittest.TestCase):
             [
                 {"src": [self.QA_GROUP], "dst": [self.IDP], "ip": ["tcp:443"]},
                 {"src": ["tinyland-neo"], "dst": [self.IDP], "ip": ["tcp:443"]},
+                # IB-5, TIN-7812 b0d7c34e: scoped exception to TIN-5748.
+                {"src": ["group:icebox-prod"], "dst": [self.IDP], "ip": ["tcp:443"]},
             ],
         )
         self.assertEqual(self.policy["groups"][self.QA_GROUP], ["jsullivan2@gmail.com", "jess@sulliwood.org"])
@@ -1405,6 +1417,7 @@ class PolicyContractTest(unittest.TestCase):
                 self.ADMIN_USER_TO_RELAY_POLICY_TEST,
                 self.EXPORTER_EGRESS_POLICY_TEST,
                 *self.POST_RETAG_RATCHET_TESTS,
+                *self.ICEBOX_POLICY_TESTS,
             ],
         )
         # Every field is set, so the post-write read-back cannot drop an
@@ -1609,6 +1622,245 @@ class PolicyContractTest(unittest.TestCase):
             network = ipaddress.ip_network(address, strict=False)
             if network.version == 4 and network.overlaps(cgnat):
                 self.assertEqual(network.num_addresses, 1, alias)
+
+    # icebox (Linear TIN-7812; Jess's rulings IB-1 and IB-3 to IB-7 in
+    # comments b0d7c34e and ba40e1a6; folds Jesssullivan/tailnet-acl#65,
+    # TIN-7811, R-ICEBOX-20261030-a). Four groups and four admin-owned tags.
+    # They appear only in the rows below, so adding a person to an icebox
+    # group or a device to an icebox tag changes nothing outside icebox,
+    # apart from the IB-5 IdP row.
+    ICEBOX_GROUPS = {
+        "group:icebox-dev",
+        "group:icebox-prod",
+        "group:icebox-dispatchers",
+        "group:icebox-keyholders",
+    }
+    ICEBOX_TAGS = {
+        "tag:icebox-dev",
+        "tag:icebox-prod",
+        "tag:icebox-prober",
+        "tag:icebox-console",
+    }
+    ICEBOX_DEVICE_TAGS = ["tag:icebox-dev", "tag:icebox-prod"]
+    ICEBOX_GRANTS = [
+        # #65 row 1: console roles and neo reach the console on 443.
+        {
+            "src": ["group:icebox-dispatchers", "group:icebox-keyholders", "tinyland-neo"],
+            "dst": ["tag:icebox-console"],
+            "ip": ["tcp:443"],
+        },
+        # #65 row 2: devices reach only the console, on 443 (/ingest).
+        {"src": ["tag:icebox-dev", "tag:icebox-prod"], "dst": ["tag:icebox-console"], "ip": ["tcp:443"]},
+        # #65 row 3: bring-up from the admins' untagged devices and tagged neo.
+        {
+            "src": ["group:dollhouse-admins", "tinyland-neo"],
+            "dst": ["tag:icebox-dev", "tag:icebox-prod"],
+            "ip": ["tcp:22"],
+        },
+        {"src": ["group:icebox-dev"], "dst": ["tag:icebox-dev"], "ip": ["*"]},
+        {"src": ["group:icebox-prod"], "dst": ["tag:icebox-prod"], "ip": ["tcp:22", "tcp:443"]},
+        {
+            "src": ["tag:icebox-prober"],
+            "dst": ["tag:icebox-dev", "tag:icebox-prod"],
+            "ip": ["tcp:22", "tcp:443"],
+        },
+        # IB-5: scoped exception to TIN-5748 (TIN-7812 b0d7c34e).
+        {"src": ["group:icebox-prod"], "dst": ["tag:gftb-idp"], "ip": ["tcp:443"]},
+    ]
+    # IB-7: dev accept, prod check, non-root users only.
+    ICEBOX_SSH = [
+        {
+            "action": "accept",
+            "src": ["group:icebox-dev"],
+            "dst": ["tag:icebox-dev"],
+            "users": ["autogroup:nonroot"],
+        },
+        {
+            "action": "check",
+            "src": ["group:icebox-prod"],
+            "dst": ["tag:icebox-prod"],
+            "users": ["autogroup:nonroot"],
+        },
+    ]
+
+    ICEBOX_DENY = [
+        "tag:dollhouse:22",
+        "tinyland-honey:443",
+        "tinyland-honey:6443",
+        "ai:443",
+        "192.168.30.105:22",
+    ]
+    ICEBOX_POLICY_TESTS = [
+        {
+            "src": "jess@sulliwood.org",
+            "proto": "tcp",
+            "accept": [
+                "tag:icebox-console:443",
+                "tag:icebox-dev:22",
+                "tag:icebox-dev:8080",
+                "tag:icebox-prod:22",
+                "tag:icebox-prod:443",
+            ],
+            "deny": ["tag:icebox-console:22", "tag:icebox-prod:80"],
+        },
+        {
+            "src": "jsullivan2@gmail.com",
+            "proto": "tcp",
+            "accept": ["tag:icebox-console:443", "tag:icebox-dev:80", "tag:icebox-prod:443"],
+            "deny": ["tag:icebox-console:22", "tag:icebox-prod:80"],
+        },
+        {
+            "src": "tinyland-neo",
+            "proto": "tcp",
+            "accept": ["tag:icebox-console:443", "tag:icebox-dev:22", "tag:icebox-prod:22"],
+            "deny": ["tag:icebox-console:22", "tag:icebox-dev:80", "tag:icebox-prod:443"],
+        },
+        {
+            "src": "tag:icebox-dev",
+            "proto": "tcp",
+            "accept": ["tag:icebox-console:443"],
+            "deny": ["tag:icebox-console:22", "tag:icebox-dev:22", "tag:icebox-prod:22"] + ICEBOX_DENY,
+        },
+        {
+            "src": "tag:icebox-prod",
+            "proto": "tcp",
+            "accept": ["tag:icebox-console:443"],
+            "deny": ["tag:icebox-console:22", "tag:icebox-prod:22", "tag:icebox-dev:22"] + ICEBOX_DENY,
+        },
+        {
+            "src": "tag:icebox-prober",
+            "proto": "tcp",
+            "accept": ["tag:icebox-dev:22", "tag:icebox-prod:443"],
+            "deny": ["tag:icebox-dev:80", "tag:icebox-console:443"] + ICEBOX_DENY,
+        },
+        {
+            "src": "tag:dev",
+            "proto": "tcp",
+            "accept": ["tag:dev:22"],
+            "deny": ["tag:icebox-console:443", "tag:icebox-dev:22", "tag:icebox-prod:22"],
+        },
+        {
+            "src": "tinyland-sting",
+            "proto": "tcp",
+            "accept": ["tinyland-loki-observability:3100"],
+            "deny": ["tag:icebox-console:443", "tag:icebox-dev:22", "tag:icebox-prod:22"],
+        },
+    ]
+
+    # Sources that would also match a newly invited Member. None may appear,
+    # so an icebox invitee gets only the rows naming an icebox group.
+    MEMBER_WIDE_SOURCES = {"*", "autogroup:member", "autogroup:members", "autogroup:shared"}
+
+    def _icebox_names(self, row) -> set:
+        names = self.ICEBOX_GROUPS | self.ICEBOX_TAGS
+        endpoints = list(row.get("src", [])) + list(row.get("dst", []))
+        return {e.rsplit(":", 1)[0] if e.count(":") > 1 else e for e in endpoints} & names
+
+    def test_icebox_names_appear_only_in_the_icebox_rows(self) -> None:
+        self.assertFalse([row for row in self.policy["acls"] if self._icebox_names(row)])
+        self.assertEqual(
+            [row for row in self.policy["grants"] if self._icebox_names(row)],
+            self.ICEBOX_GRANTS,
+        )
+        self.assertEqual(
+            [row for row in self.policy["ssh"] if self._icebox_names(row)],
+            self.ICEBOX_SSH,
+        )
+        names = self.ICEBOX_GROUPS | self.ICEBOX_TAGS
+        for row in self.policy["nodeAttrs"]:
+            self.assertFalse(names & set(row["target"]), row)
+        for tags in self.policy["autoApprovers"]["routes"].values():
+            self.assertFalse(names & set(tags))
+        self.assertFalse(names & set(self.policy["autoApprovers"]["exitNode"]))
+        for tags in self.policy["autoApprovers"]["services"].values():
+            self.assertFalse(names & set(tags))
+        self.assertFalse(names & set(self.policy["hosts"]))
+        for tag, owners in self.policy["tagOwners"].items():
+            self.assertFalse(names & set(owners), tag)
+        # #65's bare tag:icebox is replaced by the two device tags.
+        text = json.dumps(self.policy)
+        self.assertNotIn('"tag:icebox"', text)
+        self.assertNotIn('"tag:icebox:', text)
+
+    def test_icebox_tags_are_admin_owned(self) -> None:
+        for tag in sorted(self.ICEBOX_TAGS):
+            self.assertEqual(self.policy["tagOwners"][tag], ["autogroup:admin"], tag)
+
+    def test_icebox_groups_prod_holds_every_dev_member(self) -> None:
+        groups = self.policy["groups"]
+        jess = ["jsullivan2@gmail.com", "jess@sulliwood.org"]
+        for group in sorted(self.ICEBOX_GROUPS):
+            self.assertTrue(set(jess) <= set(groups[group]), group)
+        self.assertTrue(set(groups["group:icebox-dev"]) <= set(groups["group:icebox-prod"]))
+
+    def test_icebox_has_no_funnel_and_no_tsidp_capability(self) -> None:
+        for row in self.policy["grants"]:
+            if self._icebox_names(row):
+                self.assertNotIn("app", row)
+        funnel = [row for row in self.policy["nodeAttrs"] if "funnel" in row["attr"]]
+        for row in funnel:
+            self.assertFalse(self.ICEBOX_TAGS & set(row["target"]), row)
+
+    def test_icebox_console_and_device_tags_have_only_the_ruled_outbound_reach(self) -> None:
+        # The console is never a source. Device tags reach only the console
+        # on 443. The prober reaches only the device tags on 22 and 443.
+        for surface in ("acls", "grants", "ssh"):
+            for row in self.policy[surface]:
+                self.assertNotIn("tag:icebox-console", row["src"], row)
+        device_rows = [
+            row for surface in ("acls", "grants", "ssh") for row in self.policy[surface]
+            if set(self.ICEBOX_DEVICE_TAGS) & set(row["src"])
+        ]
+        self.assertEqual(device_rows, [self.ICEBOX_GRANTS[1]])
+        prober_rows = [
+            row for surface in ("acls", "grants", "ssh") for row in self.policy[surface]
+            if "tag:icebox-prober" in row["src"]
+        ]
+        self.assertEqual(prober_rows, [self.ICEBOX_GRANTS[5]])
+
+    def test_no_rule_source_matches_every_member(self) -> None:
+        # An invited Member matches a rule only by email, by a group holding
+        # it, or by a member-wide source. Main has no member-wide source.
+        for surface in ("acls", "grants", "ssh"):
+            for row in self.policy[surface]:
+                self.assertFalse(self.MEMBER_WIDE_SOURCES & set(row["src"]), (surface, row))
+                for src in row["src"]:
+                    if "/" in src:
+                        self.assertEqual(ipaddress.ip_network(src).num_addresses, 1, (surface, row))
+        for row in self.policy["nodeAttrs"]:
+            self.assertFalse(self.MEMBER_WIDE_SOURCES & set(row["target"]), row)
+
+    def test_icebox_only_member_gets_only_the_icebox_rows(self) -> None:
+        # A synthetic member in group:icebox-dev and group:icebox-prod alone,
+        # as an invitee is. Every rule it matches is an icebox row, and none
+        # of them reaches dollhouse, honey, ai or 192.168.0.0/16.
+        member = "icebox-only-member@example.invalid"
+        groups = {"group:icebox-dev", "group:icebox-prod"}
+        identities = {member} | groups | self.MEMBER_WIDE_SOURCES
+        for group, members in self.policy["groups"].items():
+            self.assertNotIn(member, members, group)
+        matched = {
+            surface: [row for row in self.policy[surface] if identities & set(row["src"])]
+            for surface in ("acls", "grants", "ssh")
+        }
+        self.assertEqual(matched["acls"], [])
+        self.assertEqual(matched["grants"], [self.ICEBOX_GRANTS[i] for i in (3, 4, 6)])
+        self.assertEqual(matched["ssh"], self.ICEBOX_SSH)
+        lan = ipaddress.ip_network("192.168.0.0/16")
+        for row in matched["grants"] + matched["ssh"]:
+            for dst in row["dst"]:
+                self.assertIn(dst, {"tag:icebox-dev", "tag:icebox-prod", "tag:gftb-idp"}, row)
+                self.assertFalse(dst in ("tag:dollhouse", "tinyland-honey", "ai"), row)
+                try:
+                    self.assertFalse(ipaddress.ip_network(dst, strict=False).overlaps(lan), row)
+                except ValueError:
+                    pass
+
+    def test_icebox_policy_tests_are_exact(self) -> None:
+        rows = [t for t in self.policy["tests"] if "icebox" in json.dumps(t)]
+        self.assertEqual(rows, self.ICEBOX_POLICY_TESTS)
+        network = ipaddress.ip_network("192.168.0.0/16")
+        self.assertIn(ipaddress.ip_address("192.168.30.105"), network)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,11 @@
 -- SSH fragment: ALL SSH rules.
 -- CRITICAL: These rules control SSH access. Changes here can lock users out.
 -- Review carefully before applying.
+--
+-- icebox (IB-7, Linear TIN-7812): group:icebox-dev gets Tailscale SSH to
+-- tag:icebox-dev with accept; group:icebox-prod gets it to tag:icebox-prod
+-- with check, so each prod session re-authenticates on Tailscale's default
+-- check period. Both admit non-root users only.
 let T = ../types/ACL.dhall
 
 let C = ../constants.dhall
@@ -57,6 +62,16 @@ let ssh
         , src = [ C.tag.switch ]
         , dst = [ C.tag.dollhouse, C.tag.dev ]
         , users = [ "admin", "root", "jess", "jsullivan2" ]
+        }
+      , { action = "accept"
+        , src = [ C.group.icebox_dev ]
+        , dst = [ C.tag.icebox_dev ]
+        , users = [ C.autogroup.nonroot ]
+        }
+      , { action = "check"
+        , src = [ C.group.icebox_prod ]
+        , dst = [ C.tag.icebox_prod ]
+        , users = [ C.autogroup.nonroot ]
         }
       ]
 

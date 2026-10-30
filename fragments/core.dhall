@@ -34,9 +34,30 @@
 -- device can mint it. Its one grant lives in fragments/grants.dhall. The
 -- grant's sources are group:dollhouse-admins and neo (Jess 2026-10-30,
 -- softproxy seat session, TIN-7729).
+--
+-- icebox (Linear TIN-7812, Jess's rulings IB-1 and IB-3 to IB-7 in comments
+-- b0d7c34e and ba40e1a6; folds Jesssullivan/tailnet-acl#65, TIN-7811;
+-- xoxd-ai/icebox is owned by the PZM icebox seat under
+-- R-ICEBOX-20261030-a). Four groups and four tags:
+--   * group:icebox-dev holds the developers. group:icebox-prod holds every
+--     dev member (IB-1). Tailscale groups cannot nest, so both lists come
+--     from one Dhall list. The contract test pins dev as a subset of prod.
+--   * group:icebox-dispatchers and group:icebox-keyholders are the
+--     dispatcher console roles from #65. Keyholders add members here.
+--   * tag:icebox-dev marks bench devices and tag:icebox-prod deployed
+--     devices. They replace #65's tag:icebox. tag:icebox-console is the
+--     console and ingest node, and tag:icebox-prober is the device prober.
+--     autogroup:admin alone owns each tag (Q5), so no tagged device can
+--     mint one.
+-- Every group starts with Jess's two identities. Invitee 1 joins
+-- group:icebox-dev in a later change, after this repository is private
+-- (IB-6). The icebox rows live in fragments/grants.dhall and
+-- fragments/ssh.dhall.
 let T = ../types/ACL.dhall
 
 let C = ../constants.dhall
+
+let iceboxDevMembers = [ C.user.jsullivan2_gmail, C.user.jess_sulliwood ]
 
 let groups
     : List T.Group
@@ -50,6 +71,14 @@ let groups
         , mapValue = [ C.user.jsullivan2_gmail, C.user.jess_sulliwood ]
         }
       , { mapKey = C.group.gftb_qa
+        , mapValue = [ C.user.jsullivan2_gmail, C.user.jess_sulliwood ]
+        }
+      , { mapKey = C.group.icebox_dev, mapValue = iceboxDevMembers }
+      , { mapKey = C.group.icebox_prod, mapValue = iceboxDevMembers }
+      , { mapKey = C.group.icebox_dispatchers
+        , mapValue = [ C.user.jsullivan2_gmail, C.user.jess_sulliwood ]
+        }
+      , { mapKey = C.group.icebox_keyholders
         , mapValue = [ C.user.jsullivan2_gmail, C.user.jess_sulliwood ]
         }
       ]
@@ -186,6 +215,10 @@ let tagOwners
           [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
         }
       , { mapKey = C.tag.softproxy, mapValue = [ C.autogroup.admin ] }
+      , { mapKey = C.tag.icebox_dev, mapValue = [ C.autogroup.admin ] }
+      , { mapKey = C.tag.icebox_prod, mapValue = [ C.autogroup.admin ] }
+      , { mapKey = C.tag.icebox_prober, mapValue = [ C.autogroup.admin ] }
+      , { mapKey = C.tag.icebox_console, mapValue = [ C.autogroup.admin ] }
       ]
 
 let acls
