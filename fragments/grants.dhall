@@ -97,9 +97,9 @@
 --     so no member claim, admin UI or tagged identity.
 --   * IB-10: tag:icebox-member marks an icebox member's own device, so a
 --     member joins by tag, not by a personal address in this public file.
---     Four rows: tag:icebox-dev on every port, tag:icebox-prod on tcp:22
---     and tcp:443, tag:icebox-console on tcp:443, and IB-5's
---     tag:gftb-idp on tcp:443 with no tsidp capability.
+--     Three rows: tag:icebox-dev on every port, tag:icebox-prod on tcp:22
+--     and tcp:443, and tag:icebox-console on tcp:443. IB-11 dropped its
+--     tag:gftb-idp row, because tsidp refuses tagged nodes.
 -- Devices never reach each other, users, dollhouse or honey:6443. No icebox
 -- tag has a nodeAttr (no Funnel) or an autoApprover.
 let C = ../constants.dhall
@@ -353,7 +353,6 @@ let grants
           [ C.tag.icebox_prod ]
           [ "tcp:22", "tcp:443" ]
       , G.net [ C.tag.icebox_member ] [ C.tag.icebox_console ] [ "tcp:443" ]
-      , G.net [ C.tag.icebox_member ] [ C.tag.gftb_idp ] [ "tcp:443" ]
       ]
 
 in  { grants }
