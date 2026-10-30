@@ -1057,15 +1057,6 @@ class PolicyContractTest(unittest.TestCase):
             "dst": ["tag:gftb-idp"],
             "ip": ["tcp:443"],
         },
-        # IB-10 (Linear TIN-7812, "Tag-based access instead") with IB-5: an
-        # icebox member's device, tagged tag:icebox-member, reaches the IdP
-        # on tcp:443 only, with no tsidp capability, as group:icebox-prod
-        # does. No device held the tag when it was added.
-        {
-            "src": ["tag:icebox-member"],
-            "dst": ["tag:gftb-idp"],
-            "ip": ["tcp:443"],
-        },
     ]
     # Every rule naming tag:tsidp, exactly as on main (1342ef0). Retiring
     # them is a separate change after those devices are retagged.
@@ -1129,10 +1120,7 @@ class PolicyContractTest(unittest.TestCase):
         toward new tags, so adding a person to it grants nothing else.
         """
         new_tags = {self.IDP, "tag:gftb-probe"}
-        # IB-10 and IB-5 (TIN-7812): tag:icebox-member is the one tagged
-        # source admitted. It was new when added, so no existing device
-        # gains reach to the IdP.
-        idp_sources_ok = {"tinyland-neo", "tag:icebox-member"}
+        idp_sources_ok = {"tinyland-neo"}
         for row in self.policy["acls"] + self.policy["grants"]:
             if self.IDP in self._names(row):
                 self.assertEqual(row["dst"], [self.IDP], row)
@@ -1280,8 +1268,6 @@ class PolicyContractTest(unittest.TestCase):
                 {"src": ["tinyland-neo"], "dst": [self.IDP], "ip": ["tcp:443"]},
                 # IB-5, TIN-7812 b0d7c34e: scoped exception to TIN-5748.
                 {"src": ["group:icebox-prod"], "dst": [self.IDP], "ip": ["tcp:443"]},
-                # IB-10 with IB-5, TIN-7812: the member tag, tcp:443 only.
-                {"src": ["tag:icebox-member"], "dst": [self.IDP], "ip": ["tcp:443"]},
             ],
         )
         self.assertEqual(self.policy["groups"][self.QA_GROUP], ["jsullivan2@gmail.com", "jess@sulliwood.org"])
@@ -1688,7 +1674,6 @@ class PolicyContractTest(unittest.TestCase):
         {"src": ["tag:icebox-member"], "dst": ["tag:icebox-dev"], "ip": ["*"]},
         {"src": ["tag:icebox-member"], "dst": ["tag:icebox-prod"], "ip": ["tcp:22", "tcp:443"]},
         {"src": ["tag:icebox-member"], "dst": ["tag:icebox-console"], "ip": ["tcp:443"]},
-        {"src": ["tag:icebox-member"], "dst": ["tag:gftb-idp"], "ip": ["tcp:443"]},
     ]
     ICEBOX_MEMBER_GRANTS = ICEBOX_GRANTS[7:]
     # IB-7: dev accept, prod check, non-root users only.
@@ -1909,7 +1894,7 @@ class PolicyContractTest(unittest.TestCase):
 
     def test_icebox_member_tag_has_only_the_ib10_rows(self) -> None:
         # IB-10 (TIN-7812): tag:icebox-member is a source only in its own
-        # four grants and two SSH rules, and never a destination or owner.
+        # three grants and two SSH rules, and never a destination or owner.
         tag = "tag:icebox-member"
         self.assertEqual(self.policy["tagOwners"][tag], ["autogroup:admin"])
         for surface, expected in (
@@ -1929,6 +1914,16 @@ class PolicyContractTest(unittest.TestCase):
             self.assertEqual(row["users"], ["autogroup:nonroot"], row)
         for owners in self.policy["tagOwners"].values():
             self.assertNotIn(tag, owners)
+
+    def test_icebox_member_tag_cannot_reach_the_idp(self) -> None:
+        # IB-11 (TIN-7812): tsidp refuses tagged nodes, so the member tag
+        # gets no row to tag:gftb-idp on any port, in grants or acls.
+        tag = "tag:icebox-member"
+        for surface in ("acls", "grants"):
+            for row in self.policy[surface]:
+                if self.IDP in self._dst(row):
+                    self.assertNotIn(tag, row["src"], (surface, row))
+        self.assertNotIn(tag, [src for row in self.IDP_GRANTS for src in row["src"]])
 
     def test_icebox_policy_tests_are_exact(self) -> None:
         rows = [t for t in self.policy["tests"] if "icebox" in json.dumps(t)]
