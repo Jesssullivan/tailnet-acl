@@ -68,6 +68,7 @@ let tag =
       , icebox_prod = "tag:icebox-prod"
       , icebox_prober = "tag:icebox-prober"
       , icebox_console = "tag:icebox-console"
+      , icebox_member = "tag:icebox-member"
       }
 
 let service =

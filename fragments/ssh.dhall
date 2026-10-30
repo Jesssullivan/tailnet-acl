@@ -6,6 +6,12 @@
 -- tag:icebox-dev with accept; group:icebox-prod gets it to tag:icebox-prod
 -- with check, so each prod session re-authenticates on Tailscale's default
 -- check period. Both admit non-root users only.
+--
+-- IB-10: tag:icebox-member gets accept to tag:icebox-dev and accept to
+-- tag:icebox-prod, non-root users only. Tailscale rejects check for a
+-- tagged source ("An SSH access rule from a tagged device cannot be in
+-- check mode", tailscale.com/kb/1337/policy-syntax), so prod uses accept.
+-- Its grant opens tcp:22 on tag:icebox-prod, and SSH needs no other port.
 let T = ../types/ACL.dhall
 
 let C = ../constants.dhall
@@ -70,6 +76,16 @@ let ssh
         }
       , { action = "check"
         , src = [ C.group.icebox_prod ]
+        , dst = [ C.tag.icebox_prod ]
+        , users = [ C.autogroup.nonroot ]
+        }
+      , { action = "accept"
+        , src = [ C.tag.icebox_member ]
+        , dst = [ C.tag.icebox_dev ]
+        , users = [ C.autogroup.nonroot ]
+        }
+      , { action = "accept"
+        , src = [ C.tag.icebox_member ]
         , dst = [ C.tag.icebox_prod ]
         , users = [ C.autogroup.nonroot ]
         }

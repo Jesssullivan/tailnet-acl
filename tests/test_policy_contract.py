@@ -724,7 +724,7 @@ class PolicyContractTest(unittest.TestCase):
                 "tag:gf-reapi-cell-egress", "tag:gf-reapi-linux-worker",
                 "tag:gf-reapi-rocm-worker", "tag:printstack", "tag:softproxy",
                 "tag:icebox-dev", "tag:icebox-prod", "tag:icebox-prober",
-                "tag:icebox-console",
+                "tag:icebox-console", "tag:icebox-member",
             },
         )
         for row in self.policy["nodeAttrs"]:
@@ -1057,6 +1057,15 @@ class PolicyContractTest(unittest.TestCase):
             "dst": ["tag:gftb-idp"],
             "ip": ["tcp:443"],
         },
+        # IB-10 (Linear TIN-7812, "Tag-based access instead") with IB-5: an
+        # icebox member's device, tagged tag:icebox-member, reaches the IdP
+        # on tcp:443 only, with no tsidp capability, as group:icebox-prod
+        # does. No device held the tag when it was added.
+        {
+            "src": ["tag:icebox-member"],
+            "dst": ["tag:gftb-idp"],
+            "ip": ["tcp:443"],
+        },
     ]
     # Every rule naming tag:tsidp, exactly as on main (1342ef0). Retiring
     # them is a separate change after those devices are retagged.
@@ -1120,10 +1129,14 @@ class PolicyContractTest(unittest.TestCase):
         toward new tags, so adding a person to it grants nothing else.
         """
         new_tags = {self.IDP, "tag:gftb-probe"}
+        # IB-10 and IB-5 (TIN-7812): tag:icebox-member is the one tagged
+        # source admitted. It was new when added, so no existing device
+        # gains reach to the IdP.
+        idp_sources_ok = {"tinyland-neo", "tag:icebox-member"}
         for row in self.policy["acls"] + self.policy["grants"]:
             if self.IDP in self._names(row):
                 self.assertEqual(row["dst"], [self.IDP], row)
-                self.assertTrue(all(src.startswith("group:") or src == "tinyland-neo" for src in row["src"]), row)
+                self.assertTrue(all(src.startswith("group:") or src in idp_sources_ok for src in row["src"]), row)
             if self.QA_GROUP in row["src"]:
                 self.assertTrue(self._dst(row) <= new_tags, row)
             self.assertNotIn(self.QA_GROUP, row["dst"])
@@ -1267,6 +1280,8 @@ class PolicyContractTest(unittest.TestCase):
                 {"src": ["tinyland-neo"], "dst": [self.IDP], "ip": ["tcp:443"]},
                 # IB-5, TIN-7812 b0d7c34e: scoped exception to TIN-5748.
                 {"src": ["group:icebox-prod"], "dst": [self.IDP], "ip": ["tcp:443"]},
+                # IB-10 with IB-5, TIN-7812: the member tag, tcp:443 only.
+                {"src": ["tag:icebox-member"], "dst": [self.IDP], "ip": ["tcp:443"]},
             ],
         )
         self.assertEqual(self.policy["groups"][self.QA_GROUP], ["jsullivan2@gmail.com", "jess@sulliwood.org"])
@@ -1625,7 +1640,7 @@ class PolicyContractTest(unittest.TestCase):
 
     # icebox (Linear TIN-7812; Jess's rulings IB-1 and IB-3 to IB-7 in
     # comments b0d7c34e and ba40e1a6; folds Jesssullivan/tailnet-acl#65,
-    # TIN-7811, R-ICEBOX-20261030-a). Four groups and four admin-owned tags.
+    # TIN-7811, R-ICEBOX-20261030-a; IB-10). Four groups and five admin-owned tags.
     # They appear only in the rows below, so adding a person to an icebox
     # group or a device to an icebox tag changes nothing outside icebox,
     # apart from the IB-5 IdP row.
@@ -1640,6 +1655,7 @@ class PolicyContractTest(unittest.TestCase):
         "tag:icebox-prod",
         "tag:icebox-prober",
         "tag:icebox-console",
+        "tag:icebox-member",
     }
     ICEBOX_DEVICE_TAGS = ["tag:icebox-dev", "tag:icebox-prod"]
     ICEBOX_GRANTS = [
@@ -1666,7 +1682,15 @@ class PolicyContractTest(unittest.TestCase):
         },
         # IB-5: scoped exception to TIN-5748 (TIN-7812 b0d7c34e).
         {"src": ["group:icebox-prod"], "dst": ["tag:gftb-idp"], "ip": ["tcp:443"]},
+        # IB-10 (TIN-7812, "Tag-based access instead"): a member's device
+        # tagged tag:icebox-member reaches what group:icebox-dev and
+        # group:icebox-prod reach, plus the console on 443.
+        {"src": ["tag:icebox-member"], "dst": ["tag:icebox-dev"], "ip": ["*"]},
+        {"src": ["tag:icebox-member"], "dst": ["tag:icebox-prod"], "ip": ["tcp:22", "tcp:443"]},
+        {"src": ["tag:icebox-member"], "dst": ["tag:icebox-console"], "ip": ["tcp:443"]},
+        {"src": ["tag:icebox-member"], "dst": ["tag:gftb-idp"], "ip": ["tcp:443"]},
     ]
+    ICEBOX_MEMBER_GRANTS = ICEBOX_GRANTS[7:]
     # IB-7: dev accept, prod check, non-root users only.
     ICEBOX_SSH = [
         {
@@ -1681,7 +1705,22 @@ class PolicyContractTest(unittest.TestCase):
             "dst": ["tag:icebox-prod"],
             "users": ["autogroup:nonroot"],
         },
+        # IB-10: Tailscale rejects check for a tagged source, so the member
+        # tag gets accept on both device tags, non-root users only.
+        {
+            "action": "accept",
+            "src": ["tag:icebox-member"],
+            "dst": ["tag:icebox-dev"],
+            "users": ["autogroup:nonroot"],
+        },
+        {
+            "action": "accept",
+            "src": ["tag:icebox-member"],
+            "dst": ["tag:icebox-prod"],
+            "users": ["autogroup:nonroot"],
+        },
     ]
+    ICEBOX_MEMBER_SSH = ICEBOX_SSH[2:]
 
     ICEBOX_DENY = [
         "tag:dollhouse:22",
@@ -1732,6 +1771,18 @@ class PolicyContractTest(unittest.TestCase):
             "proto": "tcp",
             "accept": ["tag:icebox-dev:22", "tag:icebox-prod:443"],
             "deny": ["tag:icebox-dev:80", "tag:icebox-console:443"] + ICEBOX_DENY,
+        },
+        {
+            "src": "tag:icebox-member",
+            "proto": "tcp",
+            "accept": [
+                "tag:icebox-dev:22",
+                "tag:icebox-dev:8080",
+                "tag:icebox-prod:22",
+                "tag:icebox-prod:443",
+                "tag:icebox-console:443",
+            ],
+            "deny": ["tag:icebox-prod:80", "tag:icebox-console:22"] + ICEBOX_DENY,
         },
         {
             "src": "tag:dev",
@@ -1845,7 +1896,7 @@ class PolicyContractTest(unittest.TestCase):
         }
         self.assertEqual(matched["acls"], [])
         self.assertEqual(matched["grants"], [self.ICEBOX_GRANTS[i] for i in (3, 4, 6)])
-        self.assertEqual(matched["ssh"], self.ICEBOX_SSH)
+        self.assertEqual(matched["ssh"], self.ICEBOX_SSH[:2])
         lan = ipaddress.ip_network("192.168.0.0/16")
         for row in matched["grants"] + matched["ssh"]:
             for dst in row["dst"]:
@@ -1855,6 +1906,29 @@ class PolicyContractTest(unittest.TestCase):
                     self.assertFalse(ipaddress.ip_network(dst, strict=False).overlaps(lan), row)
                 except ValueError:
                     pass
+
+    def test_icebox_member_tag_has_only_the_ib10_rows(self) -> None:
+        # IB-10 (TIN-7812): tag:icebox-member is a source only in its own
+        # four grants and two SSH rules, and never a destination or owner.
+        tag = "tag:icebox-member"
+        self.assertEqual(self.policy["tagOwners"][tag], ["autogroup:admin"])
+        for surface, expected in (
+            ("acls", []),
+            ("grants", self.ICEBOX_MEMBER_GRANTS),
+            ("ssh", self.ICEBOX_MEMBER_SSH),
+        ):
+            rows = self.policy[surface]
+            self.assertEqual([row for row in rows if tag in row["src"]], expected, surface)
+            for row in rows:
+                dst = {e.rsplit(":", 1)[0] if e.count(":") > 1 else e for e in row["dst"]}
+                self.assertNotIn(tag, dst, (surface, row))
+        for row in self.ICEBOX_MEMBER_GRANTS + self.ICEBOX_MEMBER_SSH:
+            self.assertEqual(row["src"], [tag], row)
+            self.assertNotIn("app", row)
+        for row in self.ICEBOX_MEMBER_SSH:
+            self.assertEqual(row["users"], ["autogroup:nonroot"], row)
+        for owners in self.policy["tagOwners"].values():
+            self.assertNotIn(tag, owners)
 
     def test_icebox_policy_tests_are_exact(self) -> None:
         rows = [t for t in self.policy["tests"] if "icebox" in json.dumps(t)]
