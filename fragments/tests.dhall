@@ -45,13 +45,14 @@
 -- a destination either.
 --
 -- tag:softproxy (GO-02 step 1, TIN-7729; SP-1, SP-25). Both of Jess's
--- identities reach tag:softproxy:443 and no other port on it: not 80, 22,
--- 8080 or the loopback backend port 43140. Other identities do not reach
--- it on 443 or 80: tag:dev, tag:dollhouse, tag:k8s-operator, tag:mcp-proxy
--- and the agent seats neo and sting. Each of those rows accepts a flow the
--- policy already grants, since a row needs a non-empty accept. The node
--- has no outbound grant, so it has no row of its own. The contract test
--- pins that it is never a source.
+-- identities and neo reach tag:softproxy:443 and no other port on it: not
+-- 80, 22, 8080 or the loopback backend port 43140. Neo is admitted because
+-- Jess works on it (Jess 2026-10-30, softproxy seat session, TIN-7729).
+-- Other identities do not reach it on 443 or 80: tag:dev, tag:dollhouse,
+-- tag:k8s-operator, tag:mcp-proxy and the agent seat sting. Each of those
+-- rows accepts a flow the policy already grants, since a row needs a
+-- non-empty accept. The node has no outbound grant, so it has no row of
+-- its own. The contract test pins that it is never a source.
 let T = ../types/ACL.dhall
 
 let C = ../constants.dhall
@@ -124,13 +125,22 @@ let tests
         }
       , { src = "tinyland-neo"
         , proto = "tcp"
-        , accept = [ "tinyland-relay-1:22" ]
-        , deny = [ "${C.tag.softproxy}:443", "${C.tag.softproxy}:80" ]
+        , accept = [ "${C.tag.softproxy}:443" ]
+        , deny =
+          [ "${C.tag.softproxy}:80"
+          , "${C.tag.softproxy}:22"
+          , "${C.tag.softproxy}:8080"
+          , "${C.tag.softproxy}:43140"
+          ]
         }
       , { src = "tinyland-sting"
         , proto = "tcp"
         , accept = [ "tinyland-loki-observability:3100" ]
-        , deny = [ "${C.tag.softproxy}:443", "${C.tag.softproxy}:80" ]
+        , deny =
+          [ "${C.tag.softproxy}:443"
+          , "${C.tag.softproxy}:80"
+          , "${C.tag.softproxy}:22"
+          ]
         }
       , { src = C.tag.mx_relay
         , proto = "tcp"
