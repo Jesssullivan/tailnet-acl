@@ -77,6 +77,23 @@
 -- or member is a source: sting stays denied. Nothing names tag:softproxy
 -- as a source, so the node has no outbound tailnet reach. It has no
 -- nodeAttr, so no Funnel, and no SSH rule or autoApprover.
+--
+-- icebox (Linear TIN-7812; Jess's rulings IB-1 and IB-3 to IB-7, comments
+-- b0d7c34e and ba40e1a6). Six rows at the end of the list. They are the
+-- only rules that name an icebox group or tag:
+--   * group:icebox-dev reaches tag:icebox-dev on every port.
+--   * group:icebox-prod reaches tag:icebox-prod on tcp:22 and tcp:443.
+--   * tag:icebox-prober reaches both device tags on tcp:22 and tcp:443.
+--   * group:icebox-dispatchers and group:icebox-keyholders reach
+--     tag:icebox-console on the console port (C.port.icebox_console).
+--   * both device tags reach tag:icebox-console on the ingest port
+--     (C.port.icebox_ingest).
+--   * IB-5: group:icebox-prod reaches tag:gftb-idp on tcp:443 only. It is
+--     a scoped exception to TIN-5748: the row carries no tsidp capability,
+--     so no member claim, admin UI or tagged identity.
+-- No icebox tag has a nodeAttr (no Funnel) or an autoApprover. Group
+-- sources match only untagged devices of their members, so no row gives a
+-- tagged device outbound reach except the prober and device-tag rows.
 let C = ../constants.dhall
 
 let G = ../types/Grant.dhall
@@ -297,6 +314,24 @@ let grants
           [ C.group.dollhouse_admins, "tinyland-neo" ]
           [ C.tag.softproxy ]
           [ "tcp:443" ]
+      , G.net [ C.group.icebox_dev ] [ C.tag.icebox_dev ] [ "*" ]
+      , G.net
+          [ C.group.icebox_prod ]
+          [ C.tag.icebox_prod ]
+          [ "tcp:22", "tcp:443" ]
+      , G.net
+          [ C.tag.icebox_prober ]
+          [ C.tag.icebox_dev, C.tag.icebox_prod ]
+          [ "tcp:22", "tcp:443" ]
+      , G.net
+          [ C.group.icebox_dispatchers, C.group.icebox_keyholders ]
+          [ C.tag.icebox_console ]
+          [ C.port.icebox_console ]
+      , G.net
+          [ C.tag.icebox_dev, C.tag.icebox_prod ]
+          [ C.tag.icebox_console ]
+          [ C.port.icebox_ingest ]
+      , G.net [ C.group.icebox_prod ] [ C.tag.gftb_idp ] [ "tcp:443" ]
       ]
 
 in  { grants }

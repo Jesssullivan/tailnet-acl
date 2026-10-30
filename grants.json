@@ -204,4 +204,28 @@
 	"src": ["group:dollhouse-admins", "tinyland-neo"],
 	"dst": ["tag:softproxy"],
 	"ip": ["tcp:443"]
+}, {
+	"src": ["group:icebox-dev"],
+	"dst": ["tag:icebox-dev"],
+	"ip": ["*"]
+}, {
+	"src": ["group:icebox-prod"],
+	"dst": ["tag:icebox-prod"],
+	"ip": ["tcp:22", "tcp:443"]
+}, {
+	"src": ["tag:icebox-prober"],
+	"dst": ["tag:icebox-dev", "tag:icebox-prod"],
+	"ip": ["tcp:22", "tcp:443"]
+}, {
+	"src": ["group:icebox-dispatchers", "group:icebox-keyholders"],
+	"dst": ["tag:icebox-console"],
+	"ip": ["tcp:443"]
+}, {
+	"src": ["tag:icebox-dev", "tag:icebox-prod"],
+	"dst": ["tag:icebox-console"],
+	"ip": ["tcp:8443"]
+}, {
+	"src": ["group:icebox-prod"],
+	"dst": ["tag:gftb-idp"],
+	"ip": ["tcp:443"]
 }]

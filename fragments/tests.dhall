@@ -53,6 +53,15 @@
 -- rows accepts a flow the policy already grants, since a row needs a
 -- non-empty accept. The node has no outbound grant, so it has no row of
 -- its own. The contract test pins that it is never a source.
+--
+-- icebox (Linear TIN-7812). Jess, a dev and prod member, reaches
+-- tag:icebox-dev:22 and tag:icebox-prod:443 but not tag:icebox-prod:80,
+-- and reaches the console on 443 but not 22. Each icebox device tag and the
+-- prober are denied tag:dollhouse:22, tinyland-honey:443, ai:443 and a
+-- 192.168.0.0/16 address, and the device tags reach the console only on the
+-- ingest port. Jess is also a dollhouse admin, so these user rows cannot
+-- prove the denials for an icebox-only person. That row names invitee 1 and
+-- lands with the invitee, once this repository is private.
 let T = ../types/ACL.dhall
 
 let C = ../constants.dhall
@@ -246,6 +255,53 @@ let tests
         , proto = "tcp"
         , accept = [ "tinyland-loki-observability:3100" ]
         , deny = [ "tinyland-relay-1:25", "tinyland-relay-1:22" ]
+        }
+      , { src = C.user.jsullivan2_gmail
+        , proto = "tcp"
+        , accept = [ "${C.tag.icebox_dev}:22", "${C.tag.icebox_prod}:443" ]
+        , deny = [ "${C.tag.icebox_prod}:80" ]
+        }
+      , { src = C.user.jess_sulliwood
+        , proto = "tcp"
+        , accept = [ "${C.tag.icebox_console}:443" ]
+        , deny = [ "${C.tag.icebox_console}:22" ]
+        }
+      , { src = C.tag.icebox_dev
+        , proto = "tcp"
+        , accept = [ "${C.tag.icebox_console}:8443" ]
+        , deny =
+          [ "${C.tag.dollhouse}:22"
+          , "tinyland-honey:443"
+          , "ai:443"
+          , "192.168.30.105:22"
+          , "${C.tag.icebox_prod}:22"
+          , "${C.tag.icebox_console}:443"
+          ]
+        }
+      , { src = C.tag.icebox_prod
+        , proto = "tcp"
+        , accept = [ "${C.tag.icebox_console}:8443" ]
+        , deny =
+          [ "${C.tag.dollhouse}:22"
+          , "tinyland-honey:443"
+          , "ai:443"
+          , "192.168.30.105:22"
+          , "${C.tag.icebox_dev}:22"
+          , "${C.tag.icebox_console}:443"
+          ]
+        }
+      , { src = C.tag.icebox_prober
+        , proto = "tcp"
+        , accept = [ "${C.tag.icebox_dev}:22", "${C.tag.icebox_prod}:443" ]
+        , deny =
+          [ "${C.tag.dollhouse}:22"
+          , "tinyland-honey:443"
+          , "ai:443"
+          , "192.168.30.105:22"
+          , "${C.tag.icebox_dev}:80"
+          , "${C.tag.icebox_console}:443"
+          , "${C.tag.icebox_console}:8443"
+          ]
         }
       ]
 
