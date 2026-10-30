@@ -289,13 +289,11 @@ let tests
         , accept =
           [ "${C.tag.icebox_console}:443"
           , "${C.tag.icebox_dev}:22"
-          , "${C.tag.icebox_prod}:22"
-          ]
-        , deny =
-          [ "${C.tag.icebox_console}:22"
           , "${C.tag.icebox_dev}:80"
+          , "${C.tag.icebox_prod}:22"
           , "${C.tag.icebox_prod}:443"
           ]
+        , deny = [ "${C.tag.icebox_console}:22", "${C.tag.icebox_prod}:80" ]
         }
       , { src = C.tag.icebox_dev
         , proto = "tcp"

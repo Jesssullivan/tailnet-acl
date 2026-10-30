@@ -1736,8 +1736,14 @@ class PolicyContractTest(unittest.TestCase):
         {
             "src": "tinyland-neo",
             "proto": "tcp",
-            "accept": ["tag:icebox-console:443", "tag:icebox-dev:22", "tag:icebox-prod:22"],
-            "deny": ["tag:icebox-console:22", "tag:icebox-dev:80", "tag:icebox-prod:443"],
+            "accept": [
+                "tag:icebox-console:443",
+                "tag:icebox-dev:22",
+                "tag:icebox-dev:80",
+                "tag:icebox-prod:22",
+                "tag:icebox-prod:443",
+            ],
+            "deny": ["tag:icebox-console:22", "tag:icebox-prod:80"],
         },
         {
             "src": "tag:icebox-dev",
