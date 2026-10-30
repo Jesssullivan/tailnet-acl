@@ -13,6 +13,8 @@ let group =
       , dollhouse_admins = "group:dollhouse-admins"
       , developers = "group:developers"
       , gftb_qa = "group:gftb-qa"
+      , icebox_dev = "group:icebox-dev"
+      , icebox_prod = "group:icebox-prod"
       , icebox_dispatchers = "group:icebox-dispatchers"
       , icebox_keyholders = "group:icebox-keyholders"
       }
@@ -62,7 +64,9 @@ let tag =
       , gf_reapi_rocm_worker = "tag:gf-reapi-rocm-worker"
       , printstack = "tag:printstack"
       , softproxy = "tag:softproxy"
-      , icebox = "tag:icebox"
+      , icebox_dev = "tag:icebox-dev"
+      , icebox_prod = "tag:icebox-prod"
+      , icebox_prober = "tag:icebox-prober"
       , icebox_console = "tag:icebox-console"
       }
 
