@@ -1477,11 +1477,13 @@ class PolicyContractTest(unittest.TestCase):
     # tag:softproxy (GO-02 step 1, Linear TIN-7729). xoxd-ai/softproxy SP-1
     # keeps it tailnet only with Funnel off, and SP-25 gives it its own
     # tailscale node. The one grant lets the operator's own untagged devices
-    # reach it on tcp:443. Nothing else names it, so it has no outbound
-    # reach, no Funnel, no SSH and no autoApprover.
+    # and neo reach it on tcp:443. Jess works on neo, a tagged device no
+    # group matches (Jess 2026-10-30, softproxy seat session, TIN-7729).
+    # Nothing else names it, so it has no outbound reach, no Funnel, no SSH
+    # and no autoApprover.
     SOFTPROXY = "tag:softproxy"
     SOFTPROXY_GRANT = {
-        "src": ["group:dollhouse-admins"],
+        "src": ["group:dollhouse-admins", "tinyland-neo"],
         "dst": ["tag:softproxy"],
         "ip": ["tcp:443"],
     }
@@ -1530,14 +1532,19 @@ class PolicyContractTest(unittest.TestCase):
         {
             "src": "tinyland-neo",
             "proto": "tcp",
-            "accept": ["tinyland-relay-1:22"],
-            "deny": ["tag:softproxy:443", "tag:softproxy:80"],
+            "accept": ["tag:softproxy:443"],
+            "deny": [
+                "tag:softproxy:80",
+                "tag:softproxy:22",
+                "tag:softproxy:8080",
+                "tag:softproxy:43140",
+            ],
         },
         {
             "src": "tinyland-sting",
             "proto": "tcp",
             "accept": ["tinyland-loki-observability:3100"],
-            "deny": ["tag:softproxy:443", "tag:softproxy:80"],
+            "deny": ["tag:softproxy:443", "tag:softproxy:80", "tag:softproxy:22"],
         },
     ]
 
@@ -1560,6 +1567,10 @@ class PolicyContractTest(unittest.TestCase):
             )
         ]
         self.assertEqual(references, [("grants", self.SOFTPROXY_GRANT)])
+        # Exactly two sources: the operator's group and neo's host alias.
+        self.assertEqual(len(references[0][1]["src"]), 2)
+        # The host source is neo alone: its alias is one tailnet address.
+        self.assertEqual(self.policy["hosts"]["tinyland-neo"], "100.67.93.34")
         # The source group is exactly the operator's two identities.
         self.assertEqual(
             self.policy["groups"]["group:dollhouse-admins"],

@@ -69,12 +69,14 @@
 --
 -- tag:softproxy, GO-02 step 1 under Linear TIN-7729. xoxd-ai/softproxy
 -- SP-1 keeps it tailnet only with Funnel off. SP-25 gives it its own
--- tailscale node. One row lets group:dollhouse-admins reach the node's
--- `tailscale serve` on tcp:443. A group source matches only untagged
--- devices of its members, here Jess's two identities. No agent seat, tag or
--- other member is a source. Nothing names tag:softproxy as a source, so the
--- node has no outbound tailnet reach. It has no nodeAttr, so no Funnel, and
--- no SSH rule or autoApprover.
+-- tailscale node. One row lets group:dollhouse-admins and neo reach the
+-- node's `tailscale serve` on tcp:443. A group source matches only untagged
+-- devices of its members, here Jess's two identities. Jess works on neo,
+-- a tagged device that no group matches, so neo is named by host (Jess
+-- 2026-10-30, softproxy seat session, TIN-7729). No other agent seat, tag
+-- or member is a source: sting stays denied. Nothing names tag:softproxy
+-- as a source, so the node has no outbound tailnet reach. It has no
+-- nodeAttr, so no Funnel, and no SSH rule or autoApprover.
 let C = ../constants.dhall
 
 let G = ../types/Grant.dhall
@@ -291,7 +293,10 @@ let grants
           ]
           [ C.tag.printstack ]
           [ "tcp:443" ]
-      , G.net [ C.group.dollhouse_admins ] [ C.tag.softproxy ] [ "tcp:443" ]
+      , G.net
+          [ C.group.dollhouse_admins, "tinyland-neo" ]
+          [ C.tag.softproxy ]
+          [ "tcp:443" ]
       ]
 
 in  { grants }

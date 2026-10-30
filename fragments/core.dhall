@@ -31,7 +31,9 @@
 -- SP-1 and SP-25): Softproxy's own userspace tailscaled node on honey,
 -- joined with one single-use auth key the operator mints. Owned by
 -- autogroup:admin alone, like tag:gftb-idp and tag:infra-idp, so no tagged
--- device can mint it. Its one grant lives in fragments/grants.dhall.
+-- device can mint it. Its one grant lives in fragments/grants.dhall. The
+-- grant's sources are group:dollhouse-admins and neo (Jess 2026-10-30,
+-- softproxy seat session, TIN-7729).
 let T = ../types/ACL.dhall
 
 let C = ../constants.dhall

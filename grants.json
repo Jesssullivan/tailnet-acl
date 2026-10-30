@@ -201,7 +201,7 @@
 	"dst": ["tag:printstack"],
 	"ip": ["tcp:443"]
 }, {
-	"src": ["group:dollhouse-admins"],
+	"src": ["group:dollhouse-admins", "tinyland-neo"],
 	"dst": ["tag:softproxy"],
 	"ip": ["tcp:443"]
 }]
