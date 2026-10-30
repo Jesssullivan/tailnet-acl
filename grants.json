@@ -204,4 +204,16 @@
 	"src": ["group:dollhouse-admins", "tinyland-neo"],
 	"dst": ["tag:softproxy"],
 	"ip": ["tcp:443"]
+}, {
+	"src": ["group:icebox-dispatchers", "group:icebox-keyholders", "tinyland-neo"],
+	"dst": ["tag:icebox-console"],
+	"ip": ["tcp:443"]
+}, {
+	"src": ["tag:icebox"],
+	"dst": ["tag:icebox-console"],
+	"ip": ["tcp:443"]
+}, {
+	"src": ["group:dollhouse-admins", "tinyland-neo"],
+	"dst": ["tag:icebox"],
+	"ip": ["tcp:22"]
 }]

@@ -77,6 +77,15 @@
 -- or member is a source: sting stays denied. Nothing names tag:softproxy
 -- as a source, so the node has no outbound tailnet reach. It has no
 -- nodeAttr, so no Funnel, and no SSH rule or autoApprover.
+--
+-- icebox (Linear TIN-7811, R-ICEBOX-20261030-a). Three rows. Dispatchers,
+-- keyholders and neo reach the console's `tailscale serve` on tcp:443; a
+-- group matches only untagged devices, so neo is named by host as for
+-- tag:softproxy. Devices reach only the console on tcp:443 (event ingest);
+-- they never reach each other, users or any other tag. The operator's
+-- untagged devices and neo reach devices on tcp:22 for key-only OpenSSH
+-- during bring-up; there is no Tailscale SSH rule, nodeAttr, Funnel or
+-- autoApprover for either tag.
 let C = ../constants.dhall
 
 let G = ../types/Grant.dhall
@@ -297,6 +306,18 @@ let grants
           [ C.group.dollhouse_admins, "tinyland-neo" ]
           [ C.tag.softproxy ]
           [ "tcp:443" ]
+      , G.net
+          [ C.group.icebox_dispatchers
+          , C.group.icebox_keyholders
+          , "tinyland-neo"
+          ]
+          [ C.tag.icebox_console ]
+          [ "tcp:443" ]
+      , G.net [ C.tag.icebox ] [ C.tag.icebox_console ] [ "tcp:443" ]
+      , G.net
+          [ C.group.dollhouse_admins, "tinyland-neo" ]
+          [ C.tag.icebox ]
+          [ "tcp:22" ]
       ]
 
 in  { grants }

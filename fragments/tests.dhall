@@ -247,6 +247,37 @@ let tests
         , accept = [ "tinyland-loki-observability:3100" ]
         , deny = [ "tinyland-relay-1:25", "tinyland-relay-1:22" ]
         }
+      , { src = C.user.jess_sulliwood
+        , proto = "tcp"
+        , accept = [ "${C.tag.icebox_console}:443", "${C.tag.icebox}:22" ]
+        , deny = [ "${C.tag.icebox_console}:22", "${C.tag.icebox}:443" ]
+        }
+      , { src = "tinyland-neo"
+        , proto = "tcp"
+        , accept = [ "${C.tag.icebox_console}:443", "${C.tag.icebox}:22" ]
+        , deny = [ "${C.tag.icebox_console}:22", "${C.tag.icebox}:80" ]
+        }
+      , { src = C.tag.icebox
+        , proto = "tcp"
+        , accept = [ "${C.tag.icebox_console}:443" ]
+        , deny =
+          [ "${C.tag.icebox_console}:22"
+          , "${C.tag.icebox}:22"
+          , "${C.tag.icebox}:443"
+          , "${C.tag.dollhouse}:22"
+          , "tinyland-honey:6443"
+          ]
+        }
+      , { src = C.tag.dev
+        , proto = "tcp"
+        , accept = [ "${C.tag.dev}:22" ]
+        , deny = [ "${C.tag.icebox_console}:443", "${C.tag.icebox}:22" ]
+        }
+      , { src = "tinyland-sting"
+        , proto = "tcp"
+        , accept = [ "tinyland-loki-observability:3100" ]
+        , deny = [ "${C.tag.icebox_console}:443", "${C.tag.icebox}:22" ]
+        }
       ]
 
 let sshTests

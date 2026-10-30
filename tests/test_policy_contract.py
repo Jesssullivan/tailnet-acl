@@ -723,6 +723,7 @@ class PolicyContractTest(unittest.TestCase):
                 "tag:interim-build", "tag:honey-relay", "tag:mx-relay",
                 "tag:gf-reapi-cell-egress", "tag:gf-reapi-linux-worker",
                 "tag:gf-reapi-rocm-worker", "tag:printstack", "tag:softproxy",
+                "tag:icebox", "tag:icebox-console",
             },
         )
         for row in self.policy["nodeAttrs"]:
@@ -1405,6 +1406,7 @@ class PolicyContractTest(unittest.TestCase):
                 self.ADMIN_USER_TO_RELAY_POLICY_TEST,
                 self.EXPORTER_EGRESS_POLICY_TEST,
                 *self.POST_RETAG_RATCHET_TESTS,
+                *self.ICEBOX_POLICY_TESTS,
             ],
         )
         # Every field is set, so the post-write read-back cannot drop an
@@ -1547,6 +1549,92 @@ class PolicyContractTest(unittest.TestCase):
             "deny": ["tag:softproxy:443", "tag:softproxy:80", "tag:softproxy:22"],
         },
     ]
+
+    # icebox (Linear TIN-7811, R-ICEBOX-20261030-a). Users join the tailnet
+    # for access: dispatchers, keyholders and neo reach the console on 443,
+    # devices reach only the console on 443, and the operator's devices and
+    # neo reach devices on 22 for key-only OpenSSH during bring-up.
+    ICEBOX_GRANTS = [
+        {
+            "src": ["group:icebox-dispatchers", "group:icebox-keyholders", "tinyland-neo"],
+            "dst": ["tag:icebox-console"],
+            "ip": ["tcp:443"],
+        },
+        {"src": ["tag:icebox"], "dst": ["tag:icebox-console"], "ip": ["tcp:443"]},
+        {"src": ["group:dollhouse-admins", "tinyland-neo"], "dst": ["tag:icebox"], "ip": ["tcp:22"]},
+    ]
+
+    ICEBOX_POLICY_TESTS = [
+        {
+            "src": "jess@sulliwood.org",
+            "proto": "tcp",
+            "accept": ["tag:icebox-console:443", "tag:icebox:22"],
+            "deny": ["tag:icebox-console:22", "tag:icebox:443"],
+        },
+        {
+            "src": "tinyland-neo",
+            "proto": "tcp",
+            "accept": ["tag:icebox-console:443", "tag:icebox:22"],
+            "deny": ["tag:icebox-console:22", "tag:icebox:80"],
+        },
+        {
+            "src": "tag:icebox",
+            "proto": "tcp",
+            "accept": ["tag:icebox-console:443"],
+            "deny": [
+                "tag:icebox-console:22",
+                "tag:icebox:22",
+                "tag:icebox:443",
+                "tag:dollhouse:22",
+                "tinyland-honey:6443",
+            ],
+        },
+        {
+            "src": "tag:dev",
+            "proto": "tcp",
+            "accept": ["tag:dev:22"],
+            "deny": ["tag:icebox-console:443", "tag:icebox:22"],
+        },
+        {
+            "src": "tinyland-sting",
+            "proto": "tcp",
+            "accept": ["tinyland-loki-observability:3100"],
+            "deny": ["tag:icebox-console:443", "tag:icebox:22"],
+        },
+    ]
+
+    def test_icebox_tags_are_admin_owned_and_own_no_tag(self) -> None:
+        for tag in ("tag:icebox", "tag:icebox-console"):
+            self.assertEqual(self.policy["tagOwners"][tag], ["autogroup:admin"])
+            self.assertFalse([t for t, owners in self.policy["tagOwners"].items() if tag in owners])
+            self.assertNotIn(tag, self.policy["hosts"])
+
+    def test_icebox_grants_are_exactly_the_three_rows(self) -> None:
+        tags = ("tag:icebox", "tag:icebox-console")
+        references = [
+            (surface, rule)
+            for surface in ("acls", "grants", "ssh")
+            for rule in self.policy[surface]
+            if any(
+                endpoint == tag or endpoint.startswith(f"{tag}:")
+                for tag in tags
+                for key in ("src", "dst")
+                for endpoint in rule.get(key, [])
+            )
+        ]
+        self.assertEqual(references, [("grants", g) for g in self.ICEBOX_GRANTS])
+        for group in ("group:icebox-dispatchers", "group:icebox-keyholders"):
+            self.assertEqual(self.policy["groups"][group], ["jsullivan2@gmail.com", "jess@sulliwood.org"])
+
+    def test_icebox_has_no_node_attr_or_auto_approver(self) -> None:
+        for tag in ("tag:icebox", "tag:icebox-console"):
+            for row in self.policy["nodeAttrs"]:
+                self.assertNotIn(tag, row["target"], row)
+            for tags in self.policy["autoApprovers"]["routes"].values():
+                self.assertNotIn(tag, tags)
+            self.assertNotIn(tag, self.policy["autoApprovers"]["exitNode"])
+            for tags in self.policy["autoApprovers"]["services"].values():
+                self.assertNotIn(tag, tags)
 
     def test_softproxy_tag_is_admin_owned_and_owns_no_tag(self) -> None:
         tag = self.SOFTPROXY

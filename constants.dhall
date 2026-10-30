@@ -13,6 +13,8 @@ let group =
       , dollhouse_admins = "group:dollhouse-admins"
       , developers = "group:developers"
       , gftb_qa = "group:gftb-qa"
+      , icebox_dispatchers = "group:icebox-dispatchers"
+      , icebox_keyholders = "group:icebox-keyholders"
       }
 
 let autogroup =
@@ -60,6 +62,8 @@ let tag =
       , gf_reapi_rocm_worker = "tag:gf-reapi-rocm-worker"
       , printstack = "tag:printstack"
       , softproxy = "tag:softproxy"
+      , icebox = "tag:icebox"
+      , icebox_console = "tag:icebox-console"
       }
 
 let service =

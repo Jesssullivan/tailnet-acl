@@ -34,6 +34,16 @@
 -- device can mint it. Its one grant lives in fragments/grants.dhall. The
 -- grant's sources are group:dollhouse-admins and neo (Jess 2026-10-30,
 -- softproxy seat session, TIN-7729).
+--
+-- tag:icebox and tag:icebox-console (Linear TIN-7811, P-TIN-224; Jess
+-- 2026-10-30 R-ICEBOX-20261030-a: icebox users join the tailnet for access).
+-- tag:icebox is the plate and QR reader devices (Pi SBCs), joined with a
+-- tagged pre-approved auth key the operator mints. tag:icebox-console is the
+-- on-prem dispatcher console and ingest node. Both are owned by
+-- autogroup:admin alone, so no tagged device can mint them. The groups
+-- group:icebox-dispatchers and group:icebox-keyholders start with Jess's two
+-- identities; keyholders add members here. Grants live in
+-- fragments/grants.dhall.
 let T = ../types/ACL.dhall
 
 let C = ../constants.dhall
@@ -50,6 +60,12 @@ let groups
         , mapValue = [ C.user.jsullivan2_gmail, C.user.jess_sulliwood ]
         }
       , { mapKey = C.group.gftb_qa
+        , mapValue = [ C.user.jsullivan2_gmail, C.user.jess_sulliwood ]
+        }
+      , { mapKey = C.group.icebox_dispatchers
+        , mapValue = [ C.user.jsullivan2_gmail, C.user.jess_sulliwood ]
+        }
+      , { mapKey = C.group.icebox_keyholders
         , mapValue = [ C.user.jsullivan2_gmail, C.user.jess_sulliwood ]
         }
       ]
@@ -186,6 +202,8 @@ let tagOwners
           [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
         }
       , { mapKey = C.tag.softproxy, mapValue = [ C.autogroup.admin ] }
+      , { mapKey = C.tag.icebox, mapValue = [ C.autogroup.admin ] }
+      , { mapKey = C.tag.icebox_console, mapValue = [ C.autogroup.admin ] }
       ]
 
 let acls
