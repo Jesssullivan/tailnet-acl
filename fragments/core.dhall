@@ -41,9 +41,8 @@
 -- is the softproxy-xoxd LoadBalancer device. The upstream is the egress
 -- proxy to the softproxy node. Each is owned like tag:mcp-proxy and
 -- tag:printstack, by tag:k8s-operator plus the admins. Neither owns a tag,
--- and tag:k8s-operator itself is not broadened. The edge grant lives in
--- fragments/grants.dhall. tag:softproxy-upstream has no grant until the
--- #2455 runbook readback 5 shows its device carries that tag alone.
+-- and tag:k8s-operator itself is not broadened. Their two grants live in
+-- fragments/grants.dhall.
 --
 -- icebox (Linear TIN-7812, Jess's rulings IB-1 and IB-3 to IB-7 in comments
 -- b0d7c34e and ba40e1a6; folds Jesssullivan/tailnet-acl#65, TIN-7811;
