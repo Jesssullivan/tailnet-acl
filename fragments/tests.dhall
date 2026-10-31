@@ -54,6 +54,15 @@
 -- non-empty accept. The node has no outbound grant, so it has no row of
 -- its own. The contract test pins that it is never a source.
 --
+-- softproxy.xoxd.ai route (TIN-7371; SP-133; xoxd-ai/blahaj#2455). Both of
+-- Jess's identities and neo reach tag:softproxy-edge:443 and no other
+-- port on it: not 80, 22, 8080 or 43140. tag:dev, tag:dollhouse,
+-- tag:k8s-operator, tag:mcp-proxy and sting reach neither new tag on 443
+-- or 80. Neither new tag has an outbound grant yet, so neither has a row
+-- of its own: a row needs a non-empty accept. The contract test pins that
+-- the edge is never a source and that no rule names the upstream until
+-- runbook readback 5.
+--
 -- icebox (Linear TIN-7812; folds #65, TIN-7811). Jess, a dev and prod
 -- member, reaches every port on tag:icebox-dev, tag:icebox-prod on 22 and
 -- 443 but not 80, and the console on 443 but not 22. Neo reaches the
@@ -157,6 +166,86 @@ let tests
           [ "${C.tag.softproxy}:443"
           , "${C.tag.softproxy}:80"
           , "${C.tag.softproxy}:22"
+          ]
+        }
+      , { src = C.user.jess_sulliwood
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy_edge}:443" ]
+        , deny =
+          [ "${C.tag.softproxy_edge}:80"
+          , "${C.tag.softproxy_edge}:22"
+          , "${C.tag.softproxy_edge}:8080"
+          , "${C.tag.softproxy_edge}:43140"
+          ]
+        }
+      , { src = C.user.jsullivan2_gmail
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy_edge}:443" ]
+        , deny =
+          [ "${C.tag.softproxy_edge}:80"
+          , "${C.tag.softproxy_edge}:22"
+          , "${C.tag.softproxy_edge}:8080"
+          , "${C.tag.softproxy_edge}:43140"
+          ]
+        }
+      , { src = "tinyland-neo"
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy_edge}:443" ]
+        , deny =
+          [ "${C.tag.softproxy_edge}:80"
+          , "${C.tag.softproxy_edge}:22"
+          , "${C.tag.softproxy_edge}:8080"
+          , "${C.tag.softproxy_edge}:43140"
+          ]
+        }
+      , { src = C.tag.dev
+        , proto = "tcp"
+        , accept = [ "${C.tag.dev}:22" ]
+        , deny =
+          [ "${C.tag.softproxy_edge}:443"
+          , "${C.tag.softproxy_edge}:80"
+          , "${C.tag.softproxy_upstream}:443"
+          , "${C.tag.softproxy_upstream}:80"
+          ]
+        }
+      , { src = C.tag.dollhouse
+        , proto = "tcp"
+        , accept = [ "${C.tag.dollhouse}:22" ]
+        , deny =
+          [ "${C.tag.softproxy_edge}:443"
+          , "${C.tag.softproxy_edge}:80"
+          , "${C.tag.softproxy_upstream}:443"
+          , "${C.tag.softproxy_upstream}:80"
+          ]
+        }
+      , { src = C.tag.k8s_operator
+        , proto = "tcp"
+        , accept = [ "${C.tag.k8s}:443" ]
+        , deny =
+          [ "${C.tag.softproxy_edge}:443"
+          , "${C.tag.softproxy_edge}:80"
+          , "${C.tag.softproxy_upstream}:443"
+          , "${C.tag.softproxy_upstream}:80"
+          ]
+        }
+      , { src = C.tag.mcp_proxy
+        , proto = "tcp"
+        , accept = [ "${C.tag.mcp_proxy}:3100" ]
+        , deny =
+          [ "${C.tag.softproxy_edge}:443"
+          , "${C.tag.softproxy_edge}:80"
+          , "${C.tag.softproxy_upstream}:443"
+          , "${C.tag.softproxy_upstream}:80"
+          ]
+        }
+      , { src = "tinyland-sting"
+        , proto = "tcp"
+        , accept = [ "tinyland-loki-observability:3100" ]
+        , deny =
+          [ "${C.tag.softproxy_edge}:443"
+          , "${C.tag.softproxy_edge}:80"
+          , "${C.tag.softproxy_upstream}:443"
+          , "${C.tag.softproxy_upstream}:80"
           ]
         }
       , { src = C.tag.mx_relay

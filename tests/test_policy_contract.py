@@ -723,6 +723,7 @@ class PolicyContractTest(unittest.TestCase):
                 "tag:interim-build", "tag:honey-relay", "tag:mx-relay",
                 "tag:gf-reapi-cell-egress", "tag:gf-reapi-linux-worker",
                 "tag:gf-reapi-rocm-worker", "tag:printstack", "tag:softproxy",
+                "tag:softproxy-edge", "tag:softproxy-upstream",
                 "tag:icebox-dev", "tag:icebox-prod", "tag:icebox-prober",
                 "tag:icebox-console", "tag:icebox-member",
             },
@@ -1412,6 +1413,7 @@ class PolicyContractTest(unittest.TestCase):
                     "deny": ["tag:printstack:22"],
                 },
                 *self.SOFTPROXY_POLICY_TESTS,
+                *self.SOFTPROXY_EDGE_POLICY_TESTS,
                 self.MX_RELAY_POLICY_TEST,
                 self.HONEY_TO_RELAY_POLICY_TEST,
                 self.NEO_TO_RELAY_POLICY_TEST,
@@ -1494,7 +1496,8 @@ class PolicyContractTest(unittest.TestCase):
     # and neo reach it on tcp:443. Jess works on neo, a tagged device no
     # group matches (Jess 2026-10-30, softproxy seat session, TIN-7729).
     # Nothing else names it, so it has no outbound reach, no Funnel, no SSH
-    # and no autoApprover.
+    # and no autoApprover. tag:softproxy-upstream gets no inbound row before
+    # runbook readback 5 (TIN-7371).
     SOFTPROXY = "tag:softproxy"
     SOFTPROXY_GRANT = {
         "src": ["group:dollhouse-admins", "tinyland-neo"],
@@ -1602,6 +1605,141 @@ class PolicyContractTest(unittest.TestCase):
         self.assertNotIn(tag, self.policy["autoApprovers"]["exitNode"])
         for tags in self.policy["autoApprovers"]["services"].values():
             self.assertNotIn(tag, tags)
+
+    # softproxy.xoxd.ai route (Linear TIN-7371; SP-133, TIN-7125 comment
+    # cd969795; xoxd-ai/blahaj#2455 runbook precondition P1). The honey
+    # Tailscale operator mints tag:softproxy-edge for the softproxy-xoxd
+    # LoadBalancer device and tag:softproxy-upstream for the egress proxy to
+    # the softproxy node. One grant, tcp:443: the tag:softproxy sources reach
+    # the edge. The edge is never a source. The upstream has an owner and no
+    # rule until runbook readback 5 shows its device carries that tag alone.
+    # Its grant lands in a later PR. Neither tag has a nodeAttr, Funnel,
+    # autoApprover or SSH rule.
+    SOFTPROXY_EDGE = "tag:softproxy-edge"
+    SOFTPROXY_UPSTREAM = "tag:softproxy-upstream"
+    SOFTPROXY_EDGE_GRANT = {
+        "src": ["group:dollhouse-admins", "tinyland-neo"],
+        "dst": ["tag:softproxy-edge"],
+        "ip": ["tcp:443"],
+    }
+    SOFTPROXY_EDGE_SOURCE_DENY = [
+        "tag:softproxy-edge:80",
+        "tag:softproxy-edge:22",
+        "tag:softproxy-edge:8080",
+        "tag:softproxy-edge:43140",
+    ]
+    SOFTPROXY_EDGE_OTHER_DENY = [
+        "tag:softproxy-edge:443",
+        "tag:softproxy-edge:80",
+        "tag:softproxy-upstream:443",
+        "tag:softproxy-upstream:80",
+    ]
+    SOFTPROXY_EDGE_POLICY_TESTS = [
+        {
+            "src": "jess@sulliwood.org",
+            "proto": "tcp",
+            "accept": ["tag:softproxy-edge:443"],
+            "deny": SOFTPROXY_EDGE_SOURCE_DENY,
+        },
+        {
+            "src": "jsullivan2@gmail.com",
+            "proto": "tcp",
+            "accept": ["tag:softproxy-edge:443"],
+            "deny": SOFTPROXY_EDGE_SOURCE_DENY,
+        },
+        {
+            "src": "tinyland-neo",
+            "proto": "tcp",
+            "accept": ["tag:softproxy-edge:443"],
+            "deny": SOFTPROXY_EDGE_SOURCE_DENY,
+        },
+        {
+            "src": "tag:dev",
+            "proto": "tcp",
+            "accept": ["tag:dev:22"],
+            "deny": SOFTPROXY_EDGE_OTHER_DENY,
+        },
+        {
+            "src": "tag:dollhouse",
+            "proto": "tcp",
+            "accept": ["tag:dollhouse:22"],
+            "deny": SOFTPROXY_EDGE_OTHER_DENY,
+        },
+        {
+            "src": "tag:k8s-operator",
+            "proto": "tcp",
+            "accept": ["tag:k8s:443"],
+            "deny": SOFTPROXY_EDGE_OTHER_DENY,
+        },
+        {
+            "src": "tag:mcp-proxy",
+            "proto": "tcp",
+            "accept": ["tag:mcp-proxy:3100"],
+            "deny": SOFTPROXY_EDGE_OTHER_DENY,
+        },
+        {
+            "src": "tinyland-sting",
+            "proto": "tcp",
+            "accept": ["tinyland-loki-observability:3100"],
+            "deny": SOFTPROXY_EDGE_OTHER_DENY,
+        },
+    ]
+
+    def _references(self, tag: str) -> list:
+        return [
+            (surface, rule)
+            for surface in ("acls", "grants", "ssh")
+            for rule in self.policy[surface]
+            if any(
+                endpoint == tag or endpoint.startswith(f"{tag}:")
+                for key in ("src", "dst")
+                for endpoint in rule.get(key, [])
+            )
+        ]
+
+    def test_softproxy_route_tags_are_owned_by_the_kubernetes_operator(self) -> None:
+        owners = ["tag:k8s-operator", "autogroup:admin", "group:dollhouse-admins"]
+        for tag in (self.SOFTPROXY_EDGE, self.SOFTPROXY_UPSTREAM):
+            self.assertEqual(self.policy["tagOwners"][tag], owners)
+            # Neither tag owns a tag, and neither is a host alias.
+            self.assertFalse([t for t, o in self.policy["tagOwners"].items() if tag in o])
+            self.assertNotIn(tag, self.policy["hosts"])
+        # tag:k8s and tag:k8s-operator ownership is not broadened.
+        k8s_owners = [
+            "tag:tag-authority", "tag:k8s-operator", "autogroup:admin", "group:dollhouse-admins",
+        ]
+        self.assertEqual(self.policy["tagOwners"]["tag:k8s-operator"], k8s_owners)
+        self.assertEqual(self.policy["tagOwners"]["tag:k8s"], k8s_owners)
+
+    def test_softproxy_edge_has_exactly_one_inbound_tcp_443_grant(self) -> None:
+        self.assertEqual(
+            self._references(self.SOFTPROXY_EDGE), [("grants", self.SOFTPROXY_EDGE_GRANT)]
+        )
+        # The edge sources equal the direct tag:softproxy sources.
+        self.assertEqual(self.SOFTPROXY_EDGE_GRANT["src"], self.SOFTPROXY_GRANT["src"])
+
+    def test_softproxy_upstream_reaches_nothing_before_readback_5(self) -> None:
+        # No ACL, grant or SSH rule names the upstream tag, as source or
+        # destination, so its device has no tailnet reach.
+        self.assertEqual(self._references(self.SOFTPROXY_UPSTREAM), [])
+        for rule in self.policy["acls"] + self.policy["grants"]:
+            self.assertNotIn(self.SOFTPROXY_UPSTREAM, rule["src"], rule)
+        # No policy test grants it a flow either.
+        for entry in self.policy["tests"]:
+            self.assertNotEqual(entry["src"], self.SOFTPROXY_UPSTREAM, entry)
+
+    def test_softproxy_route_tags_have_no_node_attr_ssh_or_auto_approver(self) -> None:
+        for tag in (self.SOFTPROXY_EDGE, self.SOFTPROXY_UPSTREAM):
+            for row in self.policy["nodeAttrs"]:
+                self.assertNotIn(tag, row["target"], row)
+            for row in self.policy["ssh"]:
+                self.assertNotIn(tag, row["src"], row)
+                self.assertNotIn(tag, row["dst"], row)
+            for tags in self.policy["autoApprovers"]["routes"].values():
+                self.assertNotIn(tag, tags)
+            self.assertNotIn(tag, self.policy["autoApprovers"]["exitNode"])
+            for tags in self.policy["autoApprovers"]["services"].values():
+                self.assertNotIn(tag, tags)
 
     def test_no_wide_selector_reaches_softproxy(self) -> None:
         # The reference check sees only rules that name the tag. A "*" or

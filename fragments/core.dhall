@@ -35,6 +35,16 @@
 -- grant's sources are group:dollhouse-admins and neo (Jess 2026-10-30,
 -- softproxy seat session, TIN-7729).
 --
+-- tag:softproxy-edge and tag:softproxy-upstream (Linear TIN-7371; SP-133,
+-- TIN-7125 comment cd969795; route design xoxd-ai/blahaj#2455). The honey
+-- Tailscale operator mints both for the softproxy.xoxd.ai route. The edge
+-- is the softproxy-xoxd LoadBalancer device. The upstream is the egress
+-- proxy to the softproxy node. Each is owned like tag:mcp-proxy and
+-- tag:printstack, by tag:k8s-operator plus the admins. Neither owns a tag,
+-- and tag:k8s-operator itself is not broadened. The edge grant lives in
+-- fragments/grants.dhall. tag:softproxy-upstream has no grant until the
+-- #2455 runbook readback 5 shows its device carries that tag alone.
+--
 -- icebox (Linear TIN-7812, Jess's rulings IB-1 and IB-3 to IB-7 in comments
 -- b0d7c34e and ba40e1a6; folds Jesssullivan/tailnet-acl#65, TIN-7811;
 -- xoxd-ai/icebox is owned by the PZM icebox seat under
@@ -219,6 +229,14 @@ let tagOwners
           [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
         }
       , { mapKey = C.tag.softproxy, mapValue = [ C.autogroup.admin ] }
+      , { mapKey = C.tag.softproxy_edge
+        , mapValue =
+          [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
+        }
+      , { mapKey = C.tag.softproxy_upstream
+        , mapValue =
+          [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
+        }
       , { mapKey = C.tag.icebox_dev, mapValue = [ C.autogroup.admin ] }
       , { mapKey = C.tag.icebox_prod, mapValue = [ C.autogroup.admin ] }
       , { mapKey = C.tag.icebox_prober, mapValue = [ C.autogroup.admin ] }
