@@ -56,14 +56,12 @@
 --
 -- softproxy.xoxd.ai route (TIN-7371; SP-133; xoxd-ai/blahaj#2455). Both of
 -- Jess's identities and neo reach tag:softproxy-edge:443 and no other
--- port on it: not 80, 22, 8080 or 43140. tag:softproxy-upstream reaches
--- tag:softproxy:443 and not 80, 22 or 43140. It reaches nothing else: not
--- the edge, its own tag, tag:dollhouse:22, tag:k8s-operator:443, honey on
--- 22, 443 or 6443, neo:22, sting:22, ai:443 or a 192.168.0.0/16 address.
--- tag:dev, tag:dollhouse, tag:k8s-operator, tag:mcp-proxy and sting reach
--- neither new tag on 443 or 80. The edge has no outbound grant, so it has
--- no row of its own. The contract test pins that it is never a source and
--- that the upstream is never a destination.
+-- port on it: not 80, 22, 8080 or 43140. tag:dev, tag:dollhouse,
+-- tag:k8s-operator, tag:mcp-proxy and sting reach neither new tag on 443
+-- or 80. Neither new tag has an outbound grant yet, so neither has a row
+-- of its own: a row needs a non-empty accept. The contract test pins that
+-- the edge is never a source and that no rule names the upstream until
+-- runbook readback 5.
 --
 -- icebox (Linear TIN-7812; folds #65, TIN-7811). Jess, a dev and prod
 -- member, reaches every port on tag:icebox-dev, tag:icebox-prod on 22 and
@@ -198,26 +196,6 @@ let tests
           , "${C.tag.softproxy_edge}:22"
           , "${C.tag.softproxy_edge}:8080"
           , "${C.tag.softproxy_edge}:43140"
-          ]
-        }
-      , { src = C.tag.softproxy_upstream
-        , proto = "tcp"
-        , accept = [ "${C.tag.softproxy}:443" ]
-        , deny =
-          [ "${C.tag.softproxy}:80"
-          , "${C.tag.softproxy}:22"
-          , "${C.tag.softproxy}:43140"
-          , "${C.tag.softproxy_edge}:443"
-          , "${C.tag.softproxy_upstream}:443"
-          , "${C.tag.dollhouse}:22"
-          , "${C.tag.k8s_operator}:443"
-          , "tinyland-honey:22"
-          , "tinyland-honey:443"
-          , "tinyland-honey:6443"
-          , "tinyland-neo:22"
-          , "tinyland-sting:22"
-          , "ai:443"
-          , "192.168.30.105:22"
           ]
         }
       , { src = C.tag.dev
