@@ -80,17 +80,19 @@
 --
 -- softproxy.xoxd.ai route (Linear TIN-7371; SP-133, TIN-7125 comment
 -- cd969795; route design xoxd-ai/blahaj#2455, runbook precondition P1).
--- One row, tcp:443 only: group:dollhouse-admins and neo reach
--- tag:softproxy-edge, the softproxy-xoxd LoadBalancer device. They are the
--- tag:softproxy sources, so neo is included. The tag:softproxy row above is
--- unchanged, so the direct ts.net path keeps working for the redirect.
+-- Two rows, tcp:443 only. The tag:softproxy row above is unchanged, so the
+-- direct ts.net path keeps working for the redirect.
+--   * group:dollhouse-admins and neo reach tag:softproxy-edge, the
+--     softproxy-xoxd LoadBalancer device. They are the tag:softproxy
+--     sources, so neo is included.
+--   * tag:softproxy-upstream, the egress proxy, reaches tag:softproxy. This
+--     row merges only after runbook readback 5 shows the egress device
+--     carries tag:softproxy-upstream alone.
 -- Nothing names tag:softproxy-edge as a source, so the edge has no
 -- outbound tailnet reach. The edge pod reaches the egress proxy pod over
--- the cluster network, not the tailnet.
--- tag:softproxy-upstream, the egress proxy, has an owner and no rule. Its
--- grant to tag:softproxy:443 waits for runbook readback 5, which must show
--- the egress device carries tag:softproxy-upstream alone. Neither tag has
--- a nodeAttr, so no Funnel, and neither has an SSH rule or autoApprover.
+-- the cluster network, not the tailnet. No rule names
+-- tag:softproxy-upstream as a destination. Neither tag has a nodeAttr, so
+-- no Funnel, and neither has an SSH rule or autoApprover.
 --
 -- icebox (Linear TIN-7812; Jess's rulings IB-1 and IB-3 to IB-7, comments
 -- b0d7c34e and ba40e1a6; folds Jesssullivan/tailnet-acl#65, TIN-7811,
@@ -340,6 +342,7 @@ let grants
           [ C.group.dollhouse_admins, "tinyland-neo" ]
           [ C.tag.softproxy_edge ]
           [ "tcp:443" ]
+      , G.net [ C.tag.softproxy_upstream ] [ C.tag.softproxy ] [ "tcp:443" ]
       , G.net
           [ C.group.icebox_dispatchers
           , C.group.icebox_keyholders
