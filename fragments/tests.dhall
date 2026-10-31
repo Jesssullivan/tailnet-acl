@@ -54,6 +54,17 @@
 -- non-empty accept. The node has no outbound grant, so it has no row of
 -- its own. The contract test pins that it is never a source.
 --
+-- softproxy.xoxd.ai route (TIN-7371; SP-133; xoxd-ai/blahaj#2455). Both of
+-- Jess's identities and neo reach tag:softproxy-edge:443 and no other
+-- port on it: not 80, 22, 8080 or 43140. tag:softproxy-upstream reaches
+-- tag:softproxy:443 and not 80, 22 or 43140. It reaches nothing else: not
+-- the edge, its own tag, tag:dollhouse:22, tag:k8s-operator:443, honey on
+-- 22, 443 or 6443, neo:22, sting:22, ai:443 or a 192.168.0.0/16 address.
+-- tag:dev, tag:dollhouse, tag:k8s-operator, tag:mcp-proxy and sting reach
+-- neither new tag on 443 or 80. The edge has no outbound grant, so it has
+-- no row of its own. The contract test pins that it is never a source and
+-- that the upstream is never a destination.
+--
 -- icebox (Linear TIN-7812; folds #65, TIN-7811). Jess, a dev and prod
 -- member, reaches every port on tag:icebox-dev, tag:icebox-prod on 22 and
 -- 443 but not 80, and the console on 443 but not 22. Neo reaches the
@@ -157,6 +168,106 @@ let tests
           [ "${C.tag.softproxy}:443"
           , "${C.tag.softproxy}:80"
           , "${C.tag.softproxy}:22"
+          ]
+        }
+      , { src = C.user.jess_sulliwood
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy_edge}:443" ]
+        , deny =
+          [ "${C.tag.softproxy_edge}:80"
+          , "${C.tag.softproxy_edge}:22"
+          , "${C.tag.softproxy_edge}:8080"
+          , "${C.tag.softproxy_edge}:43140"
+          ]
+        }
+      , { src = C.user.jsullivan2_gmail
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy_edge}:443" ]
+        , deny =
+          [ "${C.tag.softproxy_edge}:80"
+          , "${C.tag.softproxy_edge}:22"
+          , "${C.tag.softproxy_edge}:8080"
+          , "${C.tag.softproxy_edge}:43140"
+          ]
+        }
+      , { src = "tinyland-neo"
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy_edge}:443" ]
+        , deny =
+          [ "${C.tag.softproxy_edge}:80"
+          , "${C.tag.softproxy_edge}:22"
+          , "${C.tag.softproxy_edge}:8080"
+          , "${C.tag.softproxy_edge}:43140"
+          ]
+        }
+      , { src = C.tag.softproxy_upstream
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy}:443" ]
+        , deny =
+          [ "${C.tag.softproxy}:80"
+          , "${C.tag.softproxy}:22"
+          , "${C.tag.softproxy}:43140"
+          , "${C.tag.softproxy_edge}:443"
+          , "${C.tag.softproxy_upstream}:443"
+          , "${C.tag.dollhouse}:22"
+          , "${C.tag.k8s_operator}:443"
+          , "tinyland-honey:22"
+          , "tinyland-honey:443"
+          , "tinyland-honey:6443"
+          , "tinyland-neo:22"
+          , "tinyland-sting:22"
+          , "ai:443"
+          , "192.168.30.105:22"
+          ]
+        }
+      , { src = C.tag.dev
+        , proto = "tcp"
+        , accept = [ "${C.tag.dev}:22" ]
+        , deny =
+          [ "${C.tag.softproxy_edge}:443"
+          , "${C.tag.softproxy_edge}:80"
+          , "${C.tag.softproxy_upstream}:443"
+          , "${C.tag.softproxy_upstream}:80"
+          ]
+        }
+      , { src = C.tag.dollhouse
+        , proto = "tcp"
+        , accept = [ "${C.tag.dollhouse}:22" ]
+        , deny =
+          [ "${C.tag.softproxy_edge}:443"
+          , "${C.tag.softproxy_edge}:80"
+          , "${C.tag.softproxy_upstream}:443"
+          , "${C.tag.softproxy_upstream}:80"
+          ]
+        }
+      , { src = C.tag.k8s_operator
+        , proto = "tcp"
+        , accept = [ "${C.tag.k8s}:443" ]
+        , deny =
+          [ "${C.tag.softproxy_edge}:443"
+          , "${C.tag.softproxy_edge}:80"
+          , "${C.tag.softproxy_upstream}:443"
+          , "${C.tag.softproxy_upstream}:80"
+          ]
+        }
+      , { src = C.tag.mcp_proxy
+        , proto = "tcp"
+        , accept = [ "${C.tag.mcp_proxy}:3100" ]
+        , deny =
+          [ "${C.tag.softproxy_edge}:443"
+          , "${C.tag.softproxy_edge}:80"
+          , "${C.tag.softproxy_upstream}:443"
+          , "${C.tag.softproxy_upstream}:80"
+          ]
+        }
+      , { src = "tinyland-sting"
+        , proto = "tcp"
+        , accept = [ "tinyland-loki-observability:3100" ]
+        , deny =
+          [ "${C.tag.softproxy_edge}:443"
+          , "${C.tag.softproxy_edge}:80"
+          , "${C.tag.softproxy_upstream}:443"
+          , "${C.tag.softproxy_upstream}:80"
           ]
         }
       , { src = C.tag.mx_relay
