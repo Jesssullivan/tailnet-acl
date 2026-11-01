@@ -60,6 +60,7 @@
 -- tag:softproxy:443 and not 80, 22 or 43140. It reaches nothing else: not
 -- the edge, its own tag, tag:dollhouse:22, tag:k8s-operator:443, honey on
 -- 22, 443 or 6443, neo:22, sting:22, ai:443 or a 192.168.0.0/16 address.
+-- Honey reaches the edge on tcp:9 only, so the drift probe can list it.
 -- tag:dev, tag:dollhouse, tag:k8s-operator, tag:mcp-proxy and sting reach
 -- neither new tag on 443 or 80. The edge has no outbound grant, so it has
 -- no row of its own. The contract test pins that it is never a source and
@@ -198,6 +199,17 @@ let tests
           , "${C.tag.softproxy_edge}:22"
           , "${C.tag.softproxy_edge}:8080"
           , "${C.tag.softproxy_edge}:43140"
+          ]
+        }
+      , { src = "tinyland-honey"
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy_edge}:9" ]
+        , deny =
+          [ "${C.tag.softproxy_edge}:443"
+          , "${C.tag.softproxy_edge}:80"
+          , "${C.tag.softproxy_edge}:22"
+          , "${C.tag.softproxy}:443"
+          , "${C.tag.softproxy_upstream}:443"
           ]
         }
       , { src = C.tag.softproxy_upstream
