@@ -1626,6 +1626,13 @@ class PolicyContractTest(unittest.TestCase):
         "dst": ["tag:softproxy-edge"],
         "ip": ["tcp:443"],
     }
+    # Visibility only: nothing serves tcp:9, and the pin drift probe needs the
+    # edge in honey's netmap (TIN-7371 adee6cf2).
+    SOFTPROXY_EDGE_PEER_GRANT = {
+        "src": ["tinyland-honey"],
+        "dst": ["tag:softproxy-edge"],
+        "ip": ["tcp:9"],
+    }
     SOFTPROXY_UPSTREAM_GRANT = {
         "src": ["tag:softproxy-upstream"],
         "dst": ["tag:softproxy"],
@@ -1661,6 +1668,18 @@ class PolicyContractTest(unittest.TestCase):
             "proto": "tcp",
             "accept": ["tag:softproxy-edge:443"],
             "deny": SOFTPROXY_EDGE_SOURCE_DENY,
+        },
+        {
+            "src": "tinyland-honey",
+            "proto": "tcp",
+            "accept": ["tag:softproxy-edge:9"],
+            "deny": [
+                "tag:softproxy-edge:443",
+                "tag:softproxy-edge:80",
+                "tag:softproxy-edge:22",
+                "tag:softproxy:443",
+                "tag:softproxy-upstream:443",
+            ],
         },
         {
             "src": "tag:softproxy-upstream",
@@ -1741,9 +1760,10 @@ class PolicyContractTest(unittest.TestCase):
         self.assertEqual(self.policy["tagOwners"]["tag:k8s-operator"], k8s_owners)
         self.assertEqual(self.policy["tagOwners"]["tag:k8s"], k8s_owners)
 
-    def test_softproxy_edge_has_exactly_one_inbound_tcp_443_grant(self) -> None:
+    def test_softproxy_edge_has_one_tcp_443_grant_and_the_honey_peer_row(self) -> None:
         self.assertEqual(
-            self._references(self.SOFTPROXY_EDGE), [("grants", self.SOFTPROXY_EDGE_GRANT)]
+            self._references(self.SOFTPROXY_EDGE),
+            [("grants", self.SOFTPROXY_EDGE_GRANT), ("grants", self.SOFTPROXY_EDGE_PEER_GRANT)],
         )
         # The edge sources equal the direct tag:softproxy sources.
         self.assertEqual(self.SOFTPROXY_EDGE_GRANT["src"], self.SOFTPROXY_GRANT["src"])

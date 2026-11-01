@@ -209,6 +209,10 @@
 	"dst": ["tag:softproxy-edge"],
 	"ip": ["tcp:443"]
 }, {
+	"src": ["tinyland-honey"],
+	"dst": ["tag:softproxy-edge"],
+	"ip": ["tcp:9"]
+}, {
 	"src": ["tag:softproxy-upstream"],
 	"dst": ["tag:softproxy"],
 	"ip": ["tcp:443"]

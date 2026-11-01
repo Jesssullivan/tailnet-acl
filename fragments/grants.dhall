@@ -80,14 +80,19 @@
 --
 -- softproxy.xoxd.ai route (Linear TIN-7371; SP-133, TIN-7125 comment
 -- cd969795; route design xoxd-ai/blahaj#2455, runbook precondition P1).
--- Two rows, tcp:443 only. The tag:softproxy row above is unchanged, so the
--- direct ts.net path keeps working for the redirect.
+-- Two rows on tcp:443 and one visibility row. The tag:softproxy row above is
+-- unchanged, so the direct ts.net path keeps working for the redirect.
 --   * group:dollhouse-admins and neo reach tag:softproxy-edge, the
 --     softproxy-xoxd LoadBalancer device. They are the tag:softproxy
 --     sources, so neo is included.
 --   * tag:softproxy-upstream, the egress proxy, reaches tag:softproxy. This
 --     row merges only after runbook readback 5 shows the egress device
 --     carries tag:softproxy-upstream alone.
+--   * honey reaches tag:softproxy-edge on tcp:9, which nothing serves. The
+--     row exists so the edge appears in honey's netmap: the pin drift probe
+--     reads the device from `tailscale status --json` on honey (R-C723), and
+--     a device honey cannot see reads as absent (Jess, TIN-7371 adee6cf2).
+--     Honey stays denied on 443.
 -- Nothing names tag:softproxy-edge as a source, so the edge has no
 -- outbound tailnet reach. The edge pod reaches the egress proxy pod over
 -- the cluster network, not the tailnet. No rule names
@@ -342,6 +347,7 @@ let grants
           [ C.group.dollhouse_admins, "tinyland-neo" ]
           [ C.tag.softproxy_edge ]
           [ "tcp:443" ]
+      , G.net [ "tinyland-honey" ] [ C.tag.softproxy_edge ] [ "tcp:9" ]
       , G.net [ C.tag.softproxy_upstream ] [ C.tag.softproxy ] [ "tcp:443" ]
       , G.net
           [ C.group.icebox_dispatchers
