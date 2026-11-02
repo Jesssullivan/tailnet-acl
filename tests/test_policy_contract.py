@@ -670,7 +670,13 @@ class PolicyContractTest(unittest.TestCase):
         }
         self.assertEqual(
             [grant for grant in self.policy["grants"] if alias in grant["src"]],
-            [self.LOKI_WRITER_GRANT, loki_writer_service_grant, printstack_seat_grant],
+            # SPR-337 (TIN-7765 84053e0c) adds the softproxy source row.
+            [
+                self.LOKI_WRITER_GRANT,
+                loki_writer_service_grant,
+                printstack_seat_grant,
+                self.SOFTPROXY_GRANT,
+            ],
         )
         self.assertEqual(
             [grant for grant in self.policy["grants"] if alias in grant["dst"]],
@@ -1500,7 +1506,12 @@ class PolicyContractTest(unittest.TestCase):
     # outbound reach, no Funnel, no SSH and no autoApprover.
     SOFTPROXY = "tag:softproxy"
     SOFTPROXY_GRANT = {
-        "src": ["group:dollhouse-admins", "tinyland-neo"],
+        "src": [
+            "group:dollhouse-admins",
+            "tinyland-neo",
+            "tinyland-sting",
+            "tinyland-petting-zoo-mini",
+        ],
         "dst": ["tag:softproxy"],
         "ip": ["tcp:443"],
     }
@@ -1560,8 +1571,24 @@ class PolicyContractTest(unittest.TestCase):
         {
             "src": "tinyland-sting",
             "proto": "tcp",
-            "accept": ["tinyland-loki-observability:3100"],
-            "deny": ["tag:softproxy:443", "tag:softproxy:80", "tag:softproxy:22"],
+            "accept": ["tinyland-loki-observability:3100", "tag:softproxy:443"],
+            "deny": [
+                "tag:softproxy:80",
+                "tag:softproxy:22",
+                "tag:softproxy:8080",
+                "tag:softproxy-edge:443",
+            ],
+        },
+        {
+            "src": "tinyland-petting-zoo-mini",
+            "proto": "tcp",
+            "accept": ["tag:softproxy:443"],
+            "deny": [
+                "tag:softproxy:80",
+                "tag:softproxy:22",
+                "tag:softproxy:8080",
+                "tag:softproxy-edge:443",
+            ],
         },
     ]
 
@@ -1589,10 +1616,12 @@ class PolicyContractTest(unittest.TestCase):
             references,
             [("grants", self.SOFTPROXY_GRANT), ("grants", self.SOFTPROXY_UPSTREAM_GRANT)],
         )
-        # Exactly two sources: the operator's group and neo's host alias.
-        self.assertEqual(len(references[0][1]["src"]), 2)
-        # The host source is neo alone: its alias is one tailnet address.
+        # Four sources: the operator's group and 3 host aliases, 2 by SPR-337.
+        self.assertEqual(len(references[0][1]["src"]), 4)
+        # Each host source is one tailnet address.
         self.assertEqual(self.policy["hosts"]["tinyland-neo"], "100.67.93.34")
+        self.assertEqual(self.policy["hosts"]["tinyland-sting"], "100.85.46.118")
+        self.assertEqual(self.policy["hosts"]["tinyland-petting-zoo-mini"], "100.111.5.80")
         # The source group is exactly the operator's two identities.
         self.assertEqual(
             self.policy["groups"]["group:dollhouse-admins"],
@@ -1765,8 +1794,8 @@ class PolicyContractTest(unittest.TestCase):
             self._references(self.SOFTPROXY_EDGE),
             [("grants", self.SOFTPROXY_EDGE_GRANT), ("grants", self.SOFTPROXY_EDGE_PEER_GRANT)],
         )
-        # The edge sources equal the direct tag:softproxy sources.
-        self.assertEqual(self.SOFTPROXY_EDGE_GRANT["src"], self.SOFTPROXY_GRANT["src"])
+        # SPR-337 adds the two seat hosts to the direct node only, not the edge.
+        self.assertEqual(self.SOFTPROXY_EDGE_GRANT["src"], self.SOFTPROXY_GRANT["src"][:2])
 
     def test_softproxy_upstream_reaches_only_softproxy_on_tcp_443(self) -> None:
         self.assertEqual(
