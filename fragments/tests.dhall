@@ -61,8 +61,10 @@
 -- the edge, its own tag, tag:dollhouse:22, tag:k8s-operator:443, honey on
 -- 22, 443 or 6443, neo:22, sting:22, ai:443 or a 192.168.0.0/16 address.
 -- Honey reaches the edge on tcp:9 only, so the drift probe can list it.
--- tag:dev, tag:dollhouse, tag:k8s-operator, tag:mcp-proxy and sting reach
--- neither new tag on 443 or 80. The edge has no outbound grant, so it has
+-- Sting and petting-zoo-mini reach the edge on 443 and not on 80 or 22, for
+-- the cade-infra#139 gate seat route (TIN-7125). Sting does not reach the
+-- upstream. tag:dev, tag:dollhouse, tag:k8s-operator and tag:mcp-proxy
+-- reach neither new tag on 443 or 80. The edge has no outbound grant, so it has
 -- no row of its own. The contract test pins that it is never a source and
 -- that the upstream is never a destination.
 --
@@ -165,22 +167,27 @@ let tests
       , { src = "tinyland-sting"
         , proto = "tcp"
         , accept =
-          [ "tinyland-loki-observability:3100", "${C.tag.softproxy}:443" ]
+          [ "tinyland-loki-observability:3100"
+          , "${C.tag.softproxy}:443"
+          , "${C.tag.softproxy_edge}:443"
+          ]
         , deny =
           [ "${C.tag.softproxy}:80"
           , "${C.tag.softproxy}:22"
           , "${C.tag.softproxy}:8080"
-          , "${C.tag.softproxy_edge}:443"
+          , "${C.tag.softproxy_edge}:80"
+          , "${C.tag.softproxy_edge}:22"
           ]
         }
       , { src = "tinyland-petting-zoo-mini"
         , proto = "tcp"
-        , accept = [ "${C.tag.softproxy}:443" ]
+        , accept = [ "${C.tag.softproxy}:443", "${C.tag.softproxy_edge}:443" ]
         , deny =
           [ "${C.tag.softproxy}:80"
           , "${C.tag.softproxy}:22"
           , "${C.tag.softproxy}:8080"
-          , "${C.tag.softproxy_edge}:443"
+          , "${C.tag.softproxy_edge}:80"
+          , "${C.tag.softproxy_edge}:22"
           ]
         }
       , { src = C.user.jess_sulliwood
@@ -286,10 +293,10 @@ let tests
         }
       , { src = "tinyland-sting"
         , proto = "tcp"
-        , accept = [ "tinyland-loki-observability:3100" ]
+        , accept =
+          [ "tinyland-loki-observability:3100", "${C.tag.softproxy_edge}:443" ]
         , deny =
-          [ "${C.tag.softproxy_edge}:443"
-          , "${C.tag.softproxy_edge}:80"
+          [ "${C.tag.softproxy_edge}:80"
           , "${C.tag.softproxy_upstream}:443"
           , "${C.tag.softproxy_upstream}:80"
           ]
