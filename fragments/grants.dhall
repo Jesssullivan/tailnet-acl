@@ -76,9 +76,14 @@
 -- 2026-10-30, softproxy seat session, TIN-7729). SPR-337 (TIN-7765
 -- 84053e0c) adds sting and petting-zoo-mini as host sources, superseding
 -- SP-124's denial for these two. No other agent seat, tag or member is a
--- source. Both hosts also reach tag:softproxy-edge on tcp:443, below
--- (TIN-7125). Nothing names tag:softproxy as a source, so the node has no
--- outbound tailnet reach. It has no nodeAttr, so no Funnel, and no SSH
+-- source. BREAK-GLASS: the sting and petting-zoo-mini sources on this
+-- direct ts.net row are break-glass per R-C721 (TIN-4655 2255e51b). Their
+-- service route is the softproxy.xoxd.ai edge, tag:softproxy-edge on
+-- tcp:443 below. Jess ruled "Mark break-glass" on finding 2 of
+-- cade-infra#139's review (interview 2026-11-02, TIN-7125 4f4124be and
+-- 8d23c63e). The row keeps both hosts, so the grant is unchanged. Nothing
+-- names tag:softproxy as a source, so the node has no outbound tailnet
+-- reach. It has no nodeAttr, so no Funnel, and no SSH
 -- rule or autoApprover.
 --
 -- softproxy.xoxd.ai route (Linear TIN-7371; SP-133, TIN-7125 comment
