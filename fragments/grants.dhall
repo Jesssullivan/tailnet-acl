@@ -76,17 +76,25 @@
 -- 2026-10-30, softproxy seat session, TIN-7729). SPR-337 (TIN-7765
 -- 84053e0c) adds sting and petting-zoo-mini as host sources, superseding
 -- SP-124's denial for these two. No other agent seat, tag or member is a
--- source, and neither host reaches tag:softproxy-edge. Nothing names tag:softproxy
--- as a source, so the node has no outbound tailnet reach. It has no
--- nodeAttr, so no Funnel, and no SSH rule or autoApprover.
+-- source. BREAK-GLASS: the sting and petting-zoo-mini sources on this
+-- direct ts.net row are break-glass per R-C721 (TIN-4655 2255e51b). Their
+-- service route is the softproxy.xoxd.ai edge, tag:softproxy-edge on
+-- tcp:443 below. Jess ruled "Mark break-glass" on finding 2 of
+-- cade-infra#139's review (interview 2026-11-02, TIN-7125 4f4124be and
+-- 8d23c63e). The row keeps both hosts, so the grant is unchanged. Nothing
+-- names tag:softproxy as a source, so the node has no outbound tailnet
+-- reach. It has no nodeAttr, so no Funnel, and no SSH
+-- rule or autoApprover.
 --
 -- softproxy.xoxd.ai route (Linear TIN-7371; SP-133, TIN-7125 comment
 -- cd969795; route design xoxd-ai/blahaj#2455, runbook precondition P1).
 -- Two rows on tcp:443 and one visibility row. The tag:softproxy row above is
 -- unchanged, so the direct ts.net path keeps working for the redirect.
---   * group:dollhouse-admins and neo reach tag:softproxy-edge, the
---     softproxy-xoxd LoadBalancer device. They are the tag:softproxy
---     sources, so neo is included.
+--   * group:dollhouse-admins, neo, sting and petting-zoo-mini reach
+--     tag:softproxy-edge, the softproxy-xoxd LoadBalancer device. They are
+--     the tag:softproxy sources. Sting and petting-zoo-mini joined for the
+--     cade-infra#139 gate seat route: CADE-1 chose softproxy.xoxd.ai under
+--     R-C655, so SPR-337's seat reach lands on the edge (TIN-7125 8717e26f).
 --   * tag:softproxy-upstream, the egress proxy, reaches tag:softproxy. This
 --     row merges only after runbook readback 5 shows the egress device
 --     carries tag:softproxy-upstream alone.
@@ -350,7 +358,11 @@ let grants
           [ C.tag.softproxy ]
           [ "tcp:443" ]
       , G.net
-          [ C.group.dollhouse_admins, "tinyland-neo" ]
+          [ C.group.dollhouse_admins
+          , "tinyland-neo"
+          , "tinyland-sting"
+          , "tinyland-petting-zoo-mini"
+          ]
           [ C.tag.softproxy_edge ]
           [ "tcp:443" ]
       , G.net [ "tinyland-honey" ] [ C.tag.softproxy_edge ] [ "tcp:9" ]

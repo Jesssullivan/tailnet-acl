@@ -670,12 +670,14 @@ class PolicyContractTest(unittest.TestCase):
         }
         self.assertEqual(
             [grant for grant in self.policy["grants"] if alias in grant["src"]],
-            # SPR-337 (TIN-7765 84053e0c) adds the softproxy source row.
+            # SPR-337 (TIN-7765 84053e0c) adds the softproxy source row, and
+            # the cade-infra#139 gate seat route adds the edge row (TIN-7125).
             [
                 self.LOKI_WRITER_GRANT,
                 loki_writer_service_grant,
                 printstack_seat_grant,
                 self.SOFTPROXY_GRANT,
+                self.SOFTPROXY_EDGE_GRANT,
             ],
         )
         self.assertEqual(
@@ -1571,23 +1573,29 @@ class PolicyContractTest(unittest.TestCase):
         {
             "src": "tinyland-sting",
             "proto": "tcp",
-            "accept": ["tinyland-loki-observability:3100", "tag:softproxy:443"],
+            "accept": [
+                "tinyland-loki-observability:3100",
+                "tag:softproxy:443",
+                "tag:softproxy-edge:443",
+            ],
             "deny": [
                 "tag:softproxy:80",
                 "tag:softproxy:22",
                 "tag:softproxy:8080",
-                "tag:softproxy-edge:443",
+                "tag:softproxy-edge:80",
+                "tag:softproxy-edge:22",
             ],
         },
         {
             "src": "tinyland-petting-zoo-mini",
             "proto": "tcp",
-            "accept": ["tag:softproxy:443"],
+            "accept": ["tag:softproxy:443", "tag:softproxy-edge:443"],
             "deny": [
                 "tag:softproxy:80",
                 "tag:softproxy:22",
                 "tag:softproxy:8080",
-                "tag:softproxy-edge:443",
+                "tag:softproxy-edge:80",
+                "tag:softproxy-edge:22",
             ],
         },
     ]
@@ -1651,7 +1659,12 @@ class PolicyContractTest(unittest.TestCase):
     SOFTPROXY_EDGE = "tag:softproxy-edge"
     SOFTPROXY_UPSTREAM = "tag:softproxy-upstream"
     SOFTPROXY_EDGE_GRANT = {
-        "src": ["group:dollhouse-admins", "tinyland-neo"],
+        "src": [
+            "group:dollhouse-admins",
+            "tinyland-neo",
+            "tinyland-sting",
+            "tinyland-petting-zoo-mini",
+        ],
         "dst": ["tag:softproxy-edge"],
         "ip": ["tcp:443"],
     }
@@ -1758,8 +1771,12 @@ class PolicyContractTest(unittest.TestCase):
         {
             "src": "tinyland-sting",
             "proto": "tcp",
-            "accept": ["tinyland-loki-observability:3100"],
-            "deny": SOFTPROXY_EDGE_OTHER_DENY,
+            "accept": ["tinyland-loki-observability:3100", "tag:softproxy-edge:443"],
+            "deny": [
+                "tag:softproxy-edge:80",
+                "tag:softproxy-upstream:443",
+                "tag:softproxy-upstream:80",
+            ],
         },
     ]
 
@@ -1794,8 +1811,9 @@ class PolicyContractTest(unittest.TestCase):
             self._references(self.SOFTPROXY_EDGE),
             [("grants", self.SOFTPROXY_EDGE_GRANT), ("grants", self.SOFTPROXY_EDGE_PEER_GRANT)],
         )
-        # SPR-337 adds the two seat hosts to the direct node only, not the edge.
-        self.assertEqual(self.SOFTPROXY_EDGE_GRANT["src"], self.SOFTPROXY_GRANT["src"][:2])
+        # The edge has the same sources as the direct node: SPR-337's two seat
+        # hosts reach both, for the cade-infra#139 gate seat route (TIN-7125).
+        self.assertEqual(self.SOFTPROXY_EDGE_GRANT["src"], self.SOFTPROXY_GRANT["src"])
 
     def test_softproxy_upstream_reaches_only_softproxy_on_tcp_443(self) -> None:
         self.assertEqual(
