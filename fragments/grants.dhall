@@ -73,8 +73,10 @@
 -- node's `tailscale serve` on tcp:443. A group source matches only untagged
 -- devices of its members, here Jess's two identities. Jess works on neo,
 -- a tagged device that no group matches, so neo is named by host (Jess
--- 2026-10-30, softproxy seat session, TIN-7729). No other agent seat, tag
--- or member is a source: sting stays denied. Nothing names tag:softproxy
+-- 2026-10-30, softproxy seat session, TIN-7729). SPR-337 (TIN-7765
+-- 84053e0c) adds sting and petting-zoo-mini as host sources, superseding
+-- SP-124's denial for these two. No other agent seat, tag or member is a
+-- source, and neither host reaches tag:softproxy-edge. Nothing names tag:softproxy
 -- as a source, so the node has no outbound tailnet reach. It has no
 -- nodeAttr, so no Funnel, and no SSH rule or autoApprover.
 --
@@ -340,7 +342,11 @@ let grants
           [ C.tag.printstack ]
           [ "tcp:443" ]
       , G.net
-          [ C.group.dollhouse_admins, "tinyland-neo" ]
+          [ C.group.dollhouse_admins
+          , "tinyland-neo"
+          , "tinyland-sting"
+          , "tinyland-petting-zoo-mini"
+          ]
           [ C.tag.softproxy ]
           [ "tcp:443" ]
       , G.net

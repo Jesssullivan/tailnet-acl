@@ -164,11 +164,23 @@ let tests
         }
       , { src = "tinyland-sting"
         , proto = "tcp"
-        , accept = [ "tinyland-loki-observability:3100" ]
+        , accept =
+          [ "tinyland-loki-observability:3100", "${C.tag.softproxy}:443" ]
         , deny =
-          [ "${C.tag.softproxy}:443"
-          , "${C.tag.softproxy}:80"
+          [ "${C.tag.softproxy}:80"
           , "${C.tag.softproxy}:22"
+          , "${C.tag.softproxy}:8080"
+          , "${C.tag.softproxy_edge}:443"
+          ]
+        }
+      , { src = "tinyland-petting-zoo-mini"
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy}:443" ]
+        , deny =
+          [ "${C.tag.softproxy}:80"
+          , "${C.tag.softproxy}:22"
+          , "${C.tag.softproxy}:8080"
+          , "${C.tag.softproxy_edge}:443"
           ]
         }
       , { src = C.user.jess_sulliwood
