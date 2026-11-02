@@ -164,7 +164,8 @@ let tests
         }
       , { src = "tinyland-sting"
         , proto = "tcp"
-        , accept = [ "tinyland-loki-observability:3100", "${C.tag.softproxy}:443" ]
+        , accept =
+          [ "tinyland-loki-observability:3100", "${C.tag.softproxy}:443" ]
         , deny =
           [ "${C.tag.softproxy}:80"
           , "${C.tag.softproxy}:22"
