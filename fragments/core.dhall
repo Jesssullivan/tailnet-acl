@@ -44,6 +44,17 @@
 -- and tag:k8s-operator itself is not broadened. Their two grants live in
 -- fragments/grants.dhall.
 --
+-- tag:cade-hermes-front and tag:cade-hermes-upstream (Linear TIN-7536, GO-04
+-- front act 6; packet decision D3, TIN-7536 fba76449; xoxd-ai/blahaj#2505).
+-- The front is the Cade Hermes front's own tailscaled node on honey. It joins
+-- with one single-use auth key minted from an admin key (D2). It is owned by
+-- autogroup:admin alone, like tag:softproxy, so no tagged device can mint it.
+-- The upstream is the egress proxy for Service
+-- cade-production/cade-hermes-upstream. The honey Tailscale operator mints it,
+-- so it is owned like tag:softproxy-upstream. Neither owns a tag, and
+-- tag:k8s-operator itself is not broadened. No rule names either tag. The
+-- grant is front act 9, after readback R14.
+--
 -- icebox (Linear TIN-7812, Jess's rulings IB-1 and IB-3 to IB-7 in comments
 -- b0d7c34e and ba40e1a6; folds Jesssullivan/tailnet-acl#65, TIN-7811;
 -- xoxd-ai/icebox is owned by the PZM icebox seat under
@@ -233,6 +244,11 @@ let tagOwners
           [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
         }
       , { mapKey = C.tag.softproxy_upstream
+        , mapValue =
+          [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
+        }
+      , { mapKey = C.tag.cade_hermes_front, mapValue = [ C.autogroup.admin ] }
+      , { mapKey = C.tag.cade_hermes_upstream
         , mapValue =
           [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
         }
