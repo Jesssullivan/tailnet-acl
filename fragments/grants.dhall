@@ -109,6 +109,14 @@
 -- tag:softproxy-upstream as a destination. Neither tag has a nodeAttr, so
 -- no Funnel, and neither has an SSH rule or autoApprover.
 --
+-- Cade Hermes front (Linear TIN-7536, GO-04 front act 9; D3, TIN-7536
+-- fba76449; xoxd-ai/blahaj#2505). One row: the egress proxy,
+-- tag:cade-hermes-upstream, reaches tag:cade-hermes-front on tcp:443. The
+-- front's tailscale serve mounts /v1/runs only. This row merges only after
+-- readback R14 shows the upstream tag on the egress device alone. Nothing
+-- names the front as a source, so it has no outbound tailnet reach. Nothing
+-- names the upstream as a destination.
+--
 -- icebox (Linear TIN-7812; Jess's rulings IB-1 and IB-3 to IB-7, comments
 -- b0d7c34e and ba40e1a6; folds Jesssullivan/tailnet-acl#65, TIN-7811,
 -- R-ICEBOX-20261030-a). Seven rows at the end of the list. They are the
@@ -367,6 +375,10 @@ let grants
           [ "tcp:443" ]
       , G.net [ "tinyland-honey" ] [ C.tag.softproxy_edge ] [ "tcp:9" ]
       , G.net [ C.tag.softproxy_upstream ] [ C.tag.softproxy ] [ "tcp:443" ]
+      , G.net
+          [ C.tag.cade_hermes_upstream ]
+          [ C.tag.cade_hermes_front ]
+          [ "tcp:443" ]
       , G.net
           [ C.group.icebox_dispatchers
           , C.group.icebox_keyholders
