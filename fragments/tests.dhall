@@ -68,6 +68,15 @@
 -- no row of its own. The contract test pins that it is never a source and
 -- that the upstream is never a destination.
 --
+-- tag:sip-relay (Linear TIN-7396). Neo and sting reach it on 22 and no other
+-- port (TIN-7396 7ad85219). The exporter egress reaches it on 9100 and no other
+-- port. No other named source reaches it on 22 or 9100, and that includes both
+-- of Jess's identities, honey and petting-zoo-mini. Each of those rows accepts
+-- a flow the policy already grants, since a row needs a non-empty
+-- accept. The relay has no flow out, so it has no row of its own. The contract
+-- test pins that it is never a source and that no rule source selects it
+-- without naming it. sshTests pins that it holds no Tailscale SSH right.
+--
 -- icebox (Linear TIN-7812; folds #65, TIN-7811). Jess, a dev and prod
 -- member, reaches every port on tag:icebox-dev, tag:icebox-prod on 22 and
 -- 443 but not 80, and the console on 443 but not 22. Neo reaches the
@@ -87,6 +96,16 @@
 let T = ../types/ACL.dhall
 
 let C = ../constants.dhall
+
+let sipRelayDeny = [ "${C.tag.sip_relay}:22", "${C.tag.sip_relay}:9100" ]
+
+let sipRelaySeatDeny =
+      [ "${C.tag.sip_relay}:9100"
+      , "${C.tag.sip_relay}:80"
+      , "${C.tag.sip_relay}:443"
+      , "${C.tag.sip_relay}:5060"
+      , "${C.tag.sip_relay}:5061"
+      ]
 
 let tests
     : List T.ACLTest
@@ -515,6 +534,101 @@ let tests
           , "${C.tag.icebox_prod}:22"
           ]
         }
+      , { src = C.user.jess_sulliwood
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy}:443" ]
+        , deny = [ "${C.tag.sip_relay}:22" ] # sipRelaySeatDeny
+        }
+      , { src = C.user.jsullivan2_gmail
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy}:443" ]
+        , deny = [ "${C.tag.sip_relay}:22" ] # sipRelaySeatDeny
+        }
+      , { src = "tinyland-neo"
+        , proto = "tcp"
+        , accept = [ "${C.tag.sip_relay}:22" ]
+        , deny = sipRelaySeatDeny
+        }
+      , { src = "tinyland-sting"
+        , proto = "tcp"
+        , accept = [ "${C.tag.sip_relay}:22" ]
+        , deny = sipRelaySeatDeny
+        }
+      , { src = C.tag.k8s_egress_nodeexporter
+        , proto = "tcp"
+        , accept = [ "${C.tag.sip_relay}:9100" ]
+        , deny =
+          [ "${C.tag.sip_relay}:22"
+          , "${C.tag.sip_relay}:80"
+          , "${C.tag.sip_relay}:443"
+          , "${C.tag.sip_relay}:5061"
+          ]
+        }
+      , { src = "tinyland-petting-zoo-mini"
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy_edge}:443" ]
+        , deny = sipRelayDeny
+        }
+      , { src = "tinyland-honey"
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy_edge}:9" ]
+        , deny = sipRelayDeny
+        }
+      , { src = "tinyland-bumble"
+        , proto = "tcp"
+        , accept = [ "tinyland-loki-observability:3100" ]
+        , deny = sipRelayDeny
+        }
+      , { src = C.tag.dev
+        , proto = "tcp"
+        , accept = [ "${C.tag.dev}:22" ]
+        , deny = sipRelayDeny
+        }
+      , { src = C.tag.dollhouse
+        , proto = "tcp"
+        , accept = [ "${C.tag.dollhouse}:22" ]
+        , deny = sipRelayDeny
+        }
+      , { src = C.tag.k8s
+        , proto = "tcp"
+        , accept = [ "${C.tag.k8s}:22" ]
+        , deny = sipRelayDeny
+        }
+      , { src = C.tag.k8s_operator
+        , proto = "tcp"
+        , accept = [ "${C.tag.k8s}:443" ]
+        , deny = sipRelayDeny
+        }
+      , { src = C.tag.mcp_proxy
+        , proto = "tcp"
+        , accept = [ "${C.tag.mcp_proxy}:3100" ]
+        , deny = sipRelayDeny
+        }
+      , { src = C.tag.mx_relay
+        , proto = "tcp"
+        , accept = [ "tinyland-honey:25" ]
+        , deny = sipRelayDeny
+        }
+      , { src = C.tag.softproxy_upstream
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy}:443" ]
+        , deny = sipRelayDeny
+        }
+      , { src = C.tag.tinyland_lab_ci_ephemeral
+        , proto = "tcp"
+        , accept = [ "${C.tag.k8s_operator}:443" ]
+        , deny = sipRelayDeny
+        }
+      , { src = C.tag.tinyland_lab_deploy
+        , proto = "tcp"
+        , accept = [ "${C.tag.dev}:22" ]
+        , deny = sipRelayDeny
+        }
+      , { src = C.tag.printstack
+        , proto = "tcp"
+        , accept = [ "tinyland-mbp-13:443" ]
+        , deny = sipRelayDeny
+        }
       ]
 
 let sshTests
@@ -534,6 +648,18 @@ let sshTests
       , { src = "tinyland-relay-1"
         , dst = [ "tinyland-honey", "tinyland-bumble", "tinyland-sting" ]
         , deny = [ "root" ]
+        }
+      , { src = C.tag.sip_relay
+        , dst =
+          [ "tinyland-honey"
+          , "tinyland-bumble"
+          , "tinyland-sting"
+          , "tinyland-petting-zoo-mini"
+          , C.tag.dollhouse
+          , C.tag.dev
+          , C.tag.switch
+          ]
+        , deny = [ "root", "jess", "jsullivan2", "admin" ]
         }
       ]
 

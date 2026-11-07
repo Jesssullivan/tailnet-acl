@@ -67,6 +67,21 @@
 -- tag:dollhouse and its rules are out of scope here (R-C1017). Pinned by
 -- tests/test_policy_contract.py and by policy tests in fragments/tests.dhall.
 --
+-- tag:sip-relay, the public SIP relay (Linear TIN-7396; Jess, TIN-7125
+-- 82432e02 and d1358ace). Three rows, and nothing names the tag as a source,
+-- so the relay has no outbound tailnet reach.
+--   * neo and sting reach the relay on tcp 22 and are its only SSH sources
+--     (Jess, "Sting and neo (Recommended)", TIN-7396 7ad85219). The relay runs
+--     OpenSSH, not Tailscale SSH. Both seats are tagged devices that no group
+--     matches, so they are named by host. No group row exists, because
+--     group:dollhouse-admins would also reach the untagged devices of its
+--     members. Honey and petting-zoo-mini do not reach it.
+--   * tag:k8s-egress-nodeexporter reaches the relay on tcp 9100, the shape of
+--     its tinyland-relay-1 row above. This is blahaj's reading of the scrape
+--     source, unproved until the scrape runs.
+-- The tag has no SSH rule, nodeAttr, autoApprover or host alias. Pinned by
+-- tests/test_policy_contract.py and by policy tests in fragments/tests.dhall.
+--
 -- tag:softproxy, GO-02 step 1 under Linear TIN-7729. xoxd-ai/softproxy
 -- SP-1 keeps it tailnet only with Funnel off. SP-25 gives it its own
 -- tailscale node. One row lets group:dollhouse-admins and neo reach the
@@ -250,6 +265,12 @@ let grants
       , G.net [ C.group.dollhouse_admins ] [ C.tag.mx_relay ] [ "tcp:22" ]
       , G.net [ C.tag.mx_relay ] [ "tinyland-honey" ] [ "tcp:25", "tcp:465" ]
       , G.net [ C.tag.mx_relay ] [ "tinyland-loki-push" ] [ "tcp:443" ]
+      , G.net [ "tinyland-neo" ] [ C.tag.sip_relay ] [ "tcp:22" ]
+      , G.net [ "tinyland-sting" ] [ C.tag.sip_relay ] [ "tcp:22" ]
+      , G.net
+          [ C.tag.k8s_egress_nodeexporter ]
+          [ C.tag.sip_relay ]
+          [ "tcp:9100" ]
       , G.cap [ C.tag.dollhouse ] [ C.tag.dollhouse ] [ G.Cap.Relay ]
       , G.cap [ C.tag.interim_build ] [ C.tag.honey_relay ] [ G.Cap.Relay ]
       , G.net
