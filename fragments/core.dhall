@@ -27,6 +27,13 @@
 -- group:dollhouse-admins only: not tag:tag-authority, so no tagged device
 -- can mint it. Its only grants live in fragments/grants.dhall.
 --
+-- tag:sip-relay: the public SIP relay alone (Linear TIN-7396; Jess, TIN-7125
+-- 82432e02 and d1358ace). It joins with one single-use auth key. Owned by
+-- autogroup:admin and group:dollhouse-admins, like tag:mx-relay, so a key can
+-- be minted with the tailnet admin API key (TIN-7396 7ad85219) and no tagged
+-- device can mint it. It owns no tag. Its grants live in
+-- fragments/grants.dhall.
+--
 -- tag:softproxy (GO-02 step 1, Linear TIN-7729; xoxd-ai/softproxy rulings
 -- SP-1 and SP-25): Softproxy's own userspace tailscaled node on honey,
 -- joined with one single-use auth key the operator mints. Owned by
@@ -126,6 +133,9 @@ let tagOwners
           [ C.tag.tag_authority, C.autogroup.admin, C.group.dollhouse_admins ]
         }
       , { mapKey = C.tag.mx_relay
+        , mapValue = [ C.autogroup.admin, C.group.dollhouse_admins ]
+        }
+      , { mapKey = C.tag.sip_relay
         , mapValue = [ C.autogroup.admin, C.group.dollhouse_admins ]
         }
       , { mapKey = C.tag.gf_reapi_cell_egress

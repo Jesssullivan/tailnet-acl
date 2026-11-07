@@ -523,7 +523,14 @@ class PolicyContractTest(unittest.TestCase):
                     "tinyland-petting-zoo-mini", "tag:dollhouse", "tag:dev", "tag:switch",
                 ],
                 "deny": ["root", "jess", "jsullivan2", "admin"],
-            }, self.RELAY_ALIAS_SSH_RATCHET],
+            }, self.RELAY_ALIAS_SSH_RATCHET, {
+                "src": "tag:sip-relay",
+                "dst": [
+                    "tinyland-honey", "tinyland-bumble", "tinyland-sting",
+                    "tinyland-petting-zoo-mini", "tag:dollhouse", "tag:dev", "tag:switch",
+                ],
+                "deny": ["root", "jess", "jsullivan2", "admin"],
+            }],
         )
         for entry in self.policy["sshTests"]:
             self.assertTrue(all(entry[key] for key in entry), entry)
@@ -728,7 +735,7 @@ class PolicyContractTest(unittest.TestCase):
                 "tag:tinyland-lab-ci-ephemeral", "tag:tinyland-lab-nix-target",
                 "tag:ci-agent", "tag:kvm-proxy",
                 "tag:tag-authority", "tag:gftb-idp", "tag:tofu-state", "tag:infra-idp",
-                "tag:interim-build", "tag:honey-relay", "tag:mx-relay",
+                "tag:interim-build", "tag:honey-relay", "tag:mx-relay", "tag:sip-relay",
                 "tag:gf-reapi-cell-egress", "tag:gf-reapi-linux-worker",
                 "tag:gf-reapi-rocm-worker", "tag:printstack", "tag:softproxy",
                 "tag:softproxy-edge", "tag:softproxy-upstream",
@@ -979,7 +986,7 @@ class PolicyContractTest(unittest.TestCase):
             self.MCP_PROXY_GRANTS,
         )
 
-    def test_exporter_egress_identity_has_only_the_three_tcp_metrics_targets(self) -> None:
+    def test_exporter_egress_identity_has_only_the_tcp_metrics_targets(self) -> None:
         tag = "tag:k8s-egress-nodeexporter"
         self.assertEqual(
             self.policy["tagOwners"][tag],
@@ -987,7 +994,10 @@ class PolicyContractTest(unittest.TestCase):
         )
         self.assertEqual(
             [grant for grant in self.policy["grants"] if tag in grant["src"]],
-            [{"src": [tag], "dst": ["tinyland-relay-1", "tinyland-petting-zoo-mini", "tinyland-neo"], "ip": ["tcp:9100"]}],
+            [
+                {"src": [tag], "dst": ["tinyland-relay-1", "tinyland-petting-zoo-mini", "tinyland-neo"], "ip": ["tcp:9100"]},
+                {"src": [tag], "dst": ["tag:sip-relay"], "ip": ["tcp:9100"]},
+            ],
         )
         self.assertFalse(any(tag in rule["src"] for rule in self.policy["acls"]))
         for name, address in {
@@ -1431,6 +1441,7 @@ class PolicyContractTest(unittest.TestCase):
                 self.EXPORTER_EGRESS_POLICY_TEST,
                 *self.POST_RETAG_RATCHET_TESTS,
                 *self.ICEBOX_POLICY_TESTS,
+                *self.SIP_RELAY_POLICY_TESTS,
             ],
         )
         # Every field is set, so the post-write read-back cannot drop an
@@ -1921,6 +1932,145 @@ class PolicyContractTest(unittest.TestCase):
             self.assertNotIn(tag, self.policy["autoApprovers"]["exitNode"])
             for tags in self.policy["autoApprovers"]["services"].values():
                 self.assertNotIn(tag, tags)
+
+    # tag:sip-relay, the public SIP relay (Linear TIN-7396; Jess, TIN-7125
+    # 82432e02 and d1358ace; TIN-7396 7ad85219). Three grants in, nothing out.
+    # Neo and sting are the only SSH sources. Policy tests need a non-empty
+    # accept and the relay has no flow, so the outbound denials are proved here
+    # over every rule rather than by a policy test row.
+    SIP_RELAY = "tag:sip-relay"
+    SIP_RELAY_GRANTS = [
+        {"src": ["tinyland-neo"], "dst": ["tag:sip-relay"], "ip": ["tcp:22"]},
+        {"src": ["tinyland-sting"], "dst": ["tag:sip-relay"], "ip": ["tcp:22"]},
+        {"src": ["tag:k8s-egress-nodeexporter"], "dst": ["tag:sip-relay"], "ip": ["tcp:9100"]},
+    ]
+    SIP_RELAY_SEAT_DENY = [
+        "tag:sip-relay:9100",
+        "tag:sip-relay:80",
+        "tag:sip-relay:443",
+        "tag:sip-relay:5060",
+        "tag:sip-relay:5061",
+    ]
+    SIP_RELAY_POLICY_TESTS = [
+        {"src": src, "proto": "tcp", "accept": ["tag:softproxy:443"], "deny": ["tag:sip-relay:22", *deny]}
+        # A comprehension in a class body sees class names only in its first clause.
+        for deny in (SIP_RELAY_SEAT_DENY,)
+        for src in ("jess@sulliwood.org", "jsullivan2@gmail.com")
+    ] + [
+        {"src": src, "proto": "tcp", "accept": ["tag:sip-relay:22"], "deny": deny}
+        for deny in (SIP_RELAY_SEAT_DENY,)
+        for src in ("tinyland-neo", "tinyland-sting")
+    ] + [
+        {
+            "src": "tag:k8s-egress-nodeexporter",
+            "proto": "tcp",
+            "accept": ["tag:sip-relay:9100"],
+            "deny": [
+                "tag:sip-relay:22",
+                "tag:sip-relay:80",
+                "tag:sip-relay:443",
+                "tag:sip-relay:5061",
+            ],
+        },
+    ] + [
+        {
+            "src": src,
+            "proto": "tcp",
+            "accept": [accept],
+            "deny": ["tag:sip-relay:22", "tag:sip-relay:9100"],
+        }
+        for src, accept in (
+            ("tinyland-petting-zoo-mini", "tag:softproxy-edge:443"),
+            ("tinyland-honey", "tag:softproxy-edge:9"),
+            ("tinyland-bumble", "tinyland-loki-observability:3100"),
+            ("tag:dev", "tag:dev:22"),
+            ("tag:dollhouse", "tag:dollhouse:22"),
+            ("tag:k8s", "tag:k8s:22"),
+            ("tag:k8s-operator", "tag:k8s:443"),
+            ("tag:mcp-proxy", "tag:mcp-proxy:3100"),
+            ("tag:mx-relay", "tinyland-honey:25"),
+            ("tag:softproxy-upstream", "tag:softproxy:443"),
+            ("tag:tinyland-lab-ci-ephemeral", "tag:k8s-operator:443"),
+            ("tag:tinyland-lab-deploy", "tag:dev:22"),
+            ("tag:printstack", "tinyland-mbp-13:443"),
+        )
+    ]
+
+    def _names_sip_relay(self, endpoint: str) -> bool:
+        return endpoint == self.SIP_RELAY or endpoint.startswith(f"{self.SIP_RELAY}:")
+
+    def test_sip_relay_is_owned_by_admins_only_and_owns_no_tag(self) -> None:
+        owners = self.policy["tagOwners"]
+        self.assertEqual(owners[self.SIP_RELAY], ["autogroup:admin", "group:dollhouse-admins"])
+        self.assertFalse([tag for tag, who in owners.items() if self.SIP_RELAY in who])
+        self.assertNotIn(self.SIP_RELAY, self.policy["hosts"])
+
+    def test_sip_relay_inbound_is_exactly_the_three_grants(self) -> None:
+        self.assertEqual(
+            [row for row in self.policy["grants"] if any(self._names_sip_relay(d) for d in row["dst"])],
+            self.SIP_RELAY_GRANTS,
+        )
+        for row in self.policy["acls"]:
+            self.assertFalse(any(self._names_sip_relay(d) for d in row["dst"]), row)
+
+    def test_sip_relay_is_never_a_source(self) -> None:
+        for surface in ("acls", "grants", "ssh"):
+            for rule in self.policy[surface]:
+                self.assertFalse(any(self._names_sip_relay(s) for s in rule["src"]), rule)
+
+    def test_no_wide_selector_selects_sip_relay(self) -> None:
+        # The name checks see only rules that name the tag. A wide selector, a
+        # tailnet CIDR wider than one address in either IP version, or a host
+        # alias for one would match the relay without naming it, in either
+        # direction.
+        wide = {"*", "autogroup:tagged", "autogroup:danger-all"}
+        tailnet = {
+            4: ipaddress.ip_network("100.64.0.0/10"),
+            6: ipaddress.ip_network("fd7a:115c:a1e0::/48"),
+        }
+        hosts = self.policy["hosts"]
+        for surface in ("acls", "grants", "ssh"):
+            for rule in self.policy[surface]:
+                ends = [(s, False) for s in rule["src"]] + [(d, True) for d in rule["dst"]]
+                for end, is_dst in ends:
+                    host = end.rpartition(":")[0] if is_dst and surface == "acls" else end
+                    host = hosts.get(host, host).strip("[]")
+                    self.assertNotIn(host, wide, rule)
+                    try:
+                        network = ipaddress.ip_network(host, strict=False)
+                    except ValueError:
+                        continue
+                    if network.overlaps(tailnet[network.version]):
+                        self.assertEqual(network.num_addresses, 1, rule)
+
+    def test_sip_relay_has_no_ssh_rule_funnel_node_attr_or_auto_approver(self) -> None:
+        for rule in self.policy["ssh"]:
+            self.assertNotIn(self.SIP_RELAY, rule["src"] + rule["dst"], rule)
+        for row in self.policy["nodeAttrs"]:
+            self.assertNotIn(self.SIP_RELAY, row["target"], row)
+            if "funnel" in row["attr"]:
+                self.assertFalse({"*", "autogroup:tagged"} & set(row["target"]), row)
+        approvers = self.policy["autoApprovers"]
+        self.assertNotIn(self.SIP_RELAY, approvers["exitNode"])
+        for section in ("routes", "services"):
+            for tags in approvers.get(section, {}).values():
+                self.assertNotIn(self.SIP_RELAY, tags)
+
+    def test_sip_relay_policy_tests_accept_only_granted_ports(self) -> None:
+        accepted = {
+            (entry["src"], target)
+            for entry in self.policy["tests"]
+            for target in entry["accept"]
+            if self._names_sip_relay(target)
+        }
+        self.assertEqual(
+            accepted,
+            {
+                ("tinyland-neo", "tag:sip-relay:22"),
+                ("tinyland-sting", "tag:sip-relay:22"),
+                ("tag:k8s-egress-nodeexporter", "tag:sip-relay:9100"),
+            },
+        )
 
     # icebox (Linear TIN-7812; Jess's rulings IB-1 and IB-3 to IB-7 in
     # comments b0d7c34e and ba40e1a6; folds Jesssullivan/tailnet-acl#65,

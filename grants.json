@@ -106,6 +106,18 @@
 	"dst": ["tinyland-loki-push"],
 	"ip": ["tcp:443"]
 }, {
+	"src": ["tinyland-neo"],
+	"dst": ["tag:sip-relay"],
+	"ip": ["tcp:22"]
+}, {
+	"src": ["tinyland-sting"],
+	"dst": ["tag:sip-relay"],
+	"ip": ["tcp:22"]
+}, {
+	"src": ["tag:k8s-egress-nodeexporter"],
+	"dst": ["tag:sip-relay"],
+	"ip": ["tcp:9100"]
+}, {
 	"src": ["tag:dollhouse"],
 	"dst": ["tag:dollhouse"],
 	"app": {"tailscale.com/cap/relay": [{}]}
