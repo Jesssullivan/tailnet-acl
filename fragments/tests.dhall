@@ -99,6 +99,16 @@
 -- icebox-only person. The contract test proves them for a synthetic
 -- icebox-only member. Under IB-10 an invitee's device carries
 -- tag:icebox-member, and the row for that tag stands in for the invitee.
+--
+-- tag:k8s:443 from the cluster nodes (Linear TIN-7503). An edge Service on
+-- tailscale.com/expose has no status address for kube-proxy to capture, so a
+-- node host and its pods cross the tailnet to the edge device on 443. These
+-- rows pin both rules that admit that path, tag:k8s to tag:k8s:* and
+-- tag:dollhouse to tag:k8s:443, and the two hosts that depend on them. Sting
+-- carries both tags. Honey's only path is tag:dollhouse. A policy change that
+-- narrows either rule now fails here and not at a node's first request. The
+-- deny lists exist because every row carries a non-empty deny. They repeat
+-- flows that the tag:sip-relay rows already deny.
 let T = ../types/ACL.dhall
 
 let C = ../constants.dhall
@@ -698,6 +708,26 @@ let tests
       , { src = C.tag.printstack
         , proto = "tcp"
         , accept = [ "tinyland-mbp-13:443" ]
+        , deny = sipRelayDeny
+        }
+      , { src = C.tag.k8s
+        , proto = "tcp"
+        , accept = [ "${C.tag.k8s}:443" ]
+        , deny = sipRelayDeny
+        }
+      , { src = C.tag.dollhouse
+        , proto = "tcp"
+        , accept = [ "${C.tag.k8s}:443" ]
+        , deny = sipRelayDeny
+        }
+      , { src = "tinyland-sting"
+        , proto = "tcp"
+        , accept = [ "${C.tag.k8s}:443" ]
+        , deny = sipRelaySeatDeny
+        }
+      , { src = "tinyland-honey"
+        , proto = "tcp"
+        , accept = [ "${C.tag.k8s}:443" ]
         , deny = sipRelayDeny
         }
       ]

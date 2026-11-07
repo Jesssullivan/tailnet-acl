@@ -235,6 +235,22 @@ class PolicyContractTest(unittest.TestCase):
         rule = {"action": "accept", "src": ["tag:dollhouse"], "dst": ["tag:k8s:443"]}
         self.assertEqual(self.policy["acls"].count(rule), 1)
 
+    # TIN-7503: an edge Service on tailscale.com/expose has no status address
+    # for kube-proxy to capture, so node hosts and pods cross the tailnet to it.
+    # The exact-list test below keeps these four rows in the policy. The deny
+    # lists repeat tag:sip-relay flows, because every row needs a non-empty deny.
+    NODE_EDGE_POLICY_TESTS = [
+        {"src": "tag:k8s", "proto": "tcp", "accept": ["tag:k8s:443"],
+         "deny": ["tag:sip-relay:22", "tag:sip-relay:9100"]},
+        {"src": "tag:dollhouse", "proto": "tcp", "accept": ["tag:k8s:443"],
+         "deny": ["tag:sip-relay:22", "tag:sip-relay:9100"]},
+        {"src": "tinyland-sting", "proto": "tcp", "accept": ["tag:k8s:443"],
+         "deny": ["tag:sip-relay:9100", "tag:sip-relay:80", "tag:sip-relay:443",
+                  "tag:sip-relay:5060", "tag:sip-relay:5061"]},
+        {"src": "tinyland-honey", "proto": "tcp", "accept": ["tag:k8s:443"],
+         "deny": ["tag:sip-relay:22", "tag:sip-relay:9100"]},
+    ]
+
     # R-C1011 (TIN-5770 comment 86411716; exploration blahaj #2328): the
     # public MX relay-1 moves alone from tag:dollhouse to tag:mx-relay, which
     # leaves the dollhouse mesh (tag:dollhouse:*, every voter port) and the
@@ -1442,6 +1458,7 @@ class PolicyContractTest(unittest.TestCase):
                 *self.POST_RETAG_RATCHET_TESTS,
                 *self.ICEBOX_POLICY_TESTS,
                 *self.SIP_RELAY_POLICY_TESTS,
+                *self.NODE_EDGE_POLICY_TESTS,
             ],
         )
         # Every field is set, so the post-write read-back cannot drop an
