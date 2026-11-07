@@ -71,8 +71,10 @@
 -- Cade Hermes front (TIN-7536, front act 6; xoxd-ai/blahaj#2505). No identity
 -- here reaches tag:cade-hermes-front on 443, 80, 22, 43141 or 43142, or
 -- tag:cade-hermes-upstream on 443 or 80. Each row accepts a flow the policy
--- already grants, since a row needs a non-empty accept. Neither tag has a
--- source row, because neither has a flow. The contract test pins that.
+-- already grants, since a row needs a non-empty accept. Front act 9 adds the
+-- upstream row: it reaches the front on 443 and not on 80, 22, 43141 or 43142,
+-- and it reaches nothing else. The front has no outbound grant, so it has no
+-- row of its own. The contract test pins that it is never a source.
 --
 -- tag:sip-relay (Linear TIN-7396). Neo and sting reach it on 22 and no other
 -- port (TIN-7396 7ad85219). The exporter egress reaches it on 9100 and no other
@@ -400,6 +402,30 @@ let tests
         , proto = "tcp"
         , accept = [ "${C.tag.softproxy}:443" ]
         , deny = cadeHermesDeny
+        }
+      , { src = C.tag.cade_hermes_upstream
+        , proto = "tcp"
+        , accept = [ "${C.tag.cade_hermes_front}:443" ]
+        , deny =
+          [ "${C.tag.cade_hermes_front}:80"
+          , "${C.tag.cade_hermes_front}:22"
+          , "${C.tag.cade_hermes_front}:43141"
+          , "${C.tag.cade_hermes_front}:43142"
+          , "${C.tag.cade_hermes_upstream}:443"
+          , "${C.tag.softproxy}:443"
+          , "${C.tag.softproxy_edge}:443"
+          , "${C.tag.dollhouse}:22"
+          , "${C.tag.k8s_operator}:443"
+          , "tinyland-honey:22"
+          , "tinyland-honey:443"
+          , "tinyland-honey:6443"
+          , "tinyland-honey:43141"
+          , "tinyland-honey:43142"
+          , "tinyland-neo:22"
+          , "tinyland-sting:22"
+          , "ai:443"
+          , "192.168.30.105:22"
+          ]
         }
       , { src = C.tag.mx_relay
         , proto = "tcp"

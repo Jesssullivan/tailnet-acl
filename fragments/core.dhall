@@ -59,8 +59,8 @@
 -- The upstream is the egress proxy for Service
 -- cade-production/cade-hermes-upstream. The honey Tailscale operator mints it,
 -- so it is owned like tag:softproxy-upstream. Neither owns a tag, and
--- tag:k8s-operator itself is not broadened. No rule names either tag. The
--- grant is front act 9, after readback R14.
+-- tag:k8s-operator itself is not broadened. Their one grant, front act 9,
+-- lives in fragments/grants.dhall.
 --
 -- icebox (Linear TIN-7812, Jess's rulings IB-1 and IB-3 to IB-7 in comments
 -- b0d7c34e and ba40e1a6; folds Jesssullivan/tailnet-acl#65, TIN-7811;
