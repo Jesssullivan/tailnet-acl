@@ -68,11 +68,11 @@
 -- no row of its own. The contract test pins that it is never a source and
 -- that the upstream is never a destination.
 --
--- tag:sip-relay (Linear TIN-7396). Both of Jess's identities, neo and sting
--- reach it on 22 and no other port (TIN-7396 7ad85219). The exporter egress
--- reaches it on 9100 and no other port. No other named source reaches it on 22
--- or 9100, and that includes honey and petting-zoo-mini. Each of those rows
--- accepts a flow the policy already grants, since a row needs a non-empty
+-- tag:sip-relay (Linear TIN-7396). Neo and sting reach it on 22 and no other
+-- port (TIN-7396 7ad85219). The exporter egress reaches it on 9100 and no other
+-- port. No other named source reaches it on 22 or 9100, and that includes both
+-- of Jess's identities, honey and petting-zoo-mini. Each of those rows accepts
+-- a flow the policy already grants, since a row needs a non-empty
 -- accept. The relay has no flow out, so it has no row of its own. The contract
 -- test pins that it is never a source and that no rule source selects it
 -- without naming it. sshTests pins that it holds no Tailscale SSH right.
@@ -99,7 +99,7 @@ let C = ../constants.dhall
 
 let sipRelayDeny = [ "${C.tag.sip_relay}:22", "${C.tag.sip_relay}:9100" ]
 
-let sipRelayAdminDeny =
+let sipRelaySeatDeny =
       [ "${C.tag.sip_relay}:9100"
       , "${C.tag.sip_relay}:80"
       , "${C.tag.sip_relay}:443"
@@ -536,23 +536,23 @@ let tests
         }
       , { src = C.user.jess_sulliwood
         , proto = "tcp"
-        , accept = [ "${C.tag.sip_relay}:22" ]
-        , deny = sipRelayAdminDeny
+        , accept = [ "${C.tag.softproxy}:443" ]
+        , deny = [ "${C.tag.sip_relay}:22" ] # sipRelaySeatDeny
         }
       , { src = C.user.jsullivan2_gmail
         , proto = "tcp"
-        , accept = [ "${C.tag.sip_relay}:22" ]
-        , deny = sipRelayAdminDeny
+        , accept = [ "${C.tag.softproxy}:443" ]
+        , deny = [ "${C.tag.sip_relay}:22" ] # sipRelaySeatDeny
         }
       , { src = "tinyland-neo"
         , proto = "tcp"
         , accept = [ "${C.tag.sip_relay}:22" ]
-        , deny = sipRelayAdminDeny
+        , deny = sipRelaySeatDeny
         }
       , { src = "tinyland-sting"
         , proto = "tcp"
         , accept = [ "${C.tag.sip_relay}:22" ]
-        , deny = sipRelayAdminDeny
+        , deny = sipRelaySeatDeny
         }
       , { src = C.tag.k8s_egress_nodeexporter
         , proto = "tcp"

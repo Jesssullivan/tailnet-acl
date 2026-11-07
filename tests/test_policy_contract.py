@@ -1867,17 +1867,17 @@ class PolicyContractTest(unittest.TestCase):
                 self.assertEqual(network.num_addresses, 1, alias)
 
     # tag:sip-relay, the public SIP relay (Linear TIN-7396; Jess, TIN-7125
-    # 82432e02 and d1358ace; TIN-7396 7ad85219). Four grants in, nothing out.
-    # Policy tests need a non-empty accept and the relay has no flow, so the outbound denials are
-    # proved here over every rule rather than by a policy test row.
+    # 82432e02 and d1358ace; TIN-7396 7ad85219). Three grants in, nothing out.
+    # Neo and sting are the only SSH sources. Policy tests need a non-empty
+    # accept and the relay has no flow, so the outbound denials are proved here
+    # over every rule rather than by a policy test row.
     SIP_RELAY = "tag:sip-relay"
     SIP_RELAY_GRANTS = [
         {"src": ["tinyland-neo"], "dst": ["tag:sip-relay"], "ip": ["tcp:22"]},
         {"src": ["tinyland-sting"], "dst": ["tag:sip-relay"], "ip": ["tcp:22"]},
-        {"src": ["group:dollhouse-admins"], "dst": ["tag:sip-relay"], "ip": ["tcp:22"]},
         {"src": ["tag:k8s-egress-nodeexporter"], "dst": ["tag:sip-relay"], "ip": ["tcp:9100"]},
     ]
-    SIP_RELAY_ADMIN_DENY = [
+    SIP_RELAY_SEAT_DENY = [
         "tag:sip-relay:9100",
         "tag:sip-relay:80",
         "tag:sip-relay:443",
@@ -1885,10 +1885,14 @@ class PolicyContractTest(unittest.TestCase):
         "tag:sip-relay:5061",
     ]
     SIP_RELAY_POLICY_TESTS = [
-        {"src": src, "proto": "tcp", "accept": ["tag:sip-relay:22"], "deny": deny}
+        {"src": src, "proto": "tcp", "accept": ["tag:softproxy:443"], "deny": ["tag:sip-relay:22", *deny]}
         # A comprehension in a class body sees class names only in its first clause.
-        for deny in (SIP_RELAY_ADMIN_DENY,)
-        for src in ("jess@sulliwood.org", "jsullivan2@gmail.com", "tinyland-neo", "tinyland-sting")
+        for deny in (SIP_RELAY_SEAT_DENY,)
+        for src in ("jess@sulliwood.org", "jsullivan2@gmail.com")
+    ] + [
+        {"src": src, "proto": "tcp", "accept": ["tag:sip-relay:22"], "deny": deny}
+        for deny in (SIP_RELAY_SEAT_DENY,)
+        for src in ("tinyland-neo", "tinyland-sting")
     ] + [
         {
             "src": "tag:k8s-egress-nodeexporter",
@@ -1934,7 +1938,7 @@ class PolicyContractTest(unittest.TestCase):
         self.assertFalse([tag for tag, who in owners.items() if self.SIP_RELAY in who])
         self.assertNotIn(self.SIP_RELAY, self.policy["hosts"])
 
-    def test_sip_relay_inbound_is_exactly_the_four_grants(self) -> None:
+    def test_sip_relay_inbound_is_exactly_the_three_grants(self) -> None:
         self.assertEqual(
             [row for row in self.policy["grants"] if any(self._names_sip_relay(d) for d in row["dst"])],
             self.SIP_RELAY_GRANTS,
@@ -1948,22 +1952,28 @@ class PolicyContractTest(unittest.TestCase):
                 self.assertFalse(any(self._names_sip_relay(s) for s in rule["src"]), rule)
 
     def test_no_wide_selector_selects_sip_relay(self) -> None:
-        # The name checks see only rules that name the tag. A wide selector or
-        # a tailnet CIDR wider than one address would match the relay without
-        # naming it, in either direction.
-        wide = {"*", "autogroup:tagged"}
-        cgnat = ipaddress.ip_network("100.64.0.0/10")
+        # The name checks see only rules that name the tag. A wide selector, a
+        # tailnet CIDR wider than one address in either IP version, or a host
+        # alias for one would match the relay without naming it, in either
+        # direction.
+        wide = {"*", "autogroup:tagged", "autogroup:danger-all"}
+        tailnet = {
+            4: ipaddress.ip_network("100.64.0.0/10"),
+            6: ipaddress.ip_network("fd7a:115c:a1e0::/48"),
+        }
+        hosts = self.policy["hosts"]
         for surface in ("acls", "grants", "ssh"):
             for rule in self.policy[surface]:
                 ends = [(s, False) for s in rule["src"]] + [(d, True) for d in rule["dst"]]
                 for end, is_dst in ends:
                     host = end.rpartition(":")[0] if is_dst and surface == "acls" else end
+                    host = hosts.get(host, host).strip("[]")
                     self.assertNotIn(host, wide, rule)
                     try:
                         network = ipaddress.ip_network(host, strict=False)
                     except ValueError:
                         continue
-                    if network.version == 4 and network.overlaps(cgnat):
+                    if network.overlaps(tailnet[network.version]):
                         self.assertEqual(network.num_addresses, 1, rule)
 
     def test_sip_relay_has_no_ssh_rule_funnel_node_attr_or_auto_approver(self) -> None:
@@ -1989,8 +1999,6 @@ class PolicyContractTest(unittest.TestCase):
         self.assertEqual(
             accepted,
             {
-                ("jess@sulliwood.org", "tag:sip-relay:22"),
-                ("jsullivan2@gmail.com", "tag:sip-relay:22"),
                 ("tinyland-neo", "tag:sip-relay:22"),
                 ("tinyland-sting", "tag:sip-relay:22"),
                 ("tag:k8s-egress-nodeexporter", "tag:sip-relay:9100"),

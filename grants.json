@@ -114,10 +114,6 @@
 	"dst": ["tag:sip-relay"],
 	"ip": ["tcp:22"]
 }, {
-	"src": ["group:dollhouse-admins"],
-	"dst": ["tag:sip-relay"],
-	"ip": ["tcp:22"]
-}, {
 	"src": ["tag:k8s-egress-nodeexporter"],
 	"dst": ["tag:sip-relay"],
 	"ip": ["tcp:9100"]
