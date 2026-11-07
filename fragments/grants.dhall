@@ -68,12 +68,13 @@
 -- tests/test_policy_contract.py and by policy tests in fragments/tests.dhall.
 --
 -- tag:sip-relay, the public SIP relay (Linear TIN-7396; Jess, TIN-7125
--- 82432e02 and d1358ace). Two rows, and nothing names the tag as a source, so
+-- 82432e02 and d1358ace). Four rows, and nothing names the tag as a source, so
 -- the relay has no outbound tailnet reach.
---   * group:dollhouse-admins reaches the relay on tcp 22. The relay runs
---     OpenSSH, not Tailscale SSH. A group source matches only untagged devices
---     of its members, so the tagged seats sting, neo, petting-zoo-mini and
---     honey do not reach it through this row.
+--   * neo, sting and group:dollhouse-admins reach the relay on tcp 22. The
+--     relay runs OpenSSH, not Tailscale SSH. A group source matches only
+--     untagged devices of its members, so the tagged seats are named by host
+--     (Jess, "Sting and neo (Recommended)", TIN-7396 7ad85219). Honey and
+--     petting-zoo-mini do not reach it.
 --   * tag:k8s-egress-nodeexporter reaches the relay on tcp 9100, the shape of
 --     its tinyland-relay-1 row above. This is blahaj's reading of the scrape
 --     source, unproved until the scrape runs.
@@ -263,6 +264,8 @@ let grants
       , G.net [ C.group.dollhouse_admins ] [ C.tag.mx_relay ] [ "tcp:22" ]
       , G.net [ C.tag.mx_relay ] [ "tinyland-honey" ] [ "tcp:25", "tcp:465" ]
       , G.net [ C.tag.mx_relay ] [ "tinyland-loki-push" ] [ "tcp:443" ]
+      , G.net [ "tinyland-neo" ] [ C.tag.sip_relay ] [ "tcp:22" ]
+      , G.net [ "tinyland-sting" ] [ C.tag.sip_relay ] [ "tcp:22" ]
       , G.net [ C.group.dollhouse_admins ] [ C.tag.sip_relay ] [ "tcp:22" ]
       , G.net
           [ C.tag.k8s_egress_nodeexporter ]

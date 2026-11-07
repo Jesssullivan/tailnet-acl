@@ -106,6 +106,14 @@
 	"dst": ["tinyland-loki-push"],
 	"ip": ["tcp:443"]
 }, {
+	"src": ["tinyland-neo"],
+	"dst": ["tag:sip-relay"],
+	"ip": ["tcp:22"]
+}, {
+	"src": ["tinyland-sting"],
+	"dst": ["tag:sip-relay"],
+	"ip": ["tcp:22"]
+}, {
 	"src": ["group:dollhouse-admins"],
 	"dst": ["tag:sip-relay"],
 	"ip": ["tcp:22"]

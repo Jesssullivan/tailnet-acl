@@ -1867,11 +1867,13 @@ class PolicyContractTest(unittest.TestCase):
                 self.assertEqual(network.num_addresses, 1, alias)
 
     # tag:sip-relay, the public SIP relay (Linear TIN-7396; Jess, TIN-7125
-    # 82432e02 and d1358ace). Two grants in, nothing out. Policy tests need a
-    # non-empty accept and the relay has no flow, so the outbound denials are
+    # 82432e02 and d1358ace; TIN-7396 7ad85219). Four grants in, nothing out.
+    # Policy tests need a non-empty accept and the relay has no flow, so the outbound denials are
     # proved here over every rule rather than by a policy test row.
     SIP_RELAY = "tag:sip-relay"
     SIP_RELAY_GRANTS = [
+        {"src": ["tinyland-neo"], "dst": ["tag:sip-relay"], "ip": ["tcp:22"]},
+        {"src": ["tinyland-sting"], "dst": ["tag:sip-relay"], "ip": ["tcp:22"]},
         {"src": ["group:dollhouse-admins"], "dst": ["tag:sip-relay"], "ip": ["tcp:22"]},
         {"src": ["tag:k8s-egress-nodeexporter"], "dst": ["tag:sip-relay"], "ip": ["tcp:9100"]},
     ]
@@ -1886,7 +1888,7 @@ class PolicyContractTest(unittest.TestCase):
         {"src": src, "proto": "tcp", "accept": ["tag:sip-relay:22"], "deny": deny}
         # A comprehension in a class body sees class names only in its first clause.
         for deny in (SIP_RELAY_ADMIN_DENY,)
-        for src in ("jess@sulliwood.org", "jsullivan2@gmail.com")
+        for src in ("jess@sulliwood.org", "jsullivan2@gmail.com", "tinyland-neo", "tinyland-sting")
     ] + [
         {
             "src": "tag:k8s-egress-nodeexporter",
@@ -1907,8 +1909,6 @@ class PolicyContractTest(unittest.TestCase):
             "deny": ["tag:sip-relay:22", "tag:sip-relay:9100"],
         }
         for src, accept in (
-            ("tinyland-neo", "tag:softproxy-edge:443"),
-            ("tinyland-sting", "tinyland-loki-observability:3100"),
             ("tinyland-petting-zoo-mini", "tag:softproxy-edge:443"),
             ("tinyland-honey", "tag:softproxy-edge:9"),
             ("tinyland-bumble", "tinyland-loki-observability:3100"),
@@ -1928,13 +1928,13 @@ class PolicyContractTest(unittest.TestCase):
     def _names_sip_relay(self, endpoint: str) -> bool:
         return endpoint == self.SIP_RELAY or endpoint.startswith(f"{self.SIP_RELAY}:")
 
-    def test_sip_relay_is_owned_by_the_admin_group_alone_and_owns_no_tag(self) -> None:
+    def test_sip_relay_is_owned_by_admins_only_and_owns_no_tag(self) -> None:
         owners = self.policy["tagOwners"]
-        self.assertEqual(owners[self.SIP_RELAY], ["group:dollhouse-admins"])
+        self.assertEqual(owners[self.SIP_RELAY], ["autogroup:admin", "group:dollhouse-admins"])
         self.assertFalse([tag for tag, who in owners.items() if self.SIP_RELAY in who])
         self.assertNotIn(self.SIP_RELAY, self.policy["hosts"])
 
-    def test_sip_relay_inbound_is_exactly_the_two_grants(self) -> None:
+    def test_sip_relay_inbound_is_exactly_the_four_grants(self) -> None:
         self.assertEqual(
             [row for row in self.policy["grants"] if any(self._names_sip_relay(d) for d in row["dst"])],
             self.SIP_RELAY_GRANTS,
@@ -1991,6 +1991,8 @@ class PolicyContractTest(unittest.TestCase):
             {
                 ("jess@sulliwood.org", "tag:sip-relay:22"),
                 ("jsullivan2@gmail.com", "tag:sip-relay:22"),
+                ("tinyland-neo", "tag:sip-relay:22"),
+                ("tinyland-sting", "tag:sip-relay:22"),
                 ("tag:k8s-egress-nodeexporter", "tag:sip-relay:9100"),
             },
         )
