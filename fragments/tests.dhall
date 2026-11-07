@@ -68,6 +68,12 @@
 -- no row of its own. The contract test pins that it is never a source and
 -- that the upstream is never a destination.
 --
+-- Cade Hermes front (TIN-7536, front act 6; xoxd-ai/blahaj#2505). No identity
+-- here reaches tag:cade-hermes-front on 443, 80, 22, 43141 or 43142, or
+-- tag:cade-hermes-upstream on 443 or 80. Each row accepts a flow the policy
+-- already grants, since a row needs a non-empty accept. Neither tag has a
+-- source row, because neither has a flow. The contract test pins that.
+--
 -- tag:sip-relay (Linear TIN-7396). Neo and sting reach it on 22 and no other
 -- port (TIN-7396 7ad85219). The exporter egress reaches it on 9100 and no other
 -- port. No other named source reaches it on 22 or 9100, and that includes both
@@ -96,6 +102,16 @@
 let T = ../types/ACL.dhall
 
 let C = ../constants.dhall
+
+let cadeHermesDeny =
+      [ "${C.tag.cade_hermes_front}:443"
+      , "${C.tag.cade_hermes_front}:80"
+      , "${C.tag.cade_hermes_front}:22"
+      , "${C.tag.cade_hermes_front}:43141"
+      , "${C.tag.cade_hermes_front}:43142"
+      , "${C.tag.cade_hermes_upstream}:443"
+      , "${C.tag.cade_hermes_upstream}:80"
+      ]
 
 let sipRelayDeny = [ "${C.tag.sip_relay}:22", "${C.tag.sip_relay}:9100" ]
 
@@ -319,6 +335,61 @@ let tests
           , "${C.tag.softproxy_upstream}:443"
           , "${C.tag.softproxy_upstream}:80"
           ]
+        }
+      , { src = C.user.jess_sulliwood
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy}:443" ]
+        , deny = cadeHermesDeny
+        }
+      , { src = C.user.jsullivan2_gmail
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy}:443" ]
+        , deny = cadeHermesDeny
+        }
+      , { src = "tinyland-neo"
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy_edge}:443" ]
+        , deny = cadeHermesDeny
+        }
+      , { src = "tinyland-sting"
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy_edge}:443" ]
+        , deny = cadeHermesDeny
+        }
+      , { src = "tinyland-petting-zoo-mini"
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy_edge}:443" ]
+        , deny = cadeHermesDeny
+        }
+      , { src = "tinyland-honey"
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy_edge}:9" ]
+        , deny = cadeHermesDeny
+        }
+      , { src = C.tag.dev
+        , proto = "tcp"
+        , accept = [ "${C.tag.dev}:22" ]
+        , deny = cadeHermesDeny
+        }
+      , { src = C.tag.dollhouse
+        , proto = "tcp"
+        , accept = [ "${C.tag.dollhouse}:22" ]
+        , deny = cadeHermesDeny
+        }
+      , { src = C.tag.k8s_operator
+        , proto = "tcp"
+        , accept = [ "${C.tag.k8s}:443" ]
+        , deny = cadeHermesDeny
+        }
+      , { src = C.tag.mcp_proxy
+        , proto = "tcp"
+        , accept = [ "${C.tag.mcp_proxy}:3100" ]
+        , deny = cadeHermesDeny
+        }
+      , { src = C.tag.softproxy_upstream
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy}:443" ]
+        , deny = cadeHermesDeny
         }
       , { src = C.tag.mx_relay
         , proto = "tcp"

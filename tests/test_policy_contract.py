@@ -739,6 +739,7 @@ class PolicyContractTest(unittest.TestCase):
                 "tag:gf-reapi-cell-egress", "tag:gf-reapi-linux-worker",
                 "tag:gf-reapi-rocm-worker", "tag:printstack", "tag:softproxy",
                 "tag:softproxy-edge", "tag:softproxy-upstream",
+                "tag:cade-hermes-front", "tag:cade-hermes-upstream",
                 "tag:icebox-dev", "tag:icebox-prod", "tag:icebox-prober",
                 "tag:icebox-console", "tag:icebox-member",
             },
@@ -1432,6 +1433,7 @@ class PolicyContractTest(unittest.TestCase):
                 },
                 *self.SOFTPROXY_POLICY_TESTS,
                 *self.SOFTPROXY_EDGE_POLICY_TESTS,
+                *self.CADE_HERMES_POLICY_TESTS,
                 self.MX_RELAY_POLICY_TEST,
                 self.HONEY_TO_RELAY_POLICY_TEST,
                 self.NEO_TO_RELAY_POLICY_TEST,
@@ -1865,6 +1867,71 @@ class PolicyContractTest(unittest.TestCase):
             network = ipaddress.ip_network(address, strict=False)
             if network.version == 4 and network.overlaps(cgnat):
                 self.assertEqual(network.num_addresses, 1, alias)
+
+    # Cade Hermes front (Linear TIN-7536, front act 6; decision D3 in
+    # TIN-7536 fba76449; xoxd-ai/blahaj#2505). Two tags and no rule. The grant
+    # from the upstream to the front on tcp:443 is front act 9, after R14.
+    CADE_HERMES_FRONT = "tag:cade-hermes-front"
+    CADE_HERMES_UPSTREAM = "tag:cade-hermes-upstream"
+    CADE_HERMES_DENY = [
+        "tag:cade-hermes-front:443",
+        "tag:cade-hermes-front:80",
+        "tag:cade-hermes-front:22",
+        "tag:cade-hermes-front:43141",
+        "tag:cade-hermes-front:43142",
+        "tag:cade-hermes-upstream:443",
+        "tag:cade-hermes-upstream:80",
+    ]
+    CADE_HERMES_POLICY_TESTS = [
+        {"src": src, "proto": "tcp", "accept": [accept], "deny": deny}
+        # A comprehension in a class body sees class names only in its first clause.
+        for deny in (CADE_HERMES_DENY,)
+        for src, accept in (
+            ("jess@sulliwood.org", "tag:softproxy:443"),
+            ("jsullivan2@gmail.com", "tag:softproxy:443"),
+            ("tinyland-neo", "tag:softproxy-edge:443"),
+            ("tinyland-sting", "tag:softproxy-edge:443"),
+            ("tinyland-petting-zoo-mini", "tag:softproxy-edge:443"),
+            ("tinyland-honey", "tag:softproxy-edge:9"),
+            ("tag:dev", "tag:dev:22"),
+            ("tag:dollhouse", "tag:dollhouse:22"),
+            ("tag:k8s-operator", "tag:k8s:443"),
+            ("tag:mcp-proxy", "tag:mcp-proxy:3100"),
+            ("tag:softproxy-upstream", "tag:softproxy:443"),
+        )
+    ]
+
+    def test_cade_hermes_front_is_admin_owned_and_upstream_is_operator_owned(self) -> None:
+        self.assertEqual(self.policy["tagOwners"][self.CADE_HERMES_FRONT], ["autogroup:admin"])
+        self.assertEqual(
+            self.policy["tagOwners"][self.CADE_HERMES_UPSTREAM],
+            ["tag:k8s-operator", "autogroup:admin", "group:dollhouse-admins"],
+        )
+        for tag in (self.CADE_HERMES_FRONT, self.CADE_HERMES_UPSTREAM):
+            self.assertFalse([t for t, o in self.policy["tagOwners"].items() if tag in o])
+            self.assertNotIn(tag, self.policy["hosts"])
+
+    def test_no_rule_names_a_cade_hermes_tag_before_front_act_9(self) -> None:
+        self.assertEqual(self._references(self.CADE_HERMES_FRONT), [])
+        self.assertEqual(self._references(self.CADE_HERMES_UPSTREAM), [])
+
+    def test_no_policy_test_uses_a_cade_hermes_tag_as_a_source_before_front_act_9(self) -> None:
+        sources = [row["src"] for row in self.policy["tests"]]
+        self.assertNotIn(self.CADE_HERMES_FRONT, sources)
+        self.assertNotIn(self.CADE_HERMES_UPSTREAM, sources)
+
+    def test_cade_hermes_tags_have_no_node_attr_ssh_or_auto_approver(self) -> None:
+        for tag in (self.CADE_HERMES_FRONT, self.CADE_HERMES_UPSTREAM):
+            for row in self.policy["nodeAttrs"]:
+                self.assertNotIn(tag, row["target"], row)
+            for row in self.policy["ssh"]:
+                self.assertNotIn(tag, row["src"], row)
+                self.assertNotIn(tag, row["dst"], row)
+            for tags in self.policy["autoApprovers"]["routes"].values():
+                self.assertNotIn(tag, tags)
+            self.assertNotIn(tag, self.policy["autoApprovers"]["exitNode"])
+            for tags in self.policy["autoApprovers"]["services"].values():
+                self.assertNotIn(tag, tags)
 
     # tag:sip-relay, the public SIP relay (Linear TIN-7396; Jess, TIN-7125
     # 82432e02 and d1358ace; TIN-7396 7ad85219). Three grants in, nothing out.
