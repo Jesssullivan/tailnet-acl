@@ -268,4 +268,8 @@
 	"src": ["tag:icebox-member"],
 	"dst": ["tag:icebox-console"],
 	"ip": ["tcp:443"]
+}, {
+	"src": ["group:dollhouse-admins", "tinyland-neo", "tinyland-sting", "tinyland-honey"],
+	"dst": ["tag:models-edge"],
+	"ip": ["tcp:443"]
 }]
