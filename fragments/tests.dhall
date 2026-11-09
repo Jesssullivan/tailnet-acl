@@ -109,6 +109,16 @@
 -- narrows either rule now fails here and not at a node's first request. The
 -- deny lists exist because every row carries a non-empty deny. They repeat
 -- flows that the tag:sip-relay rows already deny.
+--
+-- tag:models-edge, the models.xoxd.ai edge (Linear TIN-6913, parent
+-- TIN-8093). Both of Jess's identities, neo, sting and honey reach it on 443
+-- and not on 80, 22 or 53. tag:dev, tag:dollhouse, tag:k8s,
+-- tag:k8s-operator, tag:ci-agent, tag:tinyland-lab-ci-ephemeral,
+-- tag:mcp-proxy, petting-zoo-mini and bumble do not reach it on 443 or 53.
+-- Each of those rows accepts a flow the policy already grants, and the
+-- tag:k8s row accepts tag:k8s:443, so the narrowing holds only for the new
+-- tag. The device carries tag:k8s until it is retagged, and these rows
+-- describe the policy for tag:models-edge either way.
 let T = ../types/ACL.dhall
 
 let C = ../constants.dhall
@@ -132,6 +142,15 @@ let sipRelaySeatDeny =
       , "${C.tag.sip_relay}:5060"
       , "${C.tag.sip_relay}:5061"
       ]
+
+let modelsEdgeCallerDeny =
+      [ "${C.tag.models_edge}:80"
+      , "${C.tag.models_edge}:22"
+      , "${C.tag.models_edge}:53"
+      ]
+
+let modelsEdgeOtherDeny =
+      [ "${C.tag.models_edge}:443", "${C.tag.models_edge}:53" ]
 
 let tests
     : List T.ACLTest
@@ -729,6 +748,76 @@ let tests
         , proto = "tcp"
         , accept = [ "${C.tag.k8s}:443" ]
         , deny = sipRelayDeny
+        }
+      , { src = C.user.jess_sulliwood
+        , proto = "tcp"
+        , accept = [ "${C.tag.models_edge}:443" ]
+        , deny = modelsEdgeCallerDeny
+        }
+      , { src = C.user.jsullivan2_gmail
+        , proto = "tcp"
+        , accept = [ "${C.tag.models_edge}:443" ]
+        , deny = modelsEdgeCallerDeny
+        }
+      , { src = "tinyland-neo"
+        , proto = "tcp"
+        , accept = [ "${C.tag.models_edge}:443" ]
+        , deny = modelsEdgeCallerDeny
+        }
+      , { src = "tinyland-sting"
+        , proto = "tcp"
+        , accept = [ "${C.tag.models_edge}:443" ]
+        , deny = modelsEdgeCallerDeny
+        }
+      , { src = "tinyland-honey"
+        , proto = "tcp"
+        , accept = [ "${C.tag.models_edge}:443" ]
+        , deny = modelsEdgeCallerDeny
+        }
+      , { src = C.tag.dev
+        , proto = "tcp"
+        , accept = [ "${C.tag.dev}:22" ]
+        , deny = modelsEdgeOtherDeny
+        }
+      , { src = C.tag.dollhouse
+        , proto = "tcp"
+        , accept = [ "${C.tag.dollhouse}:22" ]
+        , deny = modelsEdgeOtherDeny
+        }
+      , { src = C.tag.k8s
+        , proto = "tcp"
+        , accept = [ "${C.tag.k8s}:443" ]
+        , deny = modelsEdgeOtherDeny
+        }
+      , { src = C.tag.k8s_operator
+        , proto = "tcp"
+        , accept = [ "${C.tag.k8s}:443" ]
+        , deny = modelsEdgeOtherDeny
+        }
+      , { src = C.tag.ci_agent
+        , proto = "tcp"
+        , accept = [ "ai:443" ]
+        , deny = modelsEdgeOtherDeny
+        }
+      , { src = C.tag.tinyland_lab_ci_ephemeral
+        , proto = "tcp"
+        , accept = [ "${C.tag.k8s_operator}:443" ]
+        , deny = modelsEdgeOtherDeny
+        }
+      , { src = C.tag.mcp_proxy
+        , proto = "tcp"
+        , accept = [ "${C.tag.mcp_proxy}:3100" ]
+        , deny = modelsEdgeOtherDeny
+        }
+      , { src = "tinyland-petting-zoo-mini"
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy_edge}:443" ]
+        , deny = modelsEdgeOtherDeny
+        }
+      , { src = "tinyland-bumble"
+        , proto = "tcp"
+        , accept = [ "tinyland-loki-observability:3100" ]
+        , deny = modelsEdgeOtherDeny
         }
       ]
 

@@ -67,6 +67,7 @@ let tag =
       , softproxy = "tag:softproxy"
       , softproxy_edge = "tag:softproxy-edge"
       , softproxy_upstream = "tag:softproxy-upstream"
+      , models_edge = "tag:models-edge"
       , cade_hermes_front = "tag:cade-hermes-front"
       , cade_hermes_upstream = "tag:cade-hermes-upstream"
       , icebox_dev = "tag:icebox-dev"

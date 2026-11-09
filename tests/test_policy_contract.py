@@ -251,6 +251,87 @@ class PolicyContractTest(unittest.TestCase):
          "deny": ["tag:sip-relay:22", "tag:sip-relay:9100"]},
     ]
 
+    # tag:models-edge, the models.xoxd.ai edge (Linear TIN-6913, parent
+    # TIN-8093). The device models-xoxd carries tag:k8s until the Service
+    # gets tailscale.com/tags and the device is retagged. One grant on
+    # tcp:443 names the callers. The narrowing holds only while no source on
+    # that row is a broad tag and nothing reaches the tag without naming it.
+    MODELS_EDGE = "tag:models-edge"
+    MODELS_EDGE_GRANT = {
+        "src": ["group:dollhouse-admins", "tinyland-neo", "tinyland-sting", "tinyland-honey"],
+        "dst": ["tag:models-edge"],
+        "ip": ["tcp:443"],
+    }
+    MODELS_EDGE_CALLER_DENY = ["tag:models-edge:80", "tag:models-edge:22", "tag:models-edge:53"]
+    MODELS_EDGE_OTHER_DENY = ["tag:models-edge:443", "tag:models-edge:53"]
+    MODELS_EDGE_POLICY_TESTS = [
+        {"src": "jess@sulliwood.org", "proto": "tcp", "accept": ["tag:models-edge:443"],
+         "deny": MODELS_EDGE_CALLER_DENY},
+        {"src": "jsullivan2@gmail.com", "proto": "tcp", "accept": ["tag:models-edge:443"],
+         "deny": MODELS_EDGE_CALLER_DENY},
+        {"src": "tinyland-neo", "proto": "tcp", "accept": ["tag:models-edge:443"],
+         "deny": MODELS_EDGE_CALLER_DENY},
+        {"src": "tinyland-sting", "proto": "tcp", "accept": ["tag:models-edge:443"],
+         "deny": MODELS_EDGE_CALLER_DENY},
+        {"src": "tinyland-honey", "proto": "tcp", "accept": ["tag:models-edge:443"],
+         "deny": MODELS_EDGE_CALLER_DENY},
+        {"src": "tag:dev", "proto": "tcp", "accept": ["tag:dev:22"],
+         "deny": MODELS_EDGE_OTHER_DENY},
+        {"src": "tag:dollhouse", "proto": "tcp", "accept": ["tag:dollhouse:22"],
+         "deny": MODELS_EDGE_OTHER_DENY},
+        {"src": "tag:k8s", "proto": "tcp", "accept": ["tag:k8s:443"],
+         "deny": MODELS_EDGE_OTHER_DENY},
+        {"src": "tag:k8s-operator", "proto": "tcp", "accept": ["tag:k8s:443"],
+         "deny": MODELS_EDGE_OTHER_DENY},
+        {"src": "tag:ci-agent", "proto": "tcp", "accept": ["ai:443"],
+         "deny": MODELS_EDGE_OTHER_DENY},
+        {"src": "tag:tinyland-lab-ci-ephemeral", "proto": "tcp", "accept": ["tag:k8s-operator:443"],
+         "deny": MODELS_EDGE_OTHER_DENY},
+        {"src": "tag:mcp-proxy", "proto": "tcp", "accept": ["tag:mcp-proxy:3100"],
+         "deny": MODELS_EDGE_OTHER_DENY},
+        {"src": "tinyland-petting-zoo-mini", "proto": "tcp", "accept": ["tag:softproxy-edge:443"],
+         "deny": MODELS_EDGE_OTHER_DENY},
+        {"src": "tinyland-bumble", "proto": "tcp", "accept": ["tinyland-loki-observability:3100"],
+         "deny": MODELS_EDGE_OTHER_DENY},
+    ]
+
+    def test_models_edge_is_owned_by_the_kubernetes_operator(self) -> None:
+        self.assertEqual(
+            self.policy["tagOwners"][self.MODELS_EDGE],
+            ["tag:k8s-operator", "autogroup:admin", "group:dollhouse-admins"],
+        )
+        self.assertFalse([t for t, o in self.policy["tagOwners"].items() if self.MODELS_EDGE in o])
+        self.assertNotIn(self.MODELS_EDGE, self.policy["hosts"])
+
+    def test_models_edge_has_one_tcp_443_grant_from_named_callers(self) -> None:
+        references = [
+            (surface, rule)
+            for surface in ("acls", "grants", "ssh")
+            for rule in self.policy[surface]
+            if any(
+                endpoint == self.MODELS_EDGE or endpoint.startswith(f"{self.MODELS_EDGE}:")
+                for key in ("src", "dst")
+                for endpoint in rule.get(key, [])
+            )
+        ]
+        self.assertEqual(references, [("grants", self.MODELS_EDGE_GRANT)])
+        # No broad tag is a source: a tag source would reach the edge from
+        # every device that carries it.
+        for source in self.MODELS_EDGE_GRANT["src"]:
+            self.assertFalse(source.startswith(("tag:", "autogroup:")), source)
+
+    def test_models_edge_has_no_node_attr_ssh_or_auto_approver(self) -> None:
+        tag = self.MODELS_EDGE
+        for row in self.policy["nodeAttrs"]:
+            self.assertNotIn(tag, row["target"], row)
+        for row in self.policy["ssh"]:
+            self.assertNotIn(tag, row["src"] + row["dst"], row)
+        for tags in self.policy["autoApprovers"]["routes"].values():
+            self.assertNotIn(tag, tags)
+        self.assertNotIn(tag, self.policy["autoApprovers"]["exitNode"])
+        for tags in self.policy["autoApprovers"]["services"].values():
+            self.assertNotIn(tag, tags)
+
     # R-C1011 (TIN-5770 comment 86411716; exploration blahaj #2328): the
     # public MX relay-1 moves alone from tag:dollhouse to tag:mx-relay, which
     # leaves the dollhouse mesh (tag:dollhouse:*, every voter port) and the
@@ -754,7 +835,7 @@ class PolicyContractTest(unittest.TestCase):
                 "tag:interim-build", "tag:honey-relay", "tag:mx-relay", "tag:sip-relay",
                 "tag:gf-reapi-cell-egress", "tag:gf-reapi-linux-worker",
                 "tag:gf-reapi-rocm-worker", "tag:printstack", "tag:softproxy",
-                "tag:softproxy-edge", "tag:softproxy-upstream",
+                "tag:softproxy-edge", "tag:softproxy-upstream", "tag:models-edge",
                 "tag:cade-hermes-front", "tag:cade-hermes-upstream",
                 "tag:icebox-dev", "tag:icebox-prod", "tag:icebox-prober",
                 "tag:icebox-console", "tag:icebox-member",
@@ -1459,6 +1540,7 @@ class PolicyContractTest(unittest.TestCase):
                 *self.ICEBOX_POLICY_TESTS,
                 *self.SIP_RELAY_POLICY_TESTS,
                 *self.NODE_EDGE_POLICY_TESTS,
+                *self.MODELS_EDGE_POLICY_TESTS,
             ],
         )
         # Every field is set, so the post-write read-back cannot drop an

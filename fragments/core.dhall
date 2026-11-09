@@ -62,6 +62,13 @@
 -- tag:k8s-operator itself is not broadened. No rule names either tag. The
 -- grant is front act 9, after readback R14.
 --
+-- tag:models-edge (Linear TIN-6913, parent TIN-8093): the models.xoxd.ai
+-- edge, tailnet device models-xoxd, the per-Service proxy of Service
+-- models/models-xoxd on tailscale.com/expose. The honey Tailscale operator
+-- mints it, so it is owned like tag:softproxy-edge, by tag:k8s-operator plus
+-- the admins. It owns no tag, and tag:k8s-operator itself is not broadened.
+-- Its one grant lives in fragments/models.dhall.
+--
 -- icebox (Linear TIN-7812, Jess's rulings IB-1 and IB-3 to IB-7 in comments
 -- b0d7c34e and ba40e1a6; folds Jesssullivan/tailnet-acl#65, TIN-7811;
 -- xoxd-ai/icebox is owned by the PZM icebox seat under
@@ -254,6 +261,10 @@ let tagOwners
           [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
         }
       , { mapKey = C.tag.softproxy_upstream
+        , mapValue =
+          [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
+        }
+      , { mapKey = C.tag.models_edge
         , mapValue =
           [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
         }
