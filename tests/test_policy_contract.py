@@ -1450,6 +1450,7 @@ class PolicyContractTest(unittest.TestCase):
                 *self.SOFTPROXY_POLICY_TESTS,
                 *self.SOFTPROXY_EDGE_POLICY_TESTS,
                 *self.CADE_HERMES_POLICY_TESTS,
+                self.CADE_HERMES_UPSTREAM_POLICY_TEST,
                 self.MX_RELAY_POLICY_TEST,
                 self.HONEY_TO_RELAY_POLICY_TEST,
                 self.NEO_TO_RELAY_POLICY_TEST,
@@ -1886,8 +1887,8 @@ class PolicyContractTest(unittest.TestCase):
                 self.assertEqual(network.num_addresses, 1, alias)
 
     # Cade Hermes front (Linear TIN-7536, front act 6; decision D3 in
-    # TIN-7536 fba76449; xoxd-ai/blahaj#2505). Two tags and no rule. The grant
-    # from the upstream to the front on tcp:443 is front act 9, after R14.
+    # TIN-7536 fba76449; xoxd-ai/blahaj#2505). Two tags and one grant. The
+    # grant from the upstream to the front on tcp:443 is front act 9, after R14.
     CADE_HERMES_FRONT = "tag:cade-hermes-front"
     CADE_HERMES_UPSTREAM = "tag:cade-hermes-upstream"
     CADE_HERMES_DENY = [
@@ -1896,9 +1897,46 @@ class PolicyContractTest(unittest.TestCase):
         "tag:cade-hermes-front:22",
         "tag:cade-hermes-front:43141",
         "tag:cade-hermes-front:43142",
+        # The home and shim slots after the port move (TIN-7125, cade-infra#244).
+        "tag:cade-hermes-front:23141",
+        "tag:cade-hermes-front:23142",
         "tag:cade-hermes-upstream:443",
         "tag:cade-hermes-upstream:80",
     ]
+    CADE_HERMES_GRANT = {
+        "src": ["tag:cade-hermes-upstream"],
+        "dst": ["tag:cade-hermes-front"],
+        "ip": ["tcp:443"],
+    }
+    CADE_HERMES_UPSTREAM_POLICY_TEST = {
+        "src": "tag:cade-hermes-upstream",
+        "proto": "tcp",
+        "accept": ["tag:cade-hermes-front:443"],
+        "deny": [
+            "tag:cade-hermes-front:80",
+            "tag:cade-hermes-front:22",
+            "tag:cade-hermes-front:43141",
+            "tag:cade-hermes-front:43142",
+            "tag:cade-hermes-front:23141",
+            "tag:cade-hermes-front:23142",
+            "tag:cade-hermes-upstream:443",
+            "tag:softproxy:443",
+            "tag:softproxy-edge:443",
+            "tag:dollhouse:22",
+            "tag:k8s-operator:443",
+            "tinyland-honey:22",
+            "tinyland-honey:443",
+            "tinyland-honey:6443",
+            "tinyland-honey:43141",
+            "tinyland-honey:43142",
+            "tinyland-honey:23141",
+            "tinyland-honey:23142",
+            "tinyland-neo:22",
+            "tinyland-sting:22",
+            "ai:443",
+            "192.168.30.105:22",
+        ],
+    }
     CADE_HERMES_POLICY_TESTS = [
         {"src": src, "proto": "tcp", "accept": [accept], "deny": deny}
         # A comprehension in a class body sees class names only in its first clause.
@@ -1928,14 +1966,34 @@ class PolicyContractTest(unittest.TestCase):
             self.assertFalse([t for t, o in self.policy["tagOwners"].items() if tag in o])
             self.assertNotIn(tag, self.policy["hosts"])
 
-    def test_no_rule_names_a_cade_hermes_tag_before_front_act_9(self) -> None:
-        self.assertEqual(self._references(self.CADE_HERMES_FRONT), [])
-        self.assertEqual(self._references(self.CADE_HERMES_UPSTREAM), [])
+    def test_the_one_cade_hermes_grant_is_upstream_to_front_on_tcp_443(self) -> None:
+        self.assertEqual(
+            self._references(self.CADE_HERMES_FRONT), [("grants", self.CADE_HERMES_GRANT)]
+        )
+        self.assertEqual(
+            self._references(self.CADE_HERMES_UPSTREAM), [("grants", self.CADE_HERMES_GRANT)]
+        )
 
-    def test_no_policy_test_uses_a_cade_hermes_tag_as_a_source_before_front_act_9(self) -> None:
+    def test_cade_hermes_denies_cover_both_loopback_slot_pairs(self) -> None:
+        # The shim and the home move from 43142 and 43141 to 23142 and 23141
+        # (TIN-7125, cade-infra#244). A deny list that names one pair alone
+        # stops guarding the live ports at the move.
+        slots = ("43141", "43142", "23141", "23142")
+        rows = [*self.CADE_HERMES_POLICY_TESTS, self.CADE_HERMES_UPSTREAM_POLICY_TEST]
+        for row in rows:
+            for port in slots:
+                self.assertIn(f"{self.CADE_HERMES_FRONT}:{port}", row["deny"], row["src"])
+        for port in slots:
+            self.assertIn(
+                f"tinyland-honey:{port}", self.CADE_HERMES_UPSTREAM_POLICY_TEST["deny"]
+            )
+        for row in rows:
+            self.assertIn(row, self.policy["tests"])
+
+    def test_the_cade_hermes_front_is_never_a_policy_test_source(self) -> None:
         sources = [row["src"] for row in self.policy["tests"]]
         self.assertNotIn(self.CADE_HERMES_FRONT, sources)
-        self.assertNotIn(self.CADE_HERMES_UPSTREAM, sources)
+        self.assertEqual(sources.count(self.CADE_HERMES_UPSTREAM), 1)
 
     def test_cade_hermes_tags_have_no_node_attr_ssh_or_auto_approver(self) -> None:
         for tag in (self.CADE_HERMES_FRONT, self.CADE_HERMES_UPSTREAM):
