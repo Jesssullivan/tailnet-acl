@@ -69,12 +69,15 @@
 -- that the upstream is never a destination.
 --
 -- Cade Hermes front (TIN-7536, front act 6; xoxd-ai/blahaj#2505). No identity
--- here reaches tag:cade-hermes-front on 443, 80, 22, 43141 or 43142, or
--- tag:cade-hermes-upstream on 443 or 80. Each row accepts a flow the policy
--- already grants, since a row needs a non-empty accept. Front act 9 adds the
--- upstream row: it reaches the front on 443 and not on 80, 22, 43141 or 43142,
--- and it reaches nothing else. The front has no outbound grant, so it has no
--- row of its own. The contract test pins that it is never a source.
+-- here reaches tag:cade-hermes-front on 443, 80, 22 or a loopback slot, or
+-- tag:cade-hermes-upstream on 443 or 80. The loopback slots are the home and
+-- the shim: 43141 and 43142 before the port move, 23141 and 23142 after it
+-- (TIN-7125, xoxd-ai/cade-infra#244). Both pairs stay denied. Each row
+-- accepts a flow the policy already grants, since a row needs a non-empty
+-- accept. Front act 9 adds the upstream row: it reaches the front on 443 and
+-- not on 80, 22 or either slot pair, on the front or on honey, and it reaches
+-- nothing else. The front has no outbound grant, so it has no row of its own.
+-- The contract test pins that it is never a source.
 --
 -- tag:sip-relay (Linear TIN-7396). Neo and sting reach it on 22 and no other
 -- port (TIN-7396 7ad85219). The exporter egress reaches it on 9100 and no other
@@ -121,6 +124,8 @@ let cadeHermesDeny =
       , "${C.tag.cade_hermes_front}:22"
       , "${C.tag.cade_hermes_front}:43141"
       , "${C.tag.cade_hermes_front}:43142"
+      , "${C.tag.cade_hermes_front}:23141"
+      , "${C.tag.cade_hermes_front}:23142"
       , "${C.tag.cade_hermes_upstream}:443"
       , "${C.tag.cade_hermes_upstream}:80"
       ]
@@ -411,6 +416,8 @@ let tests
           , "${C.tag.cade_hermes_front}:22"
           , "${C.tag.cade_hermes_front}:43141"
           , "${C.tag.cade_hermes_front}:43142"
+          , "${C.tag.cade_hermes_front}:23141"
+          , "${C.tag.cade_hermes_front}:23142"
           , "${C.tag.cade_hermes_upstream}:443"
           , "${C.tag.softproxy}:443"
           , "${C.tag.softproxy_edge}:443"
@@ -421,6 +428,8 @@ let tests
           , "tinyland-honey:6443"
           , "tinyland-honey:43141"
           , "tinyland-honey:43142"
+          , "tinyland-honey:23141"
+          , "tinyland-honey:23142"
           , "tinyland-neo:22"
           , "tinyland-sting:22"
           , "ai:443"

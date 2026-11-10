@@ -1897,6 +1897,9 @@ class PolicyContractTest(unittest.TestCase):
         "tag:cade-hermes-front:22",
         "tag:cade-hermes-front:43141",
         "tag:cade-hermes-front:43142",
+        # The home and shim slots after the port move (TIN-7125, cade-infra#244).
+        "tag:cade-hermes-front:23141",
+        "tag:cade-hermes-front:23142",
         "tag:cade-hermes-upstream:443",
         "tag:cade-hermes-upstream:80",
     ]
@@ -1914,6 +1917,8 @@ class PolicyContractTest(unittest.TestCase):
             "tag:cade-hermes-front:22",
             "tag:cade-hermes-front:43141",
             "tag:cade-hermes-front:43142",
+            "tag:cade-hermes-front:23141",
+            "tag:cade-hermes-front:23142",
             "tag:cade-hermes-upstream:443",
             "tag:softproxy:443",
             "tag:softproxy-edge:443",
@@ -1924,6 +1929,8 @@ class PolicyContractTest(unittest.TestCase):
             "tinyland-honey:6443",
             "tinyland-honey:43141",
             "tinyland-honey:43142",
+            "tinyland-honey:23141",
+            "tinyland-honey:23142",
             "tinyland-neo:22",
             "tinyland-sting:22",
             "ai:443",
@@ -1966,6 +1973,22 @@ class PolicyContractTest(unittest.TestCase):
         self.assertEqual(
             self._references(self.CADE_HERMES_UPSTREAM), [("grants", self.CADE_HERMES_GRANT)]
         )
+
+    def test_cade_hermes_denies_cover_both_loopback_slot_pairs(self) -> None:
+        # The shim and the home move from 43142 and 43141 to 23142 and 23141
+        # (TIN-7125, cade-infra#244). A deny list that names one pair alone
+        # stops guarding the live ports at the move.
+        slots = ("43141", "43142", "23141", "23142")
+        rows = [*self.CADE_HERMES_POLICY_TESTS, self.CADE_HERMES_UPSTREAM_POLICY_TEST]
+        for row in rows:
+            for port in slots:
+                self.assertIn(f"{self.CADE_HERMES_FRONT}:{port}", row["deny"], row["src"])
+        for port in slots:
+            self.assertIn(
+                f"tinyland-honey:{port}", self.CADE_HERMES_UPSTREAM_POLICY_TEST["deny"]
+            )
+        for row in rows:
+            self.assertIn(row, self.policy["tests"])
 
     def test_the_cade_hermes_front_is_never_a_policy_test_source(self) -> None:
         sources = [row["src"] for row in self.policy["tests"]]
