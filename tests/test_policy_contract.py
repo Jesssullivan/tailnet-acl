@@ -1452,6 +1452,7 @@ class PolicyContractTest(unittest.TestCase):
                 *self.SOFTPROXY_EDGE_POLICY_TESTS,
                 *self.CADE_HERMES_POLICY_TESTS,
                 *self.ANNOTATE_POLICY_TESTS,
+                self.ANNOTATE_UPSTREAM_POLICY_TEST,
                 self.MX_RELAY_POLICY_TEST,
                 self.HONEY_TO_RELAY_POLICY_TEST,
                 self.NEO_TO_RELAY_POLICY_TEST,
@@ -1954,9 +1955,8 @@ class PolicyContractTest(unittest.TestCase):
 
     # annotate.xoxd.ai route (Linear TIN-8117; Jess, comments 54098524 and
     # ab8be277: "Neo's node address (Recommended)"; xoxd-ai/blahaj#2566, P1a).
-    # Three tags and one grant: neo reaches the edge device on tcp:443. The
-    # grant from the upstream to the node is P1b, after readback 5. Until then
-    # nothing reaches the node and nothing names the upstream.
+    # Three tags and two grants: neo reaches the edge device on tcp:443 (P1a),
+    # and the upstream reaches the node on tcp:443 (P1b, after readback 5).
     ANNOTATE = "tag:annotate"
     ANNOTATE_EDGE = "tag:annotate-edge"
     ANNOTATE_UPSTREAM = "tag:annotate-upstream"
@@ -1964,6 +1964,33 @@ class PolicyContractTest(unittest.TestCase):
         "src": ["tinyland-neo"],
         "dst": ["tag:annotate-edge"],
         "ip": ["tcp:443"],
+    }
+    ANNOTATE_UPSTREAM_GRANT = {
+        "src": ["tag:annotate-upstream"],
+        "dst": ["tag:annotate"],
+        "ip": ["tcp:443"],
+    }
+    ANNOTATE_UPSTREAM_POLICY_TEST = {
+        "src": "tag:annotate-upstream",
+        "proto": "tcp",
+        "accept": ["tag:annotate:443"],
+        "deny": [
+            "tag:annotate:80",
+            "tag:annotate:22",
+            "tag:annotate-edge:443",
+            "tag:annotate-upstream:443",
+            "tag:softproxy:443",
+            "tag:softproxy-edge:443",
+            "tag:dollhouse:22",
+            "tag:k8s-operator:443",
+            "tinyland-honey:22",
+            "tinyland-honey:443",
+            "tinyland-honey:6443",
+            "tinyland-neo:22",
+            "tinyland-sting:22",
+            "ai:443",
+            "192.168.30.105:22",
+        ],
     }
     ANNOTATE_DENY = [
         "tag:annotate-edge:443",
@@ -2014,12 +2041,16 @@ class PolicyContractTest(unittest.TestCase):
             self.assertFalse([t for t, o in self.policy["tagOwners"].items() if tag in o])
             self.assertNotIn(tag, self.policy["hosts"])
 
-    def test_the_one_annotate_grant_is_neo_to_the_edge_on_tcp_443(self) -> None:
+    def test_the_annotate_grants_are_neo_to_the_edge_and_upstream_to_the_node(self) -> None:
         self.assertEqual(
             self._references(self.ANNOTATE_EDGE), [("grants", self.ANNOTATE_EDGE_GRANT)]
         )
-        self.assertEqual(self._references(self.ANNOTATE), [])
-        self.assertEqual(self._references(self.ANNOTATE_UPSTREAM), [])
+        self.assertEqual(
+            self._references(self.ANNOTATE), [("grants", self.ANNOTATE_UPSTREAM_GRANT)]
+        )
+        self.assertEqual(
+            self._references(self.ANNOTATE_UPSTREAM), [("grants", self.ANNOTATE_UPSTREAM_GRANT)]
+        )
 
     def test_the_annotate_source_is_neo_alone_by_its_one_address(self) -> None:
         # Jess ruled neo's node address, not a group and not a new tag on neo.
@@ -2027,11 +2058,12 @@ class PolicyContractTest(unittest.TestCase):
         self.assertEqual(address.num_addresses, 1)
         self.assertEqual(self.ANNOTATE_EDGE_GRANT["src"], ["tinyland-neo"])
 
-    def test_annotate_tags_are_never_a_policy_test_source(self) -> None:
+    def test_only_the_upstream_is_an_annotate_policy_test_source(self) -> None:
         sources = [row["src"] for row in self.policy["tests"]]
-        for tag in (self.ANNOTATE, self.ANNOTATE_EDGE, self.ANNOTATE_UPSTREAM):
+        for tag in (self.ANNOTATE, self.ANNOTATE_EDGE):
             self.assertNotIn(tag, sources)
-        for row in self.ANNOTATE_POLICY_TESTS:
+        self.assertEqual(sources.count(self.ANNOTATE_UPSTREAM), 1)
+        for row in (*self.ANNOTATE_POLICY_TESTS, self.ANNOTATE_UPSTREAM_POLICY_TEST):
             self.assertIn(row, self.policy["tests"])
 
     def test_annotate_tags_have_no_node_attr_ssh_or_auto_approver(self) -> None:

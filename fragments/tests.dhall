@@ -82,8 +82,9 @@
 -- tag:dev, tag:dollhouse, tag:k8s-operator, tag:mcp-proxy and
 -- tag:softproxy-upstream. Honey is denied the edge on tcp:9 as well. Each
 -- row accepts a flow the policy already grants, since a row needs a
--- non-empty accept. The node and the edge have no outbound grant, so they
--- have no row of their own.
+-- non-empty accept. P1b adds the upstream row: it reaches the node on 443
+-- and not on 80 or 22, and it reaches nothing else. The node and the edge
+-- have no outbound grant, so they have no row of their own.
 --
 -- tag:sip-relay (Linear TIN-7396). Neo and sting reach it on 22 and no other
 -- port (TIN-7396 7ad85219). The exporter egress reaches it on 9100 and no other
@@ -480,6 +481,27 @@ let tests
         , proto = "tcp"
         , accept = [ "${C.tag.softproxy}:443" ]
         , deny = annotateDeny
+        }
+      , { src = C.tag.annotate_upstream
+        , proto = "tcp"
+        , accept = [ "${C.tag.annotate}:443" ]
+        , deny =
+          [ "${C.tag.annotate}:80"
+          , "${C.tag.annotate}:22"
+          , "${C.tag.annotate_edge}:443"
+          , "${C.tag.annotate_upstream}:443"
+          , "${C.tag.softproxy}:443"
+          , "${C.tag.softproxy_edge}:443"
+          , "${C.tag.dollhouse}:22"
+          , "${C.tag.k8s_operator}:443"
+          , "tinyland-honey:22"
+          , "tinyland-honey:443"
+          , "tinyland-honey:6443"
+          , "tinyland-neo:22"
+          , "tinyland-sting:22"
+          , "ai:443"
+          , "192.168.30.105:22"
+          ]
         }
       , { src = C.tag.mx_relay
         , proto = "tcp"
