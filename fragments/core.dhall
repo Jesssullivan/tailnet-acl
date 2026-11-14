@@ -62,6 +62,17 @@
 -- tag:k8s-operator itself is not broadened. No rule names either tag. The
 -- grant is front act 9, after readback R14.
 --
+-- tag:annotate, tag:annotate-edge and tag:annotate-upstream (Linear
+-- TIN-8117; Jess, comments 54098524 and ab8be277; route design
+-- xoxd-ai/blahaj#2566, precondition P1a). tag:annotate is the annotation
+-- page's own userspace tailscaled node on sting, host name annotate. A
+-- tailnet admin enrols it once. It is owned by autogroup:admin alone, like
+-- tag:softproxy, so no tagged device can mint it. The edge is the
+-- annotate-xoxd LoadBalancer device and the upstream is the egress proxy to
+-- the node. The honey Tailscale operator mints both, so each is owned like
+-- the softproxy route tags. None owns a tag, and tag:k8s-operator itself is
+-- not broadened. Their grants live in fragments/grants.dhall.
+--
 -- icebox (Linear TIN-7812, Jess's rulings IB-1 and IB-3 to IB-7 in comments
 -- b0d7c34e and ba40e1a6; folds Jesssullivan/tailnet-acl#65, TIN-7811;
 -- xoxd-ai/icebox is owned by the PZM icebox seat under
@@ -259,6 +270,15 @@ let tagOwners
         }
       , { mapKey = C.tag.cade_hermes_front, mapValue = [ C.autogroup.admin ] }
       , { mapKey = C.tag.cade_hermes_upstream
+        , mapValue =
+          [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
+        }
+      , { mapKey = C.tag.annotate, mapValue = [ C.autogroup.admin ] }
+      , { mapKey = C.tag.annotate_edge
+        , mapValue =
+          [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
+        }
+      , { mapKey = C.tag.annotate_upstream
         , mapValue =
           [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
         }
