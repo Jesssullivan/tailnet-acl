@@ -124,6 +124,18 @@
 -- tag:softproxy-upstream as a destination. Neither tag has a nodeAttr, so
 -- no Funnel, and neither has an SSH rule or autoApprover.
 --
+-- annotate.xoxd.ai route (Linear TIN-8117; Jess, comment ab8be277: "Neo's
+-- node address (Recommended)"; route design xoxd-ai/blahaj#2566, P1a).
+-- One row: neo reaches tag:annotate-edge, the annotate-xoxd LoadBalancer
+-- device, on tcp:443. Neo is a tagged device that no group matches, so it
+-- is named by host, and tinyland-neo is neo's one node address. No group
+-- row exists, so Jess's untagged devices do not reach the edge. The
+-- grant from tag:annotate-upstream to tag:annotate is P1b, its own change,
+-- after readback 5 of the route runbook. Until then nothing reaches the
+-- node. No honey visibility row exists for the edge: blahaj#2566 Q7 asks
+-- it, and it is not ruled. No annotate tag has a nodeAttr, so no Funnel,
+-- and none has an SSH rule or autoApprover.
+--
 -- icebox (Linear TIN-7812; Jess's rulings IB-1 and IB-3 to IB-7, comments
 -- b0d7c34e and ba40e1a6; folds Jesssullivan/tailnet-acl#65, TIN-7811,
 -- R-ICEBOX-20261030-a). Seven rows at the end of the list. They are the
@@ -388,6 +400,7 @@ let grants
           [ "tcp:443" ]
       , G.net [ "tinyland-honey" ] [ C.tag.softproxy_edge ] [ "tcp:9" ]
       , G.net [ C.tag.softproxy_upstream ] [ C.tag.softproxy ] [ "tcp:443" ]
+      , G.net [ "tinyland-neo" ] [ C.tag.annotate_edge ] [ "tcp:443" ]
       , G.net
           [ C.group.icebox_dispatchers
           , C.group.icebox_keyholders
