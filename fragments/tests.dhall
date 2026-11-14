@@ -109,6 +109,13 @@
 -- narrows either rule now fails here and not at a node's first request. The
 -- deny lists exist because every row carries a non-empty deny. They repeat
 -- flows that the tag:sip-relay rows already deny.
+--
+-- tag:cade-memory-writer, the Cade memory writer's Tailscale Ingress (Linear
+-- TIN-7697). sting, neo, yoga and honey reach it on 443 and not on 80, 22 or
+-- 8080. Both of Jess's identities, tag:dev, tag:dollhouse, tag:k8s,
+-- tag:k8s-operator, tag:ci-agent, tag:tinyland-lab-ci-ephemeral,
+-- tag:mcp-proxy, petting-zoo-mini and bumble do not reach it on 443. Each
+-- of those rows accepts a flow the policy already grants.
 let T = ../types/ACL.dhall
 
 let C = ../constants.dhall
@@ -132,6 +139,14 @@ let sipRelaySeatDeny =
       , "${C.tag.sip_relay}:5060"
       , "${C.tag.sip_relay}:5061"
       ]
+
+let cadeMemoryWriterSenderDeny =
+      [ "${C.tag.cade_memory_writer}:80"
+      , "${C.tag.cade_memory_writer}:22"
+      , "${C.tag.cade_memory_writer}:8080"
+      ]
+
+let cadeMemoryWriterOtherDeny = [ "${C.tag.cade_memory_writer}:443" ]
 
 let tests
     : List T.ACLTest
@@ -729,6 +744,81 @@ let tests
         , proto = "tcp"
         , accept = [ "${C.tag.k8s}:443" ]
         , deny = sipRelayDeny
+        }
+      , { src = "tinyland-sting"
+        , proto = "tcp"
+        , accept = [ "${C.tag.cade_memory_writer}:443" ]
+        , deny = cadeMemoryWriterSenderDeny
+        }
+      , { src = "tinyland-neo"
+        , proto = "tcp"
+        , accept = [ "${C.tag.cade_memory_writer}:443" ]
+        , deny = cadeMemoryWriterSenderDeny
+        }
+      , { src = "tinyland-yoga"
+        , proto = "tcp"
+        , accept = [ "${C.tag.cade_memory_writer}:443" ]
+        , deny = cadeMemoryWriterSenderDeny
+        }
+      , { src = "tinyland-honey"
+        , proto = "tcp"
+        , accept = [ "${C.tag.cade_memory_writer}:443" ]
+        , deny = cadeMemoryWriterSenderDeny
+        }
+      , { src = C.user.jess_sulliwood
+        , proto = "tcp"
+        , accept = [ "${C.tag.dev}:22" ]
+        , deny = cadeMemoryWriterOtherDeny
+        }
+      , { src = C.user.jsullivan2_gmail
+        , proto = "tcp"
+        , accept = [ "${C.tag.dev}:22" ]
+        , deny = cadeMemoryWriterOtherDeny
+        }
+      , { src = C.tag.dev
+        , proto = "tcp"
+        , accept = [ "${C.tag.dev}:22" ]
+        , deny = cadeMemoryWriterOtherDeny
+        }
+      , { src = C.tag.dollhouse
+        , proto = "tcp"
+        , accept = [ "${C.tag.dollhouse}:22" ]
+        , deny = cadeMemoryWriterOtherDeny
+        }
+      , { src = C.tag.k8s
+        , proto = "tcp"
+        , accept = [ "${C.tag.k8s}:443" ]
+        , deny = cadeMemoryWriterOtherDeny
+        }
+      , { src = C.tag.k8s_operator
+        , proto = "tcp"
+        , accept = [ "${C.tag.k8s}:443" ]
+        , deny = cadeMemoryWriterOtherDeny
+        }
+      , { src = C.tag.ci_agent
+        , proto = "tcp"
+        , accept = [ "ai:443" ]
+        , deny = cadeMemoryWriterOtherDeny
+        }
+      , { src = C.tag.tinyland_lab_ci_ephemeral
+        , proto = "tcp"
+        , accept = [ "${C.tag.k8s_operator}:443" ]
+        , deny = cadeMemoryWriterOtherDeny
+        }
+      , { src = C.tag.mcp_proxy
+        , proto = "tcp"
+        , accept = [ "${C.tag.mcp_proxy}:3100" ]
+        , deny = cadeMemoryWriterOtherDeny
+        }
+      , { src = "tinyland-petting-zoo-mini"
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy_edge}:443" ]
+        , deny = cadeMemoryWriterOtherDeny
+        }
+      , { src = "tinyland-bumble"
+        , proto = "tcp"
+        , accept = [ "tinyland-loki-observability:3100" ]
+        , deny = cadeMemoryWriterOtherDeny
         }
       ]
 

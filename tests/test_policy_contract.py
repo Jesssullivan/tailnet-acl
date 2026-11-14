@@ -251,6 +251,107 @@ class PolicyContractTest(unittest.TestCase):
          "deny": ["tag:sip-relay:22", "tag:sip-relay:9100"]},
     ]
 
+    # tag:cade-memory-writer (Linear TIN-7697): the Tailscale Ingress device of
+    # the Cade memory writer. The honey operator mints it with this tag alone.
+    # One grant on tcp:443 names the four sender hosts by alias. The writer
+    # checks each host's own key, so the ACL is the network gate only.
+    CADE_MEMORY_WRITER = "tag:cade-memory-writer"
+    CADE_MEMORY_WRITER_SENDERS = ["tinyland-sting", "tinyland-neo", "tinyland-yoga", "tinyland-honey"]
+    CADE_MEMORY_WRITER_GRANT = {
+        "src": CADE_MEMORY_WRITER_SENDERS,
+        "dst": ["tag:cade-memory-writer"],
+        "ip": ["tcp:443"],
+    }
+    CADE_MEMORY_WRITER_SENDER_DENY = [
+        "tag:cade-memory-writer:80", "tag:cade-memory-writer:22", "tag:cade-memory-writer:8080",
+    ]
+    CADE_MEMORY_WRITER_OTHER_DENY = ["tag:cade-memory-writer:443"]
+    CADE_MEMORY_WRITER_POLICY_TESTS = [
+        {"src": "tinyland-sting", "proto": "tcp", "accept": ["tag:cade-memory-writer:443"],
+         "deny": CADE_MEMORY_WRITER_SENDER_DENY},
+        {"src": "tinyland-neo", "proto": "tcp", "accept": ["tag:cade-memory-writer:443"],
+         "deny": CADE_MEMORY_WRITER_SENDER_DENY},
+        {"src": "tinyland-yoga", "proto": "tcp", "accept": ["tag:cade-memory-writer:443"],
+         "deny": CADE_MEMORY_WRITER_SENDER_DENY},
+        {"src": "tinyland-honey", "proto": "tcp", "accept": ["tag:cade-memory-writer:443"],
+         "deny": CADE_MEMORY_WRITER_SENDER_DENY},
+        {"src": "jess@sulliwood.org", "proto": "tcp", "accept": ["tag:dev:22"],
+         "deny": CADE_MEMORY_WRITER_OTHER_DENY},
+        {"src": "jsullivan2@gmail.com", "proto": "tcp", "accept": ["tag:dev:22"],
+         "deny": CADE_MEMORY_WRITER_OTHER_DENY},
+        {"src": "tag:dev", "proto": "tcp", "accept": ["tag:dev:22"],
+         "deny": CADE_MEMORY_WRITER_OTHER_DENY},
+        {"src": "tag:dollhouse", "proto": "tcp", "accept": ["tag:dollhouse:22"],
+         "deny": CADE_MEMORY_WRITER_OTHER_DENY},
+        {"src": "tag:k8s", "proto": "tcp", "accept": ["tag:k8s:443"],
+         "deny": CADE_MEMORY_WRITER_OTHER_DENY},
+        {"src": "tag:k8s-operator", "proto": "tcp", "accept": ["tag:k8s:443"],
+         "deny": CADE_MEMORY_WRITER_OTHER_DENY},
+        {"src": "tag:ci-agent", "proto": "tcp", "accept": ["ai:443"],
+         "deny": CADE_MEMORY_WRITER_OTHER_DENY},
+        {"src": "tag:tinyland-lab-ci-ephemeral", "proto": "tcp", "accept": ["tag:k8s-operator:443"],
+         "deny": CADE_MEMORY_WRITER_OTHER_DENY},
+        {"src": "tag:mcp-proxy", "proto": "tcp", "accept": ["tag:mcp-proxy:3100"],
+         "deny": CADE_MEMORY_WRITER_OTHER_DENY},
+        {"src": "tinyland-petting-zoo-mini", "proto": "tcp", "accept": ["tag:softproxy-edge:443"],
+         "deny": CADE_MEMORY_WRITER_OTHER_DENY},
+        {"src": "tinyland-bumble", "proto": "tcp", "accept": ["tinyland-loki-observability:3100"],
+         "deny": CADE_MEMORY_WRITER_OTHER_DENY},
+    ]
+
+    def test_cade_memory_writer_is_owned_by_the_operator_and_admins_only(self) -> None:
+        owners = self.policy["tagOwners"]
+        self.assertEqual(owners[self.CADE_MEMORY_WRITER], ["tag:k8s-operator", "autogroup:admin"])
+        # No member device can advertise it, and it owns no tag.
+        self.assertNotIn("group:dollhouse-admins", owners[self.CADE_MEMORY_WRITER])
+        self.assertFalse([t for t, o in owners.items() if self.CADE_MEMORY_WRITER in o])
+        # tag:k8s-operator ownership is not broadened by this change.
+        self.assertEqual(
+            owners["tag:k8s-operator"],
+            ["tag:tag-authority", "tag:k8s-operator", "autogroup:admin", "group:dollhouse-admins"],
+        )
+        self.assertNotIn(self.CADE_MEMORY_WRITER, self.policy["hosts"])
+
+    def test_cade_memory_writer_has_one_tcp_443_grant_from_the_four_senders(self) -> None:
+        tag = self.CADE_MEMORY_WRITER
+        references = [
+            (surface, rule)
+            for surface in ("acls", "grants", "ssh")
+            for rule in self.policy[surface]
+            if any(
+                endpoint == tag or endpoint.startswith(f"{tag}:")
+                for key in ("src", "dst")
+                for endpoint in rule.get(key, [])
+            )
+        ]
+        self.assertEqual(references, [("grants", self.CADE_MEMORY_WRITER_GRANT)])
+        # Each source is one host alias: no group, tag or autogroup, so no
+        # other device that shares a tag with a sender reaches the writer.
+        for source in self.CADE_MEMORY_WRITER_GRANT["src"]:
+            self.assertTrue(source.startswith("tinyland-"), source)
+        hosts = self.policy["hosts"]
+        self.assertEqual(
+            {name: hosts[name] for name in self.CADE_MEMORY_WRITER_SENDERS},
+            {
+                "tinyland-sting": "100.85.46.118",
+                "tinyland-neo": "100.67.93.34",
+                "tinyland-yoga": "100.104.152.110",
+                "tinyland-honey": "100.113.89.12",
+            },
+        )
+
+    def test_cade_memory_writer_has_no_node_attr_ssh_or_auto_approver(self) -> None:
+        tag = self.CADE_MEMORY_WRITER
+        for row in self.policy["nodeAttrs"]:
+            self.assertNotIn(tag, row["target"], row)
+        for row in self.policy["ssh"]:
+            self.assertNotIn(tag, row["src"] + row["dst"], row)
+        for tags in self.policy["autoApprovers"]["routes"].values():
+            self.assertNotIn(tag, tags)
+        self.assertNotIn(tag, self.policy["autoApprovers"]["exitNode"])
+        for tags in self.policy["autoApprovers"]["services"].values():
+            self.assertNotIn(tag, tags)
+
     # R-C1011 (TIN-5770 comment 86411716; exploration blahaj #2328): the
     # public MX relay-1 moves alone from tag:dollhouse to tag:mx-relay, which
     # leaves the dollhouse mesh (tag:dollhouse:*, every voter port) and the
@@ -755,7 +856,7 @@ class PolicyContractTest(unittest.TestCase):
                 "tag:gf-reapi-cell-egress", "tag:gf-reapi-linux-worker",
                 "tag:gf-reapi-rocm-worker", "tag:printstack", "tag:softproxy",
                 "tag:softproxy-edge", "tag:softproxy-upstream",
-                "tag:cade-hermes-front", "tag:cade-hermes-upstream",
+                "tag:cade-hermes-front", "tag:cade-hermes-upstream", "tag:cade-memory-writer",
                 "tag:icebox-dev", "tag:icebox-prod", "tag:icebox-prober",
                 "tag:icebox-console", "tag:icebox-member",
             },
@@ -1459,6 +1560,7 @@ class PolicyContractTest(unittest.TestCase):
                 *self.ICEBOX_POLICY_TESTS,
                 *self.SIP_RELAY_POLICY_TESTS,
                 *self.NODE_EDGE_POLICY_TESTS,
+                *self.CADE_MEMORY_WRITER_POLICY_TESTS,
             ],
         )
         # Every field is set, so the post-write read-back cannot drop an
