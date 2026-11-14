@@ -131,8 +131,10 @@
 -- is named by host, and tinyland-neo is neo's one node address. No group
 -- row exists, so Jess's untagged devices do not reach the edge. The
 -- grant from tag:annotate-upstream to tag:annotate is P1b, its own change,
--- after readback 5 of the route runbook. Until then nothing reaches the
--- node. No honey visibility row exists for the edge: blahaj#2566 Q7 asks
+-- after readback 5 of the route runbook. P1b is the second row: the
+-- upstream reaches the node's tailscale serve on tcp:443 and nothing else.
+-- Nothing names the node as a source, so it has no outbound tailnet reach.
+-- No honey visibility row exists for the edge: blahaj#2566 Q7 asks
 -- it, and it is not ruled. No annotate tag has a nodeAttr, so no Funnel,
 -- and none has an SSH rule or autoApprover.
 --
@@ -401,6 +403,7 @@ let grants
       , G.net [ "tinyland-honey" ] [ C.tag.softproxy_edge ] [ "tcp:9" ]
       , G.net [ C.tag.softproxy_upstream ] [ C.tag.softproxy ] [ "tcp:443" ]
       , G.net [ "tinyland-neo" ] [ C.tag.annotate_edge ] [ "tcp:443" ]
+      , G.net [ C.tag.annotate_upstream ] [ C.tag.annotate ] [ "tcp:443" ]
       , G.net
           [ C.group.icebox_dispatchers
           , C.group.icebox_keyholders
