@@ -857,6 +857,7 @@ class PolicyContractTest(unittest.TestCase):
                 "tag:gf-reapi-rocm-worker", "tag:printstack", "tag:softproxy",
                 "tag:softproxy-edge", "tag:softproxy-upstream",
                 "tag:cade-hermes-front", "tag:cade-hermes-upstream", "tag:cade-memory-writer",
+                "tag:annotate", "tag:annotate-edge", "tag:annotate-upstream",
                 "tag:icebox-dev", "tag:icebox-prod", "tag:icebox-prober",
                 "tag:icebox-console", "tag:icebox-member",
             },
@@ -1551,6 +1552,7 @@ class PolicyContractTest(unittest.TestCase):
                 *self.SOFTPROXY_POLICY_TESTS,
                 *self.SOFTPROXY_EDGE_POLICY_TESTS,
                 *self.CADE_HERMES_POLICY_TESTS,
+                *self.ANNOTATE_POLICY_TESTS,
                 self.MX_RELAY_POLICY_TEST,
                 self.HONEY_TO_RELAY_POLICY_TEST,
                 self.NEO_TO_RELAY_POLICY_TEST,
@@ -2041,6 +2043,101 @@ class PolicyContractTest(unittest.TestCase):
 
     def test_cade_hermes_tags_have_no_node_attr_ssh_or_auto_approver(self) -> None:
         for tag in (self.CADE_HERMES_FRONT, self.CADE_HERMES_UPSTREAM):
+            for row in self.policy["nodeAttrs"]:
+                self.assertNotIn(tag, row["target"], row)
+            for row in self.policy["ssh"]:
+                self.assertNotIn(tag, row["src"], row)
+                self.assertNotIn(tag, row["dst"], row)
+            for tags in self.policy["autoApprovers"]["routes"].values():
+                self.assertNotIn(tag, tags)
+            self.assertNotIn(tag, self.policy["autoApprovers"]["exitNode"])
+            for tags in self.policy["autoApprovers"]["services"].values():
+                self.assertNotIn(tag, tags)
+
+    # annotate.xoxd.ai route (Linear TIN-8117; Jess, comments 54098524 and
+    # ab8be277: "Neo's node address (Recommended)"; xoxd-ai/blahaj#2566, P1a).
+    # Three tags and one grant: neo reaches the edge device on tcp:443. The
+    # grant from the upstream to the node is P1b, after readback 5. Until then
+    # nothing reaches the node and nothing names the upstream.
+    ANNOTATE = "tag:annotate"
+    ANNOTATE_EDGE = "tag:annotate-edge"
+    ANNOTATE_UPSTREAM = "tag:annotate-upstream"
+    ANNOTATE_EDGE_GRANT = {
+        "src": ["tinyland-neo"],
+        "dst": ["tag:annotate-edge"],
+        "ip": ["tcp:443"],
+    }
+    ANNOTATE_DENY = [
+        "tag:annotate-edge:443",
+        "tag:annotate-edge:80",
+        "tag:annotate:443",
+        "tag:annotate:80",
+        "tag:annotate-upstream:443",
+    ]
+    ANNOTATE_POLICY_TESTS = [
+        {
+            "src": "tinyland-neo",
+            "proto": "tcp",
+            "accept": ["tag:annotate-edge:443"],
+            "deny": [
+                "tag:annotate-edge:80",
+                "tag:annotate-edge:22",
+                "tag:annotate:443",
+                "tag:annotate:80",
+                "tag:annotate-upstream:443",
+            ],
+        },
+    ] + [
+        {"src": src, "proto": "tcp", "accept": [accept], "deny": deny + extra}
+        # A comprehension in a class body sees class names only in its first clause.
+        for deny in (ANNOTATE_DENY,)
+        for src, accept, extra in (
+            ("jess@sulliwood.org", "tag:softproxy:443", []),
+            ("jsullivan2@gmail.com", "tag:softproxy:443", []),
+            ("tinyland-sting", "tag:softproxy-edge:443", []),
+            ("tinyland-petting-zoo-mini", "tag:softproxy-edge:443", []),
+            ("tinyland-honey", "tag:softproxy-edge:9", ["tag:annotate-edge:9"]),
+            ("tag:dev", "tag:dev:22", []),
+            ("tag:dollhouse", "tag:dollhouse:22", []),
+            ("tag:k8s-operator", "tag:k8s:443", []),
+            ("tag:mcp-proxy", "tag:mcp-proxy:3100", []),
+            ("tag:softproxy-upstream", "tag:softproxy:443", []),
+        )
+    ]
+
+    def test_annotate_node_is_admin_owned_and_route_tags_are_operator_owned(self) -> None:
+        self.assertEqual(self.policy["tagOwners"][self.ANNOTATE], ["autogroup:admin"])
+        for tag in (self.ANNOTATE_EDGE, self.ANNOTATE_UPSTREAM):
+            self.assertEqual(
+                self.policy["tagOwners"][tag],
+                ["tag:k8s-operator", "autogroup:admin", "group:dollhouse-admins"],
+            )
+        for tag in (self.ANNOTATE, self.ANNOTATE_EDGE, self.ANNOTATE_UPSTREAM):
+            self.assertFalse([t for t, o in self.policy["tagOwners"].items() if tag in o])
+            self.assertNotIn(tag, self.policy["hosts"])
+
+    def test_the_one_annotate_grant_is_neo_to_the_edge_on_tcp_443(self) -> None:
+        self.assertEqual(
+            self._references(self.ANNOTATE_EDGE), [("grants", self.ANNOTATE_EDGE_GRANT)]
+        )
+        self.assertEqual(self._references(self.ANNOTATE), [])
+        self.assertEqual(self._references(self.ANNOTATE_UPSTREAM), [])
+
+    def test_the_annotate_source_is_neo_alone_by_its_one_address(self) -> None:
+        # Jess ruled neo's node address, not a group and not a new tag on neo.
+        address = ipaddress.ip_network(self.policy["hosts"]["tinyland-neo"], strict=False)
+        self.assertEqual(address.num_addresses, 1)
+        self.assertEqual(self.ANNOTATE_EDGE_GRANT["src"], ["tinyland-neo"])
+
+    def test_annotate_tags_are_never_a_policy_test_source(self) -> None:
+        sources = [row["src"] for row in self.policy["tests"]]
+        for tag in (self.ANNOTATE, self.ANNOTATE_EDGE, self.ANNOTATE_UPSTREAM):
+            self.assertNotIn(tag, sources)
+        for row in self.ANNOTATE_POLICY_TESTS:
+            self.assertIn(row, self.policy["tests"])
+
+    def test_annotate_tags_have_no_node_attr_ssh_or_auto_approver(self) -> None:
+        for tag in (self.ANNOTATE, self.ANNOTATE_EDGE, self.ANNOTATE_UPSTREAM):
             for row in self.policy["nodeAttrs"]:
                 self.assertNotIn(tag, row["target"], row)
             for row in self.policy["ssh"]:

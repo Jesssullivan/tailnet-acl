@@ -74,6 +74,17 @@
 -- already grants, since a row needs a non-empty accept. Neither tag has a
 -- source row, because neither has a flow. The contract test pins that.
 --
+-- annotate.xoxd.ai route (TIN-8117, P1a; xoxd-ai/blahaj#2566). Neo reaches
+-- tag:annotate-edge on 443 and not on 80 or 22, and it does not reach
+-- tag:annotate or tag:annotate-upstream. No other identity here reaches the
+-- edge on 443 or 80, the node on 443 or 80, or the upstream on 443. That
+-- covers both of Jess's identities, sting, petting-zoo-mini, honey,
+-- tag:dev, tag:dollhouse, tag:k8s-operator, tag:mcp-proxy and
+-- tag:softproxy-upstream. Honey is denied the edge on tcp:9 as well. Each
+-- row accepts a flow the policy already grants, since a row needs a
+-- non-empty accept. The node and the edge have no outbound grant, so they
+-- have no row of their own.
+--
 -- tag:sip-relay (Linear TIN-7396). Neo and sting reach it on 22 and no other
 -- port (TIN-7396 7ad85219). The exporter egress reaches it on 9100 and no other
 -- port. No other named source reaches it on 22 or 9100, and that includes both
@@ -128,6 +139,14 @@ let cadeHermesDeny =
       , "${C.tag.cade_hermes_front}:43142"
       , "${C.tag.cade_hermes_upstream}:443"
       , "${C.tag.cade_hermes_upstream}:80"
+      ]
+
+let annotateDeny =
+      [ "${C.tag.annotate_edge}:443"
+      , "${C.tag.annotate_edge}:80"
+      , "${C.tag.annotate}:443"
+      , "${C.tag.annotate}:80"
+      , "${C.tag.annotate_upstream}:443"
       ]
 
 let sipRelayDeny = [ "${C.tag.sip_relay}:22", "${C.tag.sip_relay}:9100" ]
@@ -415,6 +434,67 @@ let tests
         , proto = "tcp"
         , accept = [ "${C.tag.softproxy}:443" ]
         , deny = cadeHermesDeny
+        }
+      , { src = "tinyland-neo"
+        , proto = "tcp"
+        , accept = [ "${C.tag.annotate_edge}:443" ]
+        , deny =
+          [ "${C.tag.annotate_edge}:80"
+          , "${C.tag.annotate_edge}:22"
+          , "${C.tag.annotate}:443"
+          , "${C.tag.annotate}:80"
+          , "${C.tag.annotate_upstream}:443"
+          ]
+        }
+      , { src = C.user.jess_sulliwood
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy}:443" ]
+        , deny = annotateDeny
+        }
+      , { src = C.user.jsullivan2_gmail
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy}:443" ]
+        , deny = annotateDeny
+        }
+      , { src = "tinyland-sting"
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy_edge}:443" ]
+        , deny = annotateDeny
+        }
+      , { src = "tinyland-petting-zoo-mini"
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy_edge}:443" ]
+        , deny = annotateDeny
+        }
+      , { src = "tinyland-honey"
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy_edge}:9" ]
+        , deny = annotateDeny # [ "${C.tag.annotate_edge}:9" ]
+        }
+      , { src = C.tag.dev
+        , proto = "tcp"
+        , accept = [ "${C.tag.dev}:22" ]
+        , deny = annotateDeny
+        }
+      , { src = C.tag.dollhouse
+        , proto = "tcp"
+        , accept = [ "${C.tag.dollhouse}:22" ]
+        , deny = annotateDeny
+        }
+      , { src = C.tag.k8s_operator
+        , proto = "tcp"
+        , accept = [ "${C.tag.k8s}:443" ]
+        , deny = annotateDeny
+        }
+      , { src = C.tag.mcp_proxy
+        , proto = "tcp"
+        , accept = [ "${C.tag.mcp_proxy}:3100" ]
+        , deny = annotateDeny
+        }
+      , { src = C.tag.softproxy_upstream
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy}:443" ]
+        , deny = annotateDeny
         }
       , { src = C.tag.mx_relay
         , proto = "tcp"
