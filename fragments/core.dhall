@@ -62,6 +62,15 @@
 -- tag:k8s-operator itself is not broadened. No rule names either tag. The
 -- grant is front act 9, after readback R14.
 --
+-- tag:cade-memory-writer (Linear TIN-7697). It marks the tailnet device of
+-- the Tailscale Ingress cade-production/cade-memory-writer, which the honey
+-- Tailscale operator mints for the Cade memory writer. tag:k8s-operator owns
+-- it so the operator can put it on that device. autogroup:admin owns it so
+-- the operator on duty can retag the device by hand. group:dollhouse-admins
+-- does not own it, so no member device can advertise it. It owns no tag, and
+-- tag:k8s-operator itself is not broadened. Its one grant lives in
+-- fragments/cade-memory.dhall.
+--
 -- tag:annotate, tag:annotate-edge and tag:annotate-upstream (Linear
 -- TIN-8117; Jess, comments 54098524 and ab8be277; route design
 -- xoxd-ai/blahaj#2566, precondition P1a). tag:annotate is the annotation
@@ -272,6 +281,9 @@ let tagOwners
       , { mapKey = C.tag.cade_hermes_upstream
         , mapValue =
           [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
+        }
+      , { mapKey = C.tag.cade_memory_writer
+        , mapValue = [ C.tag.k8s_operator, C.autogroup.admin ]
         }
       , { mapKey = C.tag.annotate, mapValue = [ C.autogroup.admin ] }
       , { mapKey = C.tag.annotate_edge

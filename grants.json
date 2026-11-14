@@ -272,4 +272,8 @@
 	"src": ["tag:icebox-member"],
 	"dst": ["tag:icebox-console"],
 	"ip": ["tcp:443"]
+}, {
+	"src": ["tinyland-sting", "tinyland-neo", "tinyland-yoga", "tinyland-honey"],
+	"dst": ["tag:cade-memory-writer"],
+	"ip": ["tcp:443"]
 }]

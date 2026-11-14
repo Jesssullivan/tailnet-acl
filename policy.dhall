@@ -34,6 +34,8 @@ let ssh = ./fragments/ssh.dhall
 
 let grants = ./fragments/grants.dhall
 
+let cadeMemory = ./fragments/cade-memory.dhall
+
 let tests = ./fragments/tests.dhall
 
 let G = ./types/Grant.dhall
@@ -81,7 +83,7 @@ let autoApprovers
 in  { groups = core.groups
     , tagOwners = core.tagOwners
     , acls = allACLs
-    , grants = G.render grants.grants
+    , grants = G.render (grants.grants # cadeMemory.grants)
     , ssh = ssh.ssh
     , nodeAttrs = allNodeAttrs
     , autoApprovers
