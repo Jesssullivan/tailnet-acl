@@ -81,6 +81,7 @@ let hosts
         , mapValue = C.host.petting_zoo_mini
         }
       , { mapKey = "tinyland-neo", mapValue = C.host.neo }
+      , { mapKey = "tinyland-yoga", mapValue = C.host.yoga }
       , { mapKey = "tinyland-loki-observability"
         , mapValue = C.host.loki_observability
         }
