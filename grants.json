@@ -233,6 +233,10 @@
 	"dst": ["tag:annotate-edge"],
 	"ip": ["tcp:443"]
 }, {
+	"src": ["tag:annotate-upstream"],
+	"dst": ["tag:annotate"],
+	"ip": ["tcp:443"]
+}, {
 	"src": ["group:icebox-dispatchers", "group:icebox-keyholders", "tinyland-neo"],
 	"dst": ["tag:icebox-console"],
 	"ip": ["tcp:443"]
