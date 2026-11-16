@@ -138,6 +138,16 @@
 -- it, and it is not ruled. No annotate tag has a nodeAttr, so no Funnel,
 -- and none has an SSH rule or autoApprover.
 --
+-- GloriousFlywheel pool cell to the PZM Darwin worker (Linear TIN-8468;
+-- rulings R816 and R819, comments 2de8bcb4 and 496f4843). One row after the
+-- two gf-rbe cell rows: tag:gf-pool-cell-egress reaches
+-- tinyland-petting-zoo-mini on tcp:8981 only. The worker serves remote
+-- execution there over mTLS, and mTLS is the authorization boundary. The
+-- alias is PZM's one IPv4 address, so the proxy dials 100.111.5.80. The
+-- pool proxy reaches no gf-rbe worker tag, and tag:gf-reapi-cell-egress
+-- does not reach PZM. Nothing names the pool tag as a destination. It has
+-- no nodeAttr, SSH rule or autoApprover.
+--
 -- icebox (Linear TIN-7812; Jess's rulings IB-1 and IB-3 to IB-7, comments
 -- b0d7c34e and ba40e1a6; folds Jesssullivan/tailnet-acl#65, TIN-7811,
 -- R-ICEBOX-20261030-a). Seven rows at the end of the list. They are the
@@ -368,6 +378,10 @@ let grants
       , G.net
           [ C.tag.gf_reapi_cell_egress ]
           [ C.tag.gf_reapi_rocm_worker ]
+          [ "tcp:8981" ]
+      , G.net
+          [ C.tag.gf_pool_cell_egress ]
+          [ "tinyland-petting-zoo-mini" ]
           [ "tcp:8981" ]
       , { src = [ C.tag.tinyland_lab_ci_ephemeral ]
         , dst = [ C.tag.k8s_operator ]

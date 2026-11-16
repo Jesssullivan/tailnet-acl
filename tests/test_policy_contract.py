@@ -779,7 +779,7 @@ class PolicyContractTest(unittest.TestCase):
         for alias in self.LOKI_WRITERS:
             self.assertIn(alias, self.policy["hosts"])
 
-    def test_petting_zoo_mini_is_only_a_loki_writer_and_metrics_target(self) -> None:
+    def test_petting_zoo_mini_is_a_loki_writer_metrics_target_and_pool_worker(self) -> None:
         alias = "tinyland-petting-zoo-mini"
         loki_writer_service_grant = {
             "src": self.LOKI_WRITERS, "dst": ["svc:o11y-loki"], "ip": ["tcp:3100"],
@@ -804,13 +804,18 @@ class PolicyContractTest(unittest.TestCase):
                 self.SOFTPROXY_EDGE_GRANT,
             ],
         )
+        # TIN-8468 (R816, R819) adds one destination row: the pool cell's
+        # egress proxy reaches the Darwin worker on tcp:8981 only.
         self.assertEqual(
             [grant for grant in self.policy["grants"] if alias in grant["dst"]],
-            [{
-                "src": ["tag:k8s-egress-nodeexporter"],
-                "dst": ["tinyland-relay-1", alias, "tinyland-neo"],
-                "ip": ["tcp:9100"],
-            }],
+            [
+                {
+                    "src": ["tag:k8s-egress-nodeexporter"],
+                    "dst": ["tinyland-relay-1", alias, "tinyland-neo"],
+                    "ip": ["tcp:9100"],
+                },
+                self.GF_POOL_CELL_EGRESS_GRANT,
+            ],
         )
         # The retiring alias-scoped ACL writer rule is not widened.
         for rule in self.policy["acls"]:
@@ -854,7 +859,8 @@ class PolicyContractTest(unittest.TestCase):
                 "tag:tag-authority", "tag:gftb-idp", "tag:tofu-state", "tag:infra-idp",
                 "tag:interim-build", "tag:honey-relay", "tag:mx-relay", "tag:sip-relay",
                 "tag:gf-reapi-cell-egress", "tag:gf-reapi-linux-worker",
-                "tag:gf-reapi-rocm-worker", "tag:printstack", "tag:softproxy",
+                "tag:gf-reapi-rocm-worker", "tag:gf-pool-cell-egress",
+                "tag:printstack", "tag:softproxy",
                 "tag:softproxy-edge", "tag:softproxy-upstream",
                 "tag:cade-hermes-front", "tag:cade-hermes-upstream", "tag:cade-memory-writer",
                 "tag:annotate", "tag:annotate-edge", "tag:annotate-upstream",
@@ -1013,6 +1019,84 @@ class PolicyContractTest(unittest.TestCase):
             )
         for rule in self.policy["ssh"]:
             self.assertNotIn(tag, rule["src"] + rule["dst"])
+
+    # tag:gf-pool-cell-egress (Linear TIN-8468; rulings R816 and R819,
+    # comments 2de8bcb4 and 496f4843). The honey operator's egress proxy for
+    # the GloriousFlywheel pool cell in namespace gf-pool dials the Darwin
+    # worker on petting-zoo-mini on 8981 only. It is a tag of its own, apart
+    # from the gf-rbe cell's tag:gf-reapi-cell-egress, because the pool runs
+    # other organizations' build actions.
+    GF_POOL_CELL_EGRESS = "tag:gf-pool-cell-egress"
+    GF_POOL_CELL_EGRESS_GRANT = {
+        "src": ["tag:gf-pool-cell-egress"],
+        "dst": ["tinyland-petting-zoo-mini"],
+        "ip": ["tcp:8981"],
+    }
+    GF_POOL_CELL_EGRESS_POLICY_TEST = {
+        "src": "tag:gf-pool-cell-egress",
+        "proto": "tcp",
+        "accept": ["tinyland-petting-zoo-mini:8981"],
+        "deny": [
+            "tinyland-petting-zoo-mini:22",
+            "tinyland-petting-zoo-mini:443",
+            "tinyland-petting-zoo-mini:9100",
+            "tag:gf-reapi-linux-worker:8981",
+            "tag:gf-reapi-rocm-worker:8981",
+        ],
+    }
+
+    def test_gf_pool_cell_egress_is_owned_like_the_gf_rbe_cell_egress(self) -> None:
+        owners = self.policy["tagOwners"]
+        self.assertEqual(
+            owners[self.GF_POOL_CELL_EGRESS],
+            ["tag:k8s-operator", "autogroup:admin", "group:dollhouse-admins"],
+        )
+        self.assertEqual(owners[self.GF_POOL_CELL_EGRESS], owners["tag:gf-reapi-cell-egress"])
+        self.assertFalse([t for t, o in owners.items() if self.GF_POOL_CELL_EGRESS in o])
+        # tag:k8s-operator ownership is not broadened by this change.
+        self.assertEqual(
+            owners["tag:k8s-operator"],
+            ["tag:tag-authority", "tag:k8s-operator", "autogroup:admin", "group:dollhouse-admins"],
+        )
+        self.assertNotIn(self.GF_POOL_CELL_EGRESS, self.policy["hosts"])
+
+    def test_gf_pool_cell_egress_has_one_grant_to_pzm_on_tcp_8981(self) -> None:
+        tag = self.GF_POOL_CELL_EGRESS
+        references = [
+            (surface, rule)
+            for surface in ("acls", "grants", "ssh")
+            for rule in self.policy[surface]
+            if any(
+                endpoint == tag or endpoint.startswith(f"{tag}:")
+                for key in ("src", "dst")
+                for endpoint in rule.get(key, [])
+            )
+        ]
+        self.assertEqual(references, [("grants", self.GF_POOL_CELL_EGRESS_GRANT)])
+        # The destination is PZM's one tailnet address, the worker's dial target.
+        self.assertEqual(self.policy["hosts"]["tinyland-petting-zoo-mini"], "100.111.5.80")
+        address = ipaddress.ip_network(self.policy["hosts"]["tinyland-petting-zoo-mini"], strict=False)
+        self.assertEqual(address.num_addresses, 1)
+
+    def test_gf_rbe_cell_egress_does_not_reach_pzm(self) -> None:
+        for row in self.policy["acls"] + self.policy["grants"]:
+            if "tag:gf-reapi-cell-egress" in row["src"]:
+                self.assertNotIn("tinyland-petting-zoo-mini", row["dst"])
+                self.assertFalse(
+                    [d for d in row["dst"] if d.startswith("tinyland-petting-zoo-mini:")]
+                )
+
+    def test_gf_pool_cell_egress_has_no_node_attr_ssh_or_auto_approver(self) -> None:
+        tag = self.GF_POOL_CELL_EGRESS
+        for row in self.policy["nodeAttrs"]:
+            self.assertNotIn(tag, row["target"], row)
+        for row in self.policy["ssh"]:
+            self.assertNotIn(tag, row["src"] + row["dst"], row)
+        for tags in self.policy["autoApprovers"]["routes"].values():
+            self.assertNotIn(tag, tags)
+        self.assertNotIn(tag, self.policy["autoApprovers"]["exitNode"])
+        for tags in self.policy["autoApprovers"]["services"].values():
+            self.assertNotIn(tag, tags)
 
     def test_existing_loki_alias_writer_rule_is_kept_for_now(self) -> None:
         # Retired only after the tag-scoped writer grant is confirmed live.
@@ -1564,6 +1648,7 @@ class PolicyContractTest(unittest.TestCase):
                 *self.SIP_RELAY_POLICY_TESTS,
                 *self.NODE_EDGE_POLICY_TESTS,
                 *self.CADE_MEMORY_WRITER_POLICY_TESTS,
+                self.GF_POOL_CELL_EGRESS_POLICY_TEST,
             ],
         )
         # Every field is set, so the post-write read-back cannot drop an

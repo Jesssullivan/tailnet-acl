@@ -128,6 +128,10 @@
 -- tag:k8s-operator, tag:ci-agent, tag:tinyland-lab-ci-ephemeral,
 -- tag:mcp-proxy, petting-zoo-mini and bumble do not reach it on 443. Each
 -- of those rows accepts a flow the policy already grants.
+--
+-- tag:gf-pool-cell-egress, the pool cell's egress proxy (Linear TIN-8468).
+-- It reaches petting-zoo-mini on 8981 and not on 22, 443 or 9100. It does
+-- not reach either gf-rbe worker tag on 8981.
 let T = ../types/ACL.dhall
 
 let C = ../constants.dhall
@@ -921,6 +925,17 @@ let tests
         , proto = "tcp"
         , accept = [ "tinyland-loki-observability:3100" ]
         , deny = cadeMemoryWriterOtherDeny
+        }
+      , { src = C.tag.gf_pool_cell_egress
+        , proto = "tcp"
+        , accept = [ "tinyland-petting-zoo-mini:8981" ]
+        , deny =
+          [ "tinyland-petting-zoo-mini:22"
+          , "tinyland-petting-zoo-mini:443"
+          , "tinyland-petting-zoo-mini:9100"
+          , "${C.tag.gf_reapi_linux_worker}:8981"
+          , "${C.tag.gf_reapi_rocm_worker}:8981"
+          ]
         }
       ]
 

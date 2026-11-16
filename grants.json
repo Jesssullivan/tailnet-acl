@@ -197,6 +197,10 @@
 	"dst": ["tag:gf-reapi-rocm-worker"],
 	"ip": ["tcp:8981"]
 }, {
+	"src": ["tag:gf-pool-cell-egress"],
+	"dst": ["tinyland-petting-zoo-mini"],
+	"ip": ["tcp:8981"]
+}, {
 	"src": ["tag:tinyland-lab-ci-ephemeral"],
 	"dst": ["tag:k8s-operator"],
 	"app": {"tailscale.com/cap/kubernetes": [{"impersonate": {"groups": ["adi-sms-deployers"]}}]},

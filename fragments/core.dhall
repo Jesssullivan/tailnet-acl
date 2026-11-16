@@ -82,6 +82,15 @@
 -- the softproxy route tags. None owns a tag, and tag:k8s-operator itself is
 -- not broadened. Their grants live in fragments/grants.dhall.
 --
+-- tag:gf-pool-cell-egress (Linear TIN-8468; rulings R816 and R819, comments
+-- 2de8bcb4 and 496f4843). The honey Tailscale operator's egress proxy for
+-- the GloriousFlywheel pool cell in namespace gf-pool. The operator mints
+-- it, so it is owned like tag:gf-reapi-cell-egress. It is a tag of its own
+-- because tag:gf-reapi-cell-egress is the gf-rbe cell's proxy, and the pool
+-- runs other organizations' build actions. It owns no tag, and
+-- tag:k8s-operator itself is not broadened. Its grant lives in
+-- fragments/grants.dhall.
+--
 -- icebox (Linear TIN-7812, Jess's rulings IB-1 and IB-3 to IB-7 in comments
 -- b0d7c34e and ba40e1a6; folds Jesssullivan/tailnet-acl#65, TIN-7811;
 -- xoxd-ai/icebox is owned by the PZM icebox seat under
@@ -169,6 +178,10 @@ let tagOwners
       , { mapKey = C.tag.gf_reapi_rocm_worker
         , mapValue =
           [ C.tag.tag_authority, C.autogroup.admin, C.group.dollhouse_admins ]
+        }
+      , { mapKey = C.tag.gf_pool_cell_egress
+        , mapValue =
+          [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
         }
       , { mapKey = C.tag.k8s
         , mapValue =
