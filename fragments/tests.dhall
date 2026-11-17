@@ -36,7 +36,9 @@
 --   * relay-1 reaches honey:25/465 and not honey's 22, 6443, 9345 or 10250,
 --     nor bumble's or sting's 22, 6443 or 10250;
 --   * neo, sting and bumble no longer reach relay-1:25 (the tailnet SMTP
---     probe retirement); sting and bumble do not reach relay-1:22 either;
+--     probe retirement); bumble does not reach relay-1:22 either. Sting
+--     reaches relay-1:22 and not 25, 9100 or 9154 (Linear TIN-6665; Jess,
+--     TIN-3692 afddaccb, "Grant sting (Recommended)");
 --   * sshTests: relay-1 has no root Tailscale SSH on the three voters.
 --
 -- sshTests (R-C1011): tag:mx-relay holds no Tailscale SSH right as any user
@@ -619,8 +621,12 @@ let tests
         }
       , { src = "tinyland-sting"
         , proto = "tcp"
-        , accept = [ "tinyland-loki-observability:3100" ]
-        , deny = [ "tinyland-relay-1:25", "tinyland-relay-1:22" ]
+        , accept = [ "tinyland-loki-observability:3100", "tinyland-relay-1:22" ]
+        , deny =
+          [ "tinyland-relay-1:25"
+          , "tinyland-relay-1:9100"
+          , "tinyland-relay-1:9154"
+          ]
         }
       , { src = "tinyland-bumble"
         , proto = "tcp"

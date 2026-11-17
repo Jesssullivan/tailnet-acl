@@ -34,7 +34,7 @@
 --     they are tagged devices that no group matches.
 --
 -- tag:mx-relay, the public MX relay-1 (R-C1011, TIN-5770 comment 86411716;
--- exploration blahaj #2328). These five rows are the tag's only rules, and
+-- exploration blahaj #2328). These six rows are the tag's only rules, and
 -- they are additive: tag:dollhouse and every other rule are unchanged. They
 -- take effect when the operator retags relay-1 from tag:dollhouse to
 -- tag:mx-relay in an attended window; until then the dollhouse mesh still
@@ -46,6 +46,11 @@
 --     IS the untagged break-glass path: a group source matches only untagged
 --     devices owned by its members, so R-C1011's "dollhouse-admins" and
 --     "untagged break-glass" sources collapse into one row on purpose.
+--   * sting -> relay on tcp 22 only (Linear TIN-6665; Jess, TIN-3692
+--     afddaccb, "Grant sting (Recommended)"). Sting is named by its host
+--     alias, one device. Its tags (tag:dollhouse, tag:dev, tag:k8s) are
+--     shared with other devices, so no tag row is used. The relay must still accept a key from sting; that is
+--     a relay-side step, not a policy one.
 --   * relay -> honey on tcp 25 (inbound transport) and 465 (Gmail send-as).
 --   * relay -> the write-only loki-push ingress on tcp 443 (the relay log
 --     shipper, TIN-6746 P4; this supersedes tailnet-acl#55, R-C964).
@@ -61,7 +66,7 @@
 -- (TIN-4324). It keys on the relay alias, so it survives the retag
 -- unchanged; keeping it changes nothing.
 -- IPv4 only: the tinyland-* host aliases are IPv4 literals, so the honey,
--- neo and loki-push ends of these rows admit IPv4 only. Every client of
+-- neo, sting and loki-push ends of these rows admit IPv4 only. Every client of
 -- these flows dials an IPv4 literal; a client pointed at a MagicDNS name
 -- (AAAA first) would time out, and that is not an ACL bug.
 -- tag:dollhouse and its rules are out of scope here (R-C1017). Pinned by
@@ -286,6 +291,7 @@ let grants
           [ C.tag.mx_relay ]
           [ "tcp:22", "tcp:25", "tcp:9100", "tcp:9154" ]
       , G.net [ "tinyland-neo" ] [ C.tag.mx_relay ] [ "tcp:22" ]
+      , G.net [ "tinyland-sting" ] [ C.tag.mx_relay ] [ "tcp:22" ]
       , G.net [ C.group.dollhouse_admins ] [ C.tag.mx_relay ] [ "tcp:22" ]
       , G.net [ C.tag.mx_relay ] [ "tinyland-honey" ] [ "tcp:25", "tcp:465" ]
       , G.net [ C.tag.mx_relay ] [ "tinyland-loki-push" ] [ "tcp:443" ]
