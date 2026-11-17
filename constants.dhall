@@ -63,6 +63,7 @@ let tag =
       , gf_reapi_cell_egress = "tag:gf-reapi-cell-egress"
       , gf_reapi_linux_worker = "tag:gf-reapi-linux-worker"
       , gf_reapi_rocm_worker = "tag:gf-reapi-rocm-worker"
+      , gf_pool_cell_egress = "tag:gf-pool-cell-egress"
       , printstack = "tag:printstack"
       , softproxy = "tag:softproxy"
       , softproxy_edge = "tag:softproxy-edge"
