@@ -2744,10 +2744,15 @@ class PolicyContractTest(unittest.TestCase):
     def _names_tag(tag: str, endpoint: str) -> bool:
         return endpoint == tag or endpoint.startswith(f"{tag}:")
 
-    def test_murmur_prober_owner_row_equals_icebox_prober(self) -> None:
+    def test_murmur_prober_owns_itself_beside_the_admins(self) -> None:
+        # R-MURMUR-20261118-aq (Linear TIN-7811 87049ff8): seats mint the
+        # lens key with an OAuth client holding both murmur device tags.
+        # A subset request needs a client tag that owns the requested tag.
         owners = self.policy["tagOwners"]
-        self.assertEqual(owners[self.MURMUR_PROBER], ["autogroup:admin"])
-        self.assertEqual(owners[self.MURMUR_PROBER], owners["tag:icebox-prober"])
+        self.assertEqual(owners[self.MURMUR_PROBER], [self.MURMUR_PROBER, "autogroup:admin"])
+        for tag, tag_owners in owners.items():
+            if tag != self.MURMUR_PROBER:
+                self.assertNotIn(self.MURMUR_PROBER, tag_owners, tag)
 
     def test_murmur_prober_grants_equal_icebox_prober_grants(self) -> None:
         def rows_from(tag: str) -> list:
