@@ -98,6 +98,16 @@
 -- The tag has no SSH rule, nodeAttr, autoApprover or host alias. Pinned by
 -- tests/test_policy_contract.py and by policy tests in fragments/tests.dhall.
 --
+-- tag:murmur-api, one operator-exposed Kubernetes Service (Linear
+-- TIN-8187). One row: sting reaches it on tcp 8443 and no other port.
+-- Sting is named by host, as for tag:app-edge. No group row exists, so
+-- the untagged devices of the two user identities do not reach it, and
+-- neo does not either.
+-- Nothing names the tag as a source, so the device has no outbound
+-- tailnet reach. The tag has no SSH rule, nodeAttr, autoApprover or host
+-- alias. Pinned by tests/test_policy_contract.py and by policy tests in
+-- fragments/tests.dhall.
+--
 -- tag:softproxy, GO-02 step 1 under Linear TIN-7729. xoxd-ai/softproxy
 -- SP-1 keeps it tailnet only with Funnel off. SP-25 gives it its own
 -- tailscale node. One row lets group:dollhouse-admins and neo reach the
@@ -314,6 +324,7 @@ let grants
           [ "tcp:9100" ]
       , G.net [ "tinyland-neo" ] [ C.tag.app_edge ] [ "tcp:22" ]
       , G.net [ "tinyland-sting" ] [ C.tag.app_edge ] [ "tcp:22" ]
+      , G.net [ "tinyland-sting" ] [ C.tag.murmur_api ] [ "tcp:8443" ]
       , G.cap [ C.tag.dollhouse ] [ C.tag.dollhouse ] [ G.Cap.Relay ]
       , G.cap [ C.tag.interim_build ] [ C.tag.honey_relay ] [ G.Cap.Relay ]
       , G.net
