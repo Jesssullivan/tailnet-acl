@@ -46,6 +46,18 @@
 -- It owns no tag, and tag:k8s-operator itself is not broadened. Its one
 -- grant lives in fragments/grants.dhall.
 --
+-- tag:murmur-prober and tag:murmur-console (Linear TIN-8188). The tenant
+-- that tag:icebox-* serves moves to the murmur name. The icebox name is
+-- retired. These two tags are added beside the icebox tags, which stay
+-- unchanged until the old namespace is retired.
+--   * tag:murmur-prober is the console's lens component. It mirrors
+--     tag:icebox-prober: owned by autogroup:admin alone, as that tag is.
+--     It owns no tag.
+--   * tag:murmur-console is the console's tailnet Service. The operator
+--     mints it, so it is owned like tag:murmur-api, by tag:k8s-operator
+--     plus the admins. It owns no tag.
+-- Their grants live in fragments/grants.dhall.
+--
 -- tag:softproxy (GO-02 step 1, Linear TIN-7729; xoxd-ai/softproxy rulings
 -- SP-1 and SP-25): Softproxy's own userspace tailscaled node on honey,
 -- joined with one single-use auth key the operator mints. Owned by
@@ -183,6 +195,11 @@ let tagOwners
         , mapValue = [ C.autogroup.admin, C.group.dollhouse_admins ]
         }
       , { mapKey = C.tag.murmur_api
+        , mapValue =
+          [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
+        }
+      , { mapKey = C.tag.murmur_prober, mapValue = [ C.autogroup.admin ] }
+      , { mapKey = C.tag.murmur_console
         , mapValue =
           [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
         }

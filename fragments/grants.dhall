@@ -108,6 +108,24 @@
 -- alias. Pinned by tests/test_policy_contract.py and by policy tests in
 -- fragments/tests.dhall.
 --
+-- tag:murmur-prober and tag:murmur-console (Linear TIN-8188). The tenant
+-- moves from the retired icebox name to murmur. Two rows. The icebox rows
+-- below stay exactly as they are.
+--   * tag:murmur-prober, the console's lens component, has the one row
+--     tag:icebox-prober has: tag:icebox-dev and tag:icebox-prod on tcp:22
+--     and tcp:443. No murmur device tag exists yet, so the destinations
+--     keep their icebox names. The row sits after the icebox rows at the
+--     end of the list. The prober gets no row to tag:murmur-api, because
+--     tag:icebox-prober has no row to an api.
+--   * neo reaches tag:murmur-console, the console's tailnet Service, on
+--     tcp:80 only. Neo is named by host, as in the tag:icebox-console and
+--     tag:annotate-edge rows. No group row exists, so Jess's untagged
+--     devices do not reach it.
+-- Nothing names tag:murmur-console as a source, so the Service has no
+-- outbound tailnet reach. Neither tag has an SSH rule, nodeAttr,
+-- autoApprover or host alias. Pinned by tests/test_policy_contract.py and
+-- by policy tests in fragments/tests.dhall.
+--
 -- tag:softproxy, GO-02 step 1 under Linear TIN-7729. xoxd-ai/softproxy
 -- SP-1 keeps it tailnet only with Funnel off. SP-25 gives it its own
 -- tailscale node. One row lets group:dollhouse-admins and neo reach the
@@ -198,6 +216,8 @@
 --     tag:gftb-idp row, because tsidp refuses tagged nodes.
 -- Devices never reach each other, users, dollhouse or honey:6443. No icebox
 -- tag has a nodeAttr (no Funnel) or an autoApprover.
+-- One later row also names the two device tags: the tag:murmur-prober row
+-- (Linear TIN-8188), the last in the list, described above.
 let C = ../constants.dhall
 
 let G = ../types/Grant.dhall
@@ -325,6 +345,7 @@ let grants
       , G.net [ "tinyland-neo" ] [ C.tag.app_edge ] [ "tcp:22" ]
       , G.net [ "tinyland-sting" ] [ C.tag.app_edge ] [ "tcp:22" ]
       , G.net [ "tinyland-sting" ] [ C.tag.murmur_api ] [ "tcp:8443" ]
+      , G.net [ "tinyland-neo" ] [ C.tag.murmur_console ] [ "tcp:80" ]
       , G.cap [ C.tag.dollhouse ] [ C.tag.dollhouse ] [ G.Cap.Relay ]
       , G.cap [ C.tag.interim_build ] [ C.tag.honey_relay ] [ G.Cap.Relay ]
       , G.net
@@ -479,6 +500,10 @@ let grants
           [ C.tag.icebox_prod ]
           [ "tcp:22", "tcp:443" ]
       , G.net [ C.tag.icebox_member ] [ C.tag.icebox_console ] [ "tcp:443" ]
+      , G.net
+          [ C.tag.murmur_prober ]
+          [ C.tag.icebox_dev, C.tag.icebox_prod ]
+          [ "tcp:22", "tcp:443" ]
       ]
 
 in  { grants }
