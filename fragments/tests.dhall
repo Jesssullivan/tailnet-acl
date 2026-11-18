@@ -97,6 +97,13 @@
 -- test pins that it is never a source and that no rule source selects it
 -- without naming it. sshTests pins that it holds no Tailscale SSH right.
 --
+-- tag:app-edge (Linear TIN-7649), the tag:sip-relay shape. Neo and sting
+-- reach it on 22 and not on 9100, 80 or 443. Both of Jess's identities do
+-- not reach it on 22 or 9100. No scrape source reaches it yet. The host has
+-- no flow out, so it has no row of its own. sshTests pins that it holds no
+-- Tailscale SSH right as a source, and that no admin source gets Tailscale
+-- SSH to it.
+--
 -- icebox (Linear TIN-7812; folds #65, TIN-7811). Jess, a dev and prod
 -- member, reaches every port on tag:icebox-dev, tag:icebox-prod on 22 and
 -- 443 but not 80, and the console on 443 but not 22. Neo reaches the
@@ -165,6 +172,16 @@ let sipRelaySeatDeny =
       , "${C.tag.sip_relay}:5060"
       , "${C.tag.sip_relay}:5061"
       ]
+
+let appEdgeDeny = [ "${C.tag.app_edge}:22", "${C.tag.app_edge}:9100" ]
+
+let appEdgeSeatDeny =
+      [ "${C.tag.app_edge}:9100"
+      , "${C.tag.app_edge}:80"
+      , "${C.tag.app_edge}:443"
+      ]
+
+let sshUsers = [ "root", "jess", "jsullivan2", "admin" ]
 
 let cadeMemoryWriterSenderDeny =
       [ "${C.tag.cade_memory_writer}:80"
@@ -837,6 +854,26 @@ let tests
         , accept = [ "tinyland-mbp-13:443" ]
         , deny = sipRelayDeny
         }
+      , { src = C.user.jess_sulliwood
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy}:443" ]
+        , deny = appEdgeDeny
+        }
+      , { src = C.user.jsullivan2_gmail
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy}:443" ]
+        , deny = appEdgeDeny
+        }
+      , { src = "tinyland-neo"
+        , proto = "tcp"
+        , accept = [ "${C.tag.app_edge}:22" ]
+        , deny = appEdgeSeatDeny
+        }
+      , { src = "tinyland-sting"
+        , proto = "tcp"
+        , accept = [ "${C.tag.app_edge}:22" ]
+        , deny = appEdgeSeatDeny
+        }
       , { src = C.tag.k8s
         , proto = "tcp"
         , accept = [ "${C.tag.k8s}:443" ]
@@ -975,6 +1012,28 @@ let sshTests
           ]
         , deny = [ "root", "jess", "jsullivan2", "admin" ]
         }
+      , { src = C.tag.app_edge
+        , dst =
+          [ "tinyland-honey"
+          , "tinyland-bumble"
+          , "tinyland-sting"
+          , "tinyland-petting-zoo-mini"
+          , C.tag.dollhouse
+          , C.tag.dev
+          , C.tag.switch
+          ]
+        , deny = sshUsers
+        }
+      , { src = C.user.jess_sulliwood
+        , dst = [ C.tag.app_edge ]
+        , deny = sshUsers
+        }
+      , { src = C.user.jsullivan2_gmail
+        , dst = [ C.tag.app_edge ]
+        , deny = sshUsers
+        }
+      , { src = "tinyland-neo", dst = [ C.tag.app_edge ], deny = sshUsers }
+      , { src = "tinyland-sting", dst = [ C.tag.app_edge ], deny = sshUsers }
       ]
 
 in  { tests, sshTests }

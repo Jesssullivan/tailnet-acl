@@ -34,6 +34,11 @@
 -- device can mint it. It owns no tag. Its grants live in
 -- fragments/grants.dhall.
 --
+-- tag:app-edge: a small public edge host (Linear TIN-7649). It follows the
+-- tag:sip-relay shape. Owned by autogroup:admin and group:dollhouse-admins
+-- only, so no tagged device can mint it. It owns no tag. Its grants live in
+-- fragments/grants.dhall.
+--
 -- tag:softproxy (GO-02 step 1, Linear TIN-7729; xoxd-ai/softproxy rulings
 -- SP-1 and SP-25): Softproxy's own userspace tailscaled node on honey,
 -- joined with one single-use auth key the operator mints. Owned by
@@ -165,6 +170,9 @@ let tagOwners
         , mapValue = [ C.autogroup.admin, C.group.dollhouse_admins ]
         }
       , { mapKey = C.tag.sip_relay
+        , mapValue = [ C.autogroup.admin, C.group.dollhouse_admins ]
+        }
+      , { mapKey = C.tag.app_edge
         , mapValue = [ C.autogroup.admin, C.group.dollhouse_admins ]
         }
       , { mapKey = C.tag.gf_reapi_cell_egress
