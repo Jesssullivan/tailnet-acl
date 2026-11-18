@@ -113,6 +113,16 @@
 -- no tagged node. sshTests pins that it holds no Tailscale SSH right as a
 -- source, and that no seat or admin source gets Tailscale SSH to it.
 --
+-- tag:murmur-prober and tag:murmur-console (Linear TIN-8188). The prober
+-- row copies the tag:icebox-prober row: tag:icebox-dev on 22 and
+-- tag:icebox-prod on 443, and not tag:icebox-dev on 80 or the icebox
+-- console on 443. It adds denials for tag:murmur-api on 8443 and the
+-- murmur console on 80. Neo reaches the murmur console on 80 and not on
+-- 22, 443 or 8443. Sting and the two user identities do not reach it on
+-- 80. The console has no flow out, so it has no row of its own. sshTests
+-- pins that neither tag holds a Tailscale SSH right as a source, and that
+-- no seat or admin source gets Tailscale SSH to either tag.
+--
 -- icebox (Linear TIN-7812; folds #65, TIN-7811). Jess, a dev and prod
 -- member, reaches every port on tag:icebox-dev, tag:icebox-prod on 22 and
 -- 443 but not 80, and the console on 443 but not 22. Neo reaches the
@@ -201,6 +211,15 @@ let murmurApiSeatDeny =
       , "${C.tag.murmur_api}:80"
       , "${C.tag.murmur_api}:443"
       ]
+
+let murmurConsoleSeatDeny =
+      [ "${C.tag.murmur_console}:22"
+      , "${C.tag.murmur_console}:443"
+      , "${C.tag.murmur_console}:8443"
+      ]
+
+let murmurConsoleDeny =
+      [ "${C.tag.murmur_console}:80", "${C.tag.murmur_console}:443" ]
 
 let sshUsers = [ "root", "jess", "jsullivan2", "admin" ]
 
@@ -915,6 +934,41 @@ let tests
         , accept = [ "${C.tag.softproxy}:443" ]
         , deny = murmurApiDeny
         }
+      , { src = C.tag.murmur_prober
+        , proto = "tcp"
+        , accept = [ "${C.tag.icebox_dev}:22", "${C.tag.icebox_prod}:443" ]
+        , deny =
+          [ "${C.tag.icebox_dev}:80"
+          , "${C.tag.icebox_console}:443"
+          , "${C.tag.dollhouse}:22"
+          , "tinyland-honey:443"
+          , "tinyland-honey:6443"
+          , "ai:443"
+          , "192.168.30.105:22"
+          , "${C.tag.murmur_api}:8443"
+          , "${C.tag.murmur_console}:80"
+          ]
+        }
+      , { src = "tinyland-neo"
+        , proto = "tcp"
+        , accept = [ "${C.tag.murmur_console}:80" ]
+        , deny = murmurConsoleSeatDeny
+        }
+      , { src = "tinyland-sting"
+        , proto = "tcp"
+        , accept = [ "${C.tag.murmur_api}:8443" ]
+        , deny = [ "${C.tag.murmur_console}:80" ]
+        }
+      , { src = C.user.jess_sulliwood
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy}:443" ]
+        , deny = murmurConsoleDeny
+        }
+      , { src = C.user.jsullivan2_gmail
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy}:443" ]
+        , deny = murmurConsoleDeny
+        }
       , { src = C.tag.k8s
         , proto = "tcp"
         , accept = [ "${C.tag.k8s}:443" ]
@@ -1097,6 +1151,46 @@ let sshTests
         }
       , { src = "tinyland-neo", dst = [ C.tag.murmur_api ], deny = sshUsers }
       , { src = "tinyland-sting", dst = [ C.tag.murmur_api ], deny = sshUsers }
+      , { src = C.tag.murmur_prober
+        , dst =
+          [ "tinyland-honey"
+          , "tinyland-bumble"
+          , "tinyland-sting"
+          , "tinyland-petting-zoo-mini"
+          , C.tag.dollhouse
+          , C.tag.dev
+          , C.tag.switch
+          ]
+        , deny = sshUsers
+        }
+      , { src = C.tag.murmur_console
+        , dst =
+          [ "tinyland-honey"
+          , "tinyland-bumble"
+          , "tinyland-sting"
+          , "tinyland-petting-zoo-mini"
+          , C.tag.dollhouse
+          , C.tag.dev
+          , C.tag.switch
+          ]
+        , deny = sshUsers
+        }
+      , { src = C.user.jess_sulliwood
+        , dst = [ C.tag.murmur_prober, C.tag.murmur_console ]
+        , deny = sshUsers
+        }
+      , { src = C.user.jsullivan2_gmail
+        , dst = [ C.tag.murmur_prober, C.tag.murmur_console ]
+        , deny = sshUsers
+        }
+      , { src = "tinyland-neo"
+        , dst = [ C.tag.murmur_prober, C.tag.murmur_console ]
+        , deny = sshUsers
+        }
+      , { src = "tinyland-sting"
+        , dst = [ C.tag.murmur_prober, C.tag.murmur_console ]
+        , deny = sshUsers
+        }
       ]
 
 in  { tests, sshTests }

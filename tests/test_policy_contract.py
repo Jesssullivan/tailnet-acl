@@ -662,7 +662,7 @@ class PolicyContractTest(unittest.TestCase):
                     "tinyland-petting-zoo-mini", "tag:dollhouse", "tag:dev", "tag:switch",
                 ],
                 "deny": ["root", "jess", "jsullivan2", "admin"],
-            }, *self.APP_EDGE_SSH_TESTS, *self.MURMUR_API_SSH_TESTS],
+            }, *self.APP_EDGE_SSH_TESTS, *self.MURMUR_API_SSH_TESTS, *self.MURMUR_TAGS_SSH_TESTS],
         )
         for entry in self.policy["sshTests"]:
             self.assertTrue(all(entry[key] for key in entry), entry)
@@ -873,7 +873,7 @@ class PolicyContractTest(unittest.TestCase):
                 "tag:ci-agent", "tag:kvm-proxy",
                 "tag:tag-authority", "tag:gftb-idp", "tag:tofu-state", "tag:infra-idp",
                 "tag:interim-build", "tag:honey-relay", "tag:mx-relay", "tag:sip-relay",
-                "tag:app-edge", "tag:murmur-api",
+                "tag:app-edge", "tag:murmur-api", "tag:murmur-prober", "tag:murmur-console",
                 "tag:gf-reapi-cell-egress", "tag:gf-reapi-linux-worker",
                 "tag:gf-reapi-rocm-worker", "tag:gf-pool-cell-egress",
                 "tag:printstack", "tag:softproxy",
@@ -1664,6 +1664,7 @@ class PolicyContractTest(unittest.TestCase):
                 *self.SIP_RELAY_POLICY_TESTS,
                 *self.APP_EDGE_POLICY_TESTS,
                 *self.MURMUR_API_POLICY_TESTS,
+                *self.MURMUR_TAGS_POLICY_TESTS,
                 *self.NODE_EDGE_POLICY_TESTS,
                 *self.CADE_MEMORY_WRITER_POLICY_TESTS,
                 self.GF_POOL_CELL_EGRESS_POLICY_TEST,
@@ -2661,6 +2662,177 @@ class PolicyContractTest(unittest.TestCase):
         for entry in self.MURMUR_API_SSH_TESTS:
             self.assertIn(entry, self.policy["sshTests"])
 
+    # tag:murmur-prober and tag:murmur-console (Linear TIN-8188). The tenant
+    # moves from the retired icebox name to murmur, and the icebox tags stay
+    # unchanged until the old namespace is retired. The prober is the
+    # console's lens component and mirrors tag:icebox-prober exactly: the
+    # same owner row and the same one grant, with the destinations under
+    # their icebox names, since no murmur device tag exists. The console is
+    # the console's tailnet Service. The operator mints it, so it is owned
+    # like tag:murmur-api. One grant in from neo on tcp:80, nothing out.
+    MURMUR_PROBER = "tag:murmur-prober"
+    MURMUR_CONSOLE = "tag:murmur-console"
+    MURMUR_PROBER_GRANTS = [
+        {
+            "src": ["tag:murmur-prober"],
+            "dst": ["tag:icebox-dev", "tag:icebox-prod"],
+            "ip": ["tcp:22", "tcp:443"],
+        },
+    ]
+    MURMUR_CONSOLE_GRANTS = [
+        {"src": ["tinyland-neo"], "dst": ["tag:murmur-console"], "ip": ["tcp:80"]},
+    ]
+    MURMUR_CONSOLE_DENY = ["tag:murmur-console:80", "tag:murmur-console:443"]
+    MURMUR_TAGS_POLICY_TESTS = [
+        {
+            "src": "tag:murmur-prober",
+            "proto": "tcp",
+            "accept": ["tag:icebox-dev:22", "tag:icebox-prod:443"],
+            "deny": [
+                "tag:icebox-dev:80",
+                "tag:icebox-console:443",
+                "tag:dollhouse:22",
+                "tinyland-honey:443",
+                "tinyland-honey:6443",
+                "ai:443",
+                "192.168.30.105:22",
+                "tag:murmur-api:8443",
+                "tag:murmur-console:80",
+            ],
+        },
+        {
+            "src": "tinyland-neo",
+            "proto": "tcp",
+            "accept": ["tag:murmur-console:80"],
+            "deny": ["tag:murmur-console:22", "tag:murmur-console:443", "tag:murmur-console:8443"],
+        },
+        {
+            "src": "tinyland-sting",
+            "proto": "tcp",
+            "accept": ["tag:murmur-api:8443"],
+            "deny": ["tag:murmur-console:80"],
+        },
+    ] + [
+        {
+            "src": src,
+            "proto": "tcp",
+            "accept": ["tag:softproxy:443"],
+            "deny": deny,
+        }
+        # A comprehension in a class body sees class names only in its first clause.
+        for deny, admins in ((MURMUR_CONSOLE_DENY, APP_EDGE_ADMIN_USERS),)
+        for src in admins
+    ]
+    MURMUR_TAGS_SSH_TESTS = [
+        {
+            "src": src,
+            "dst": [
+                "tinyland-honey", "tinyland-bumble", "tinyland-sting",
+                "tinyland-petting-zoo-mini", "tag:dollhouse", "tag:dev", "tag:switch",
+            ],
+            "deny": users,
+        }
+        for users in (APP_EDGE_SSH_USERS,)
+        for src in ("tag:murmur-prober", "tag:murmur-console")
+    ] + [
+        {"src": src, "dst": ["tag:murmur-prober", "tag:murmur-console"], "deny": users}
+        for users, admins in ((APP_EDGE_SSH_USERS, APP_EDGE_ADMIN_USERS),)
+        for src in (*admins, "tinyland-neo", "tinyland-sting")
+    ]
+
+    @staticmethod
+    def _names_tag(tag: str, endpoint: str) -> bool:
+        return endpoint == tag or endpoint.startswith(f"{tag}:")
+
+    def test_murmur_prober_owner_row_equals_icebox_prober(self) -> None:
+        owners = self.policy["tagOwners"]
+        self.assertEqual(owners[self.MURMUR_PROBER], ["autogroup:admin"])
+        self.assertEqual(owners[self.MURMUR_PROBER], owners["tag:icebox-prober"])
+
+    def test_murmur_prober_grants_equal_icebox_prober_grants(self) -> None:
+        def rows_from(tag: str) -> list:
+            return [
+                {**row, "src": ["SRC" if s == tag else s for s in row["src"]]}
+                for surface in ("acls", "grants", "ssh")
+                for row in self.policy[surface]
+                if tag in row["src"]
+            ]
+        self.assertEqual(rows_from(self.MURMUR_PROBER), rows_from("tag:icebox-prober"))
+        self.assertEqual(
+            [row for row in self.policy["grants"] if self.MURMUR_PROBER in row["src"]],
+            self.MURMUR_PROBER_GRANTS,
+        )
+
+    def test_murmur_prober_policy_test_mirrors_icebox_prober(self) -> None:
+        old = next(t for t in self.policy["tests"] if t["src"] == "tag:icebox-prober")
+        new = next(t for t in self.policy["tests"] if t["src"] == self.MURMUR_PROBER)
+        self.assertEqual(new["accept"], old["accept"])
+        self.assertEqual(new["deny"][: len(old["deny"])], old["deny"])
+
+    def test_murmur_console_is_owned_like_murmur_api_and_owns_no_tag(self) -> None:
+        owners = self.policy["tagOwners"]
+        self.assertEqual(
+            owners[self.MURMUR_CONSOLE],
+            ["tag:k8s-operator", "autogroup:admin", "group:dollhouse-admins"],
+        )
+        self.assertEqual(owners[self.MURMUR_CONSOLE], owners[self.MURMUR_API])
+        for tag in (self.MURMUR_PROBER, self.MURMUR_CONSOLE):
+            self.assertFalse([t for t, who in owners.items() if tag in who], tag)
+            self.assertNotIn(tag, self.policy["hosts"])
+
+    def test_murmur_console_inbound_is_exactly_one_grant_from_neo(self) -> None:
+        self.assertEqual(
+            [
+                row for row in self.policy["grants"]
+                if any(self._names_tag(self.MURMUR_CONSOLE, d) for d in row["dst"])
+            ],
+            self.MURMUR_CONSOLE_GRANTS,
+        )
+        for row in self.policy["acls"]:
+            self.assertFalse(any(self._names_tag(self.MURMUR_CONSOLE, d) for d in row["dst"]), row)
+
+    def test_murmur_console_is_never_a_source(self) -> None:
+        for surface in ("acls", "grants", "ssh"):
+            for rule in self.policy[surface]:
+                self.assertFalse(
+                    any(self._names_tag(self.MURMUR_CONSOLE, s) for s in rule["src"]), rule
+                )
+
+    def test_murmur_prober_is_never_a_destination(self) -> None:
+        for surface in ("acls", "grants", "ssh"):
+            for rule in self.policy[surface]:
+                self.assertFalse(
+                    any(self._names_tag(self.MURMUR_PROBER, d) for d in rule["dst"]), rule
+                )
+
+    def test_murmur_tags_have_no_ssh_rule_funnel_node_attr_or_auto_approver(self) -> None:
+        approvers = self.policy["autoApprovers"]
+        for tag in (self.MURMUR_PROBER, self.MURMUR_CONSOLE):
+            for rule in self.policy["ssh"]:
+                self.assertNotIn(tag, rule["src"] + rule["dst"], rule)
+            for row in self.policy["nodeAttrs"]:
+                self.assertNotIn(tag, row["target"], row)
+            self.assertNotIn(tag, approvers["exitNode"])
+            for section in ("routes", "services"):
+                for tags in approvers.get(section, {}).values():
+                    self.assertNotIn(tag, tags)
+
+    def test_murmur_console_policy_tests_accept_only_neo_on_80(self) -> None:
+        accepted = {
+            (entry["src"], target)
+            for entry in self.policy["tests"]
+            for target in entry["accept"]
+            if self._names_tag(self.MURMUR_CONSOLE, target)
+        }
+        self.assertEqual(accepted, {("tinyland-neo", "tag:murmur-console:80")})
+        for src in ("tinyland-sting", self.MURMUR_PROBER, *self.APP_EDGE_ADMIN_USERS):
+            denies = [d for t in self.policy["tests"] if t["src"] == src for d in t["deny"]]
+            self.assertIn("tag:murmur-console:80", denies, src)
+
+    def test_ssh_tests_deny_tailscale_ssh_to_and_from_murmur_tags(self) -> None:
+        for entry in self.MURMUR_TAGS_SSH_TESTS:
+            self.assertIn(entry, self.policy["sshTests"])
+
     # icebox (Linear TIN-7812; Jess's rulings IB-1 and IB-3 to IB-7 in
     # comments b0d7c34e and ba40e1a6; folds Jesssullivan/tailnet-acl#65,
     # TIN-7811, R-ICEBOX-20261030-a; IB-10). Four groups and five admin-owned tags.
@@ -2837,9 +3009,11 @@ class PolicyContractTest(unittest.TestCase):
 
     def test_icebox_names_appear_only_in_the_icebox_rows(self) -> None:
         self.assertFalse([row for row in self.policy["acls"] if self._icebox_names(row)])
+        # The tag:murmur-prober row (TIN-8188) names the two device tags as
+        # destinations, so it is the one row outside ICEBOX_GRANTS here.
         self.assertEqual(
             [row for row in self.policy["grants"] if self._icebox_names(row)],
-            self.ICEBOX_GRANTS,
+            self.ICEBOX_GRANTS + self.MURMUR_PROBER_GRANTS,
         )
         self.assertEqual(
             [row for row in self.policy["ssh"] if self._icebox_names(row)],
@@ -2970,7 +3144,7 @@ class PolicyContractTest(unittest.TestCase):
 
     def test_icebox_policy_tests_are_exact(self) -> None:
         rows = [t for t in self.policy["tests"] if "icebox" in json.dumps(t)]
-        self.assertEqual(rows, self.ICEBOX_POLICY_TESTS)
+        self.assertEqual(rows, self.ICEBOX_POLICY_TESTS + [self.MURMUR_TAGS_POLICY_TESTS[0]])
         network = ipaddress.ip_network("192.168.0.0/16")
         self.assertIn(ipaddress.ip_address("192.168.30.105"), network)
 

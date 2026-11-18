@@ -134,6 +134,10 @@
 	"dst": ["tag:murmur-api"],
 	"ip": ["tcp:8443"]
 }, {
+	"src": ["tinyland-neo"],
+	"dst": ["tag:murmur-console"],
+	"ip": ["tcp:80"]
+}, {
 	"src": ["tag:dollhouse"],
 	"dst": ["tag:dollhouse"],
 	"app": {"tailscale.com/cap/relay": [{}]}
@@ -296,6 +300,10 @@
 	"src": ["tag:icebox-member"],
 	"dst": ["tag:icebox-console"],
 	"ip": ["tcp:443"]
+}, {
+	"src": ["tag:murmur-prober"],
+	"dst": ["tag:icebox-dev", "tag:icebox-prod"],
+	"ip": ["tcp:22", "tcp:443"]
 }, {
 	"src": ["tinyland-sting", "tinyland-neo", "tinyland-yoga", "tinyland-honey"],
 	"dst": ["tag:cade-memory-writer"],
