@@ -2741,7 +2741,7 @@ class PolicyContractTest(unittest.TestCase):
     ]
 
     @staticmethod
-    def _names(tag: str, endpoint: str) -> bool:
+    def _names_tag(tag: str, endpoint: str) -> bool:
         return endpoint == tag or endpoint.startswith(f"{tag}:")
 
     def test_murmur_prober_owner_row_equals_icebox_prober(self) -> None:
@@ -2784,25 +2784,25 @@ class PolicyContractTest(unittest.TestCase):
         self.assertEqual(
             [
                 row for row in self.policy["grants"]
-                if any(self._names(self.MURMUR_CONSOLE, d) for d in row["dst"])
+                if any(self._names_tag(self.MURMUR_CONSOLE, d) for d in row["dst"])
             ],
             self.MURMUR_CONSOLE_GRANTS,
         )
         for row in self.policy["acls"]:
-            self.assertFalse(any(self._names(self.MURMUR_CONSOLE, d) for d in row["dst"]), row)
+            self.assertFalse(any(self._names_tag(self.MURMUR_CONSOLE, d) for d in row["dst"]), row)
 
     def test_murmur_console_is_never_a_source(self) -> None:
         for surface in ("acls", "grants", "ssh"):
             for rule in self.policy[surface]:
                 self.assertFalse(
-                    any(self._names(self.MURMUR_CONSOLE, s) for s in rule["src"]), rule
+                    any(self._names_tag(self.MURMUR_CONSOLE, s) for s in rule["src"]), rule
                 )
 
     def test_murmur_prober_is_never_a_destination(self) -> None:
         for surface in ("acls", "grants", "ssh"):
             for rule in self.policy[surface]:
                 self.assertFalse(
-                    any(self._names(self.MURMUR_PROBER, d) for d in rule["dst"]), rule
+                    any(self._names_tag(self.MURMUR_PROBER, d) for d in rule["dst"]), rule
                 )
 
     def test_murmur_tags_have_no_ssh_rule_funnel_node_attr_or_auto_approver(self) -> None:
@@ -2822,7 +2822,7 @@ class PolicyContractTest(unittest.TestCase):
             (entry["src"], target)
             for entry in self.policy["tests"]
             for target in entry["accept"]
-            if self._names(self.MURMUR_CONSOLE, target)
+            if self._names_tag(self.MURMUR_CONSOLE, target)
         }
         self.assertEqual(accepted, {("tinyland-neo", "tag:murmur-console:80")})
         for src in ("tinyland-sting", self.MURMUR_PROBER, *self.APP_EDGE_ADMIN_USERS):
