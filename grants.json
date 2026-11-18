@@ -94,6 +94,10 @@
 	"dst": ["tag:mx-relay"],
 	"ip": ["tcp:22"]
 }, {
+	"src": ["tinyland-sting"],
+	"dst": ["tag:mx-relay"],
+	"ip": ["tcp:22"]
+}, {
 	"src": ["group:dollhouse-admins"],
 	"dst": ["tag:mx-relay"],
 	"ip": ["tcp:22"]

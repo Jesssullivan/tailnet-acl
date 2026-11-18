@@ -355,7 +355,7 @@ class PolicyContractTest(unittest.TestCase):
     # R-C1011 (TIN-5770 comment 86411716; exploration blahaj #2328): the
     # public MX relay-1 moves alone from tag:dollhouse to tag:mx-relay, which
     # leaves the dollhouse mesh (tag:dollhouse:*, every voter port) and the
-    # dollhouse root Tailscale SSH rule. The change is additive: these five
+    # dollhouse root Tailscale SSH rule. The change is additive: these six
     # grants are the tag's only rules and tag:dollhouse is unchanged. The
     # loki-push row supersedes tailnet-acl#55 (R-C964).
     MX_RELAY = "tag:mx-relay"
@@ -365,6 +365,8 @@ class PolicyContractTest(unittest.TestCase):
         {"src": ["tinyland-honey"], "dst": ["tag:mx-relay"],
          "ip": ["tcp:22", "tcp:25", "tcp:9100", "tcp:9154"]},
         {"src": ["tinyland-neo"], "dst": ["tag:mx-relay"], "ip": ["tcp:22"]},
+        # Linear TIN-6665 (Jess, TIN-3692 afddaccb): sting by host alias, 22 only.
+        {"src": ["tinyland-sting"], "dst": ["tag:mx-relay"], "ip": ["tcp:22"]},
         {"src": ["group:dollhouse-admins"], "dst": ["tag:mx-relay"], "ip": ["tcp:22"]},
         {"src": ["tag:mx-relay"], "dst": ["tinyland-honey"], "ip": ["tcp:25", "tcp:465"]},
         {"src": ["tag:mx-relay"], "dst": ["tinyland-loki-push"], "ip": ["tcp:443"]},
@@ -460,7 +462,7 @@ class PolicyContractTest(unittest.TestCase):
         mesh = {"action": "accept", "src": ["tag:dollhouse"], "dst": ["tag:dollhouse:*"]}
         self.assertEqual(self.policy["acls"].count(mesh), 1)
 
-    def test_mx_relay_rules_are_exactly_the_five_ruled_grants(self) -> None:
+    def test_mx_relay_rules_are_exactly_the_six_ruled_grants(self) -> None:
         tag = self.MX_RELAY
         self.assertEqual(
             [row for row in self.policy["grants"] if tag in row["src"] + row["dst"]],
@@ -478,7 +480,7 @@ class PolicyContractTest(unittest.TestCase):
         # The loki-push alias is reached only by the relay shipper row.
         self.assertEqual(
             [row for row in self.policy["grants"] if "tinyland-loki-push" in row["dst"]],
-            [self.MX_RELAY_GRANTS[4]],
+            [self.MX_RELAY_GRANTS[5]],
         )
         for row in self.policy["acls"]:
             self.assertFalse(any(d.startswith("tinyland-loki-push:") for d in row["dst"]), row)
@@ -529,7 +531,7 @@ class PolicyContractTest(unittest.TestCase):
         # relay:25 are retired (R-C1011); honey is the one tailnet SMTP client.
         self.assertEqual(
             [row for row in self.policy["grants"] if any(self._names_relay(d) for d in row["dst"])],
-            [self.EXPORTER_EGRESS_GRANT] + self.MX_RELAY_GRANTS[:3],
+            [self.EXPORTER_EGRESS_GRANT] + self.MX_RELAY_GRANTS[:4],
         )
         for row in self.policy["acls"]:
             self.assertFalse(
@@ -562,14 +564,27 @@ class PolicyContractTest(unittest.TestCase):
         # R-C1011 names dollhouse-admins and untagged break-glass separately;
         # a group source matches only its members' untagged devices, so one
         # row is both. Its members are exactly the operator's two identities.
-        self.assertIn(self.MX_RELAY_GRANTS[2], self.policy["grants"])
-        self.assertEqual(self.MX_RELAY_GRANTS[2]["src"], ["group:dollhouse-admins"])
+        self.assertIn(self.MX_RELAY_GRANTS[3], self.policy["grants"])
+        self.assertEqual(self.MX_RELAY_GRANTS[3]["src"], ["group:dollhouse-admins"])
         self.assertEqual(
             self.policy["groups"]["group:dollhouse-admins"],
             ["jsullivan2@gmail.com", "jess@sulliwood.org"],
         )
         self.assertIn(self.ADMIN_USER_TO_RELAY_POLICY_TEST, self.policy["tests"])
         self.assertIn(self.NEO_TO_RELAY_POLICY_TEST, self.policy["tests"])
+
+    def test_sting_reaches_the_relay_on_22_only_by_host_alias(self) -> None:
+        # Linear TIN-6665 (Jess, TIN-3692 afddaccb, "Grant sting
+        # (Recommended)"): sting reaches the relay on tcp 22 and no other port.
+        # It is named by its host alias, never by a tag it shares.
+        sting_rows = [
+            row for row in self.policy["grants"]
+            if "tinyland-sting" in row["src"] and any(self._names_relay(d) for d in row["dst"])
+        ]
+        self.assertEqual(sting_rows, [self.MX_RELAY_GRANTS[2]])
+        self.assertEqual(sting_rows[0]["src"], ["tinyland-sting"])
+        self.assertEqual(sting_rows[0]["ip"], ["tcp:22"])
+        self.assertIn(self.POST_RETAG_RATCHET_TESTS[2], self.policy["tests"])
 
     # R-C1011 closeout step 3 (R-C1033; T0 2026-10-21T05:52:46Z, receipt
     # TIN-5770 8c460876). Tests that name the relay by its alias, which
@@ -596,8 +611,8 @@ class PolicyContractTest(unittest.TestCase):
         {
             "src": "tinyland-sting",
             "proto": "tcp",
-            "accept": ["tinyland-loki-observability:3100"],
-            "deny": ["tinyland-relay-1:25", "tinyland-relay-1:22"],
+            "accept": ["tinyland-loki-observability:3100", "tinyland-relay-1:22"],
+            "deny": ["tinyland-relay-1:25", "tinyland-relay-1:9100", "tinyland-relay-1:9154"],
         },
         {
             "src": "tinyland-bumble",
