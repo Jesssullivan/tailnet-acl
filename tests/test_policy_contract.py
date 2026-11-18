@@ -662,7 +662,7 @@ class PolicyContractTest(unittest.TestCase):
                     "tinyland-petting-zoo-mini", "tag:dollhouse", "tag:dev", "tag:switch",
                 ],
                 "deny": ["root", "jess", "jsullivan2", "admin"],
-            }, *self.APP_EDGE_SSH_TESTS],
+            }, *self.APP_EDGE_SSH_TESTS, *self.MURMUR_API_SSH_TESTS],
         )
         for entry in self.policy["sshTests"]:
             self.assertTrue(all(entry[key] for key in entry), entry)
@@ -873,7 +873,7 @@ class PolicyContractTest(unittest.TestCase):
                 "tag:ci-agent", "tag:kvm-proxy",
                 "tag:tag-authority", "tag:gftb-idp", "tag:tofu-state", "tag:infra-idp",
                 "tag:interim-build", "tag:honey-relay", "tag:mx-relay", "tag:sip-relay",
-                "tag:app-edge",
+                "tag:app-edge", "tag:murmur-api",
                 "tag:gf-reapi-cell-egress", "tag:gf-reapi-linux-worker",
                 "tag:gf-reapi-rocm-worker", "tag:gf-pool-cell-egress",
                 "tag:printstack", "tag:softproxy",
@@ -1663,6 +1663,7 @@ class PolicyContractTest(unittest.TestCase):
                 *self.ICEBOX_POLICY_TESTS,
                 *self.SIP_RELAY_POLICY_TESTS,
                 *self.APP_EDGE_POLICY_TESTS,
+                *self.MURMUR_API_POLICY_TESTS,
                 *self.NODE_EDGE_POLICY_TESTS,
                 *self.CADE_MEMORY_WRITER_POLICY_TESTS,
                 self.GF_POOL_CELL_EGRESS_POLICY_TEST,
@@ -2544,6 +2545,120 @@ class PolicyContractTest(unittest.TestCase):
 
     def test_ssh_tests_deny_tailscale_ssh_to_app_edge(self) -> None:
         for entry in self.APP_EDGE_SSH_TESTS:
+            self.assertIn(entry, self.policy["sshTests"])
+
+    # tag:murmur-api, one Kubernetes Service the honey Tailscale operator
+    # exposes on tcp 8443 (Linear TIN-8187). The operator mints the tag, so it
+    # is owned like tag:k8s-egress-nodeexporter. One grant in from sting on
+    # tcp:8443, nothing out. Policy tests need a non-empty accept and the
+    # device has no flow, so the outbound denials are proved here over every
+    # rule and by sshTests.
+    MURMUR_API = "tag:murmur-api"
+    MURMUR_API_GRANTS = [
+        {"src": ["tinyland-sting"], "dst": ["tag:murmur-api"], "ip": ["tcp:8443"]},
+    ]
+    MURMUR_API_DENY = ["tag:murmur-api:8443", "tag:murmur-api:22", "tag:murmur-api:443"]
+    MURMUR_API_POLICY_TESTS = [
+        {
+            "src": "tinyland-sting",
+            "proto": "tcp",
+            "accept": ["tag:murmur-api:8443"],
+            "deny": ["tag:murmur-api:22", "tag:murmur-api:80", "tag:murmur-api:443"],
+        },
+        {
+            "src": "tinyland-neo",
+            "proto": "tcp",
+            "accept": ["tag:app-edge:22"],
+            "deny": MURMUR_API_DENY,
+        },
+    ] + [
+        {
+            "src": src,
+            "proto": "tcp",
+            "accept": ["tag:softproxy:443"],
+            "deny": deny,
+        }
+        # A comprehension in a class body sees class names only in its first clause.
+        for deny, admins in ((MURMUR_API_DENY, APP_EDGE_ADMIN_USERS),)
+        for src in admins
+    ]
+    MURMUR_API_SSH_TESTS = [
+        {
+            "src": "tag:murmur-api",
+            "dst": [
+                "tinyland-honey", "tinyland-bumble", "tinyland-sting",
+                "tinyland-petting-zoo-mini", "tag:dollhouse", "tag:dev", "tag:switch",
+            ],
+            "deny": APP_EDGE_SSH_USERS,
+        },
+    ] + [
+        {"src": src, "dst": ["tag:murmur-api"], "deny": users}
+        for users, admins in ((APP_EDGE_SSH_USERS, APP_EDGE_ADMIN_USERS),)
+        for src in (*admins, "tinyland-neo", "tinyland-sting")
+    ]
+
+    def _names_murmur_api(self, endpoint: str) -> bool:
+        return endpoint == self.MURMUR_API or endpoint.startswith(f"{self.MURMUR_API}:")
+
+    def test_murmur_api_is_owned_like_operator_tags_and_owns_no_tag(self) -> None:
+        owners = self.policy["tagOwners"]
+        self.assertEqual(
+            owners[self.MURMUR_API],
+            ["tag:k8s-operator", "autogroup:admin", "group:dollhouse-admins"],
+        )
+        self.assertEqual(owners[self.MURMUR_API], owners["tag:k8s-egress-nodeexporter"])
+        self.assertFalse([tag for tag, who in owners.items() if self.MURMUR_API in who])
+        self.assertNotIn(self.MURMUR_API, self.policy["hosts"])
+
+    def test_murmur_api_inbound_is_exactly_one_grant_from_sting(self) -> None:
+        self.assertEqual(
+            [row for row in self.policy["grants"] if any(self._names_murmur_api(d) for d in row["dst"])],
+            self.MURMUR_API_GRANTS,
+        )
+        for row in self.policy["acls"]:
+            self.assertFalse(any(self._names_murmur_api(d) for d in row["dst"]), row)
+
+    def test_murmur_api_is_never_a_source(self) -> None:
+        for surface in ("acls", "grants", "ssh"):
+            for rule in self.policy[surface]:
+                self.assertFalse(any(self._names_murmur_api(s) for s in rule["src"]), rule)
+
+    def test_murmur_api_reaches_no_tagged_node(self) -> None:
+        for tag in self.policy["tagOwners"]:
+            for row in self.policy["grants"]:
+                if any(d == tag or d.startswith(f"{tag}:") for d in row["dst"]):
+                    self.assertNotIn(self.MURMUR_API, row["src"], (tag, row))
+            for rule in self.policy["acls"]:
+                if any(d.startswith(f"{tag}:") for d in rule["dst"]):
+                    self.assertNotIn(self.MURMUR_API, rule["src"], (tag, rule))
+
+    def test_murmur_api_has_no_ssh_rule_funnel_node_attr_or_auto_approver(self) -> None:
+        for rule in self.policy["ssh"]:
+            self.assertNotIn(self.MURMUR_API, rule["src"] + rule["dst"], rule)
+        for row in self.policy["nodeAttrs"]:
+            self.assertNotIn(self.MURMUR_API, row["target"], row)
+            if "funnel" in row["attr"]:
+                self.assertFalse({"*", "autogroup:tagged"} & set(row["target"]), row)
+        approvers = self.policy["autoApprovers"]
+        self.assertNotIn(self.MURMUR_API, approvers["exitNode"])
+        for section in ("routes", "services"):
+            for tags in approvers.get(section, {}).values():
+                self.assertNotIn(self.MURMUR_API, tags)
+
+    def test_murmur_api_policy_tests_accept_only_sting_on_8443(self) -> None:
+        accepted = {
+            (entry["src"], target)
+            for entry in self.policy["tests"]
+            for target in entry["accept"]
+            if self._names_murmur_api(target)
+        }
+        self.assertEqual(accepted, {("tinyland-sting", "tag:murmur-api:8443")})
+        for src in ("tinyland-neo", *self.APP_EDGE_ADMIN_USERS):
+            denies = [d for t in self.policy["tests"] if t["src"] == src for d in t["deny"]]
+            self.assertIn("tag:murmur-api:8443", denies, src)
+
+    def test_ssh_tests_deny_tailscale_ssh_to_murmur_api(self) -> None:
+        for entry in self.MURMUR_API_SSH_TESTS:
             self.assertIn(entry, self.policy["sshTests"])
 
     # icebox (Linear TIN-7812; Jess's rulings IB-1 and IB-3 to IB-7 in

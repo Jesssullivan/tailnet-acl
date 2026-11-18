@@ -104,6 +104,15 @@
 -- Tailscale SSH right as a source, and that no admin source gets Tailscale
 -- SSH to it.
 --
+-- tag:murmur-api (Linear TIN-8187), one operator-exposed Service. Sting
+-- reaches it on 8443 and not on 22, 80 or 443. Neo and the two user
+-- identities do not reach it on 8443, 22 or 443, so a laptop has no path.
+-- Each of those rows accepts a flow the policy already grants, since a row
+-- needs a non-empty accept. The device has no flow out, so it has no row
+-- of its own. The contract test pins that it is never a source and reaches
+-- no tagged node. sshTests pins that it holds no Tailscale SSH right as a
+-- source, and that no seat or admin source gets Tailscale SSH to it.
+--
 -- icebox (Linear TIN-7812; folds #65, TIN-7811). Jess, a dev and prod
 -- member, reaches every port on tag:icebox-dev, tag:icebox-prod on 22 and
 -- 443 but not 80, and the console on 443 but not 22. Neo reaches the
@@ -179,6 +188,18 @@ let appEdgeSeatDeny =
       [ "${C.tag.app_edge}:9100"
       , "${C.tag.app_edge}:80"
       , "${C.tag.app_edge}:443"
+      ]
+
+let murmurApiDeny =
+      [ "${C.tag.murmur_api}:8443"
+      , "${C.tag.murmur_api}:22"
+      , "${C.tag.murmur_api}:443"
+      ]
+
+let murmurApiSeatDeny =
+      [ "${C.tag.murmur_api}:22"
+      , "${C.tag.murmur_api}:80"
+      , "${C.tag.murmur_api}:443"
       ]
 
 let sshUsers = [ "root", "jess", "jsullivan2", "admin" ]
@@ -874,6 +895,26 @@ let tests
         , accept = [ "${C.tag.app_edge}:22" ]
         , deny = appEdgeSeatDeny
         }
+      , { src = "tinyland-sting"
+        , proto = "tcp"
+        , accept = [ "${C.tag.murmur_api}:8443" ]
+        , deny = murmurApiSeatDeny
+        }
+      , { src = "tinyland-neo"
+        , proto = "tcp"
+        , accept = [ "${C.tag.app_edge}:22" ]
+        , deny = murmurApiDeny
+        }
+      , { src = C.user.jess_sulliwood
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy}:443" ]
+        , deny = murmurApiDeny
+        }
+      , { src = C.user.jsullivan2_gmail
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy}:443" ]
+        , deny = murmurApiDeny
+        }
       , { src = C.tag.k8s
         , proto = "tcp"
         , accept = [ "${C.tag.k8s}:443" ]
@@ -1034,6 +1075,28 @@ let sshTests
         }
       , { src = "tinyland-neo", dst = [ C.tag.app_edge ], deny = sshUsers }
       , { src = "tinyland-sting", dst = [ C.tag.app_edge ], deny = sshUsers }
+      , { src = C.tag.murmur_api
+        , dst =
+          [ "tinyland-honey"
+          , "tinyland-bumble"
+          , "tinyland-sting"
+          , "tinyland-petting-zoo-mini"
+          , C.tag.dollhouse
+          , C.tag.dev
+          , C.tag.switch
+          ]
+        , deny = sshUsers
+        }
+      , { src = C.user.jess_sulliwood
+        , dst = [ C.tag.murmur_api ]
+        , deny = sshUsers
+        }
+      , { src = C.user.jsullivan2_gmail
+        , dst = [ C.tag.murmur_api ]
+        , deny = sshUsers
+        }
+      , { src = "tinyland-neo", dst = [ C.tag.murmur_api ], deny = sshUsers }
+      , { src = "tinyland-sting", dst = [ C.tag.murmur_api ], deny = sshUsers }
       ]
 
 in  { tests, sshTests }

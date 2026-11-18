@@ -61,6 +61,7 @@ let tag =
       , mx_relay = "tag:mx-relay"
       , sip_relay = "tag:sip-relay"
       , app_edge = "tag:app-edge"
+      , murmur_api = "tag:murmur-api"
       , gf_reapi_cell_egress = "tag:gf-reapi-cell-egress"
       , gf_reapi_linux_worker = "tag:gf-reapi-linux-worker"
       , gf_reapi_rocm_worker = "tag:gf-reapi-rocm-worker"

@@ -130,6 +130,10 @@
 	"dst": ["tag:app-edge"],
 	"ip": ["tcp:22"]
 }, {
+	"src": ["tinyland-sting"],
+	"dst": ["tag:murmur-api"],
+	"ip": ["tcp:8443"]
+}, {
 	"src": ["tag:dollhouse"],
 	"dst": ["tag:dollhouse"],
 	"app": {"tailscale.com/cap/relay": [{}]}
