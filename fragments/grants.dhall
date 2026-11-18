@@ -114,8 +114,8 @@
 --   * tag:murmur-prober, the console's lens component, has the one row
 --     tag:icebox-prober has: tag:icebox-dev and tag:icebox-prod on tcp:22
 --     and tcp:443. No murmur device tag exists yet, so the destinations
---     keep their icebox names. The row sits after the icebox rows at the
---     end of the list. The prober gets no row to tag:murmur-api, because
+--     keep their icebox names. The row is the last one in this file,
+--     after the icebox rows. The prober gets no row to tag:murmur-api, as
 --     tag:icebox-prober has no row to an api.
 --   * neo reaches tag:murmur-console, the console's tailnet Service, on
 --     tcp:80 only. Neo is named by host, as in the tag:icebox-console and
@@ -217,7 +217,7 @@
 -- Devices never reach each other, users, dollhouse or honey:6443. No icebox
 -- tag has a nodeAttr (no Funnel) or an autoApprover.
 -- One later row also names the two device tags: the tag:murmur-prober row
--- (Linear TIN-8188), the last in the list, described above.
+-- (Linear TIN-8188), the last row in this file, described above.
 let C = ../constants.dhall
 
 let G = ../types/Grant.dhall
