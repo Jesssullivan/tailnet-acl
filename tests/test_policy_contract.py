@@ -662,7 +662,7 @@ class PolicyContractTest(unittest.TestCase):
                     "tinyland-petting-zoo-mini", "tag:dollhouse", "tag:dev", "tag:switch",
                 ],
                 "deny": ["root", "jess", "jsullivan2", "admin"],
-            }],
+            }, *self.APP_EDGE_SSH_TESTS],
         )
         for entry in self.policy["sshTests"]:
             self.assertTrue(all(entry[key] for key in entry), entry)
@@ -873,6 +873,7 @@ class PolicyContractTest(unittest.TestCase):
                 "tag:ci-agent", "tag:kvm-proxy",
                 "tag:tag-authority", "tag:gftb-idp", "tag:tofu-state", "tag:infra-idp",
                 "tag:interim-build", "tag:honey-relay", "tag:mx-relay", "tag:sip-relay",
+                "tag:app-edge",
                 "tag:gf-reapi-cell-egress", "tag:gf-reapi-linux-worker",
                 "tag:gf-reapi-rocm-worker", "tag:gf-pool-cell-egress",
                 "tag:printstack", "tag:softproxy",
@@ -1661,6 +1662,7 @@ class PolicyContractTest(unittest.TestCase):
                 *self.POST_RETAG_RATCHET_TESTS,
                 *self.ICEBOX_POLICY_TESTS,
                 *self.SIP_RELAY_POLICY_TESTS,
+                *self.APP_EDGE_POLICY_TESTS,
                 *self.NODE_EDGE_POLICY_TESTS,
                 *self.CADE_MEMORY_WRITER_POLICY_TESTS,
                 self.GF_POOL_CELL_EGRESS_POLICY_TEST,
@@ -2419,6 +2421,130 @@ class PolicyContractTest(unittest.TestCase):
                 ("tag:k8s-egress-nodeexporter", "tag:sip-relay:9100"),
             },
         )
+
+    # tag:app-edge, a small public edge host (Linear TIN-7649). It follows the
+    # tag:sip-relay shape: two grants in on tcp:22 from the same two seats,
+    # nothing out. No scrape grant yet, because the scrape source's tag is not
+    # named. Policy tests need a non-empty accept and the host has no flow, so
+    # the outbound denials are proved here over every rule and by sshTests.
+    APP_EDGE = "tag:app-edge"
+    APP_EDGE_GRANTS = [
+        {"src": ["tinyland-neo"], "dst": ["tag:app-edge"], "ip": ["tcp:22"]},
+        {"src": ["tinyland-sting"], "dst": ["tag:app-edge"], "ip": ["tcp:22"]},
+    ]
+    # Jess's two identities, taken from the tag:sip-relay rows above.
+    APP_EDGE_ADMIN_USERS = tuple(row["src"] for row in SIP_RELAY_POLICY_TESTS[:2])
+    APP_EDGE_POLICY_TESTS = [
+        {
+            "src": src,
+            "proto": "tcp",
+            "accept": ["tag:softproxy:443"],
+            "deny": ["tag:app-edge:22", "tag:app-edge:9100"],
+        }
+        for src in APP_EDGE_ADMIN_USERS
+    ] + [
+        {
+            "src": src,
+            "proto": "tcp",
+            "accept": ["tag:app-edge:22"],
+            "deny": ["tag:app-edge:9100", "tag:app-edge:80", "tag:app-edge:443"],
+        }
+        for src in ("tinyland-neo", "tinyland-sting")
+    ]
+    APP_EDGE_SSH_USERS = ["root", "jess", "jsullivan2", "admin"]
+    APP_EDGE_SSH_TESTS = [
+        {
+            "src": "tag:app-edge",
+            "dst": [
+                "tinyland-honey", "tinyland-bumble", "tinyland-sting",
+                "tinyland-petting-zoo-mini", "tag:dollhouse", "tag:dev", "tag:switch",
+            ],
+            "deny": APP_EDGE_SSH_USERS,
+        },
+    ] + [
+        {"src": src, "dst": ["tag:app-edge"], "deny": users}
+        # A comprehension in a class body sees class names only in its first clause.
+        for users, admins in ((APP_EDGE_SSH_USERS, APP_EDGE_ADMIN_USERS),)
+        for src in (*admins, "tinyland-neo", "tinyland-sting")
+    ]
+
+    def _names_app_edge(self, endpoint: str) -> bool:
+        return endpoint == self.APP_EDGE or endpoint.startswith(f"{self.APP_EDGE}:")
+
+    def test_app_edge_is_owned_like_sip_relay_and_owns_no_tag(self) -> None:
+        owners = self.policy["tagOwners"]
+        self.assertEqual(owners[self.APP_EDGE], ["autogroup:admin", "group:dollhouse-admins"])
+        self.assertEqual(owners[self.APP_EDGE], owners[self.SIP_RELAY])
+        self.assertFalse([tag for tag, who in owners.items() if self.APP_EDGE in who])
+        self.assertNotIn(self.APP_EDGE, self.policy["hosts"])
+
+    def test_app_edge_inbound_is_exactly_the_two_ssh_grants(self) -> None:
+        self.assertEqual(
+            [row for row in self.policy["grants"] if any(self._names_app_edge(d) for d in row["dst"])],
+            self.APP_EDGE_GRANTS,
+        )
+        for row in self.policy["acls"]:
+            self.assertFalse(any(self._names_app_edge(d) for d in row["dst"]), row)
+
+    def test_app_edge_ssh_sources_match_sip_relay(self) -> None:
+        def ssh_sources(tag: str) -> list:
+            return sorted(
+                src
+                for row in self.policy["grants"]
+                if tag in row["dst"] and "tcp:22" in row.get("ip", [])
+                for src in row["src"]
+            )
+        self.assertEqual(ssh_sources(self.APP_EDGE), ssh_sources(self.SIP_RELAY))
+
+    def test_app_edge_has_no_scrape_grant_yet(self) -> None:
+        for row in self.policy["grants"]:
+            if any(self._names_app_edge(d) for d in row["dst"]):
+                self.assertEqual(row["ip"], ["tcp:22"], row)
+
+    def test_app_edge_is_never_a_source(self) -> None:
+        for surface in ("acls", "grants", "ssh"):
+            for rule in self.policy[surface]:
+                self.assertFalse(any(self._names_app_edge(s) for s in rule["src"]), rule)
+
+    def test_app_edge_reaches_no_tagged_node(self) -> None:
+        # Every tag the file names, checked one by one, so a later grant with
+        # tag:app-edge as its source fails here by name.
+        for tag in self.policy["tagOwners"]:
+            for row in self.policy["grants"]:
+                if any(d == tag or d.startswith(f"{tag}:") for d in row["dst"]):
+                    self.assertNotIn(self.APP_EDGE, row["src"], (tag, row))
+            for rule in self.policy["acls"]:
+                if any(d.startswith(f"{tag}:") for d in rule["dst"]):
+                    self.assertNotIn(self.APP_EDGE, rule["src"], (tag, rule))
+
+    def test_app_edge_has_no_ssh_rule_funnel_node_attr_or_auto_approver(self) -> None:
+        for rule in self.policy["ssh"]:
+            self.assertNotIn(self.APP_EDGE, rule["src"] + rule["dst"], rule)
+        for row in self.policy["nodeAttrs"]:
+            self.assertNotIn(self.APP_EDGE, row["target"], row)
+            if "funnel" in row["attr"]:
+                self.assertFalse({"*", "autogroup:tagged"} & set(row["target"]), row)
+        approvers = self.policy["autoApprovers"]
+        self.assertNotIn(self.APP_EDGE, approvers["exitNode"])
+        for section in ("routes", "services"):
+            for tags in approvers.get(section, {}).values():
+                self.assertNotIn(self.APP_EDGE, tags)
+
+    def test_app_edge_policy_tests_accept_only_granted_ports(self) -> None:
+        accepted = {
+            (entry["src"], target)
+            for entry in self.policy["tests"]
+            for target in entry["accept"]
+            if self._names_app_edge(target)
+        }
+        self.assertEqual(
+            accepted,
+            {("tinyland-neo", "tag:app-edge:22"), ("tinyland-sting", "tag:app-edge:22")},
+        )
+
+    def test_ssh_tests_deny_tailscale_ssh_to_app_edge(self) -> None:
+        for entry in self.APP_EDGE_SSH_TESTS:
+            self.assertIn(entry, self.policy["sshTests"])
 
     # icebox (Linear TIN-7812; Jess's rulings IB-1 and IB-3 to IB-7 in
     # comments b0d7c34e and ba40e1a6; folds Jesssullivan/tailnet-acl#65,

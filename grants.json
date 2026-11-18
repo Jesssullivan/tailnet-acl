@@ -122,6 +122,14 @@
 	"dst": ["tag:sip-relay"],
 	"ip": ["tcp:9100"]
 }, {
+	"src": ["tinyland-neo"],
+	"dst": ["tag:app-edge"],
+	"ip": ["tcp:22"]
+}, {
+	"src": ["tinyland-sting"],
+	"dst": ["tag:app-edge"],
+	"ip": ["tcp:22"]
+}, {
 	"src": ["tag:dollhouse"],
 	"dst": ["tag:dollhouse"],
 	"app": {"tailscale.com/cap/relay": [{}]}

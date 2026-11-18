@@ -87,6 +87,17 @@
 -- The tag has no SSH rule, nodeAttr, autoApprover or host alias. Pinned by
 -- tests/test_policy_contract.py and by policy tests in fragments/tests.dhall.
 --
+-- tag:app-edge, a small public edge host (Linear TIN-7649). Two rows, and
+-- nothing names the tag as a source, so the host has no outbound tailnet
+-- reach.
+--   * neo and sting reach it on tcp 22, the same two SSH sources as
+--     tag:sip-relay. The host runs OpenSSH, not Tailscale SSH. They are
+--     named by host for the reason given for tag:sip-relay.
+--   * No scrape row yet. The scrape source's tag is not named, so tcp 9100
+--     is left out until it is.
+-- The tag has no SSH rule, nodeAttr, autoApprover or host alias. Pinned by
+-- tests/test_policy_contract.py and by policy tests in fragments/tests.dhall.
+--
 -- tag:softproxy, GO-02 step 1 under Linear TIN-7729. xoxd-ai/softproxy
 -- SP-1 keeps it tailnet only with Funnel off. SP-25 gives it its own
 -- tailscale node. One row lets group:dollhouse-admins and neo reach the
@@ -301,6 +312,8 @@ let grants
           [ C.tag.k8s_egress_nodeexporter ]
           [ C.tag.sip_relay ]
           [ "tcp:9100" ]
+      , G.net [ "tinyland-neo" ] [ C.tag.app_edge ] [ "tcp:22" ]
+      , G.net [ "tinyland-sting" ] [ C.tag.app_edge ] [ "tcp:22" ]
       , G.cap [ C.tag.dollhouse ] [ C.tag.dollhouse ] [ G.Cap.Relay ]
       , G.cap [ C.tag.interim_build ] [ C.tag.honey_relay ] [ G.Cap.Relay ]
       , G.net

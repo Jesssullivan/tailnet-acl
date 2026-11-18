@@ -60,6 +60,7 @@ let tag =
       , honey_relay = "tag:honey-relay"
       , mx_relay = "tag:mx-relay"
       , sip_relay = "tag:sip-relay"
+      , app_edge = "tag:app-edge"
       , gf_reapi_cell_egress = "tag:gf-reapi-cell-egress"
       , gf_reapi_linux_worker = "tag:gf-reapi-linux-worker"
       , gf_reapi_rocm_worker = "tag:gf-reapi-rocm-worker"
