@@ -50,9 +50,15 @@
 -- that tag:icebox-* serves moves to the murmur name. The icebox name is
 -- retired. These two tags are added beside the icebox tags, which stay
 -- unchanged until the old namespace is retired.
---   * tag:murmur-prober is the console's lens component. It mirrors
---     tag:icebox-prober: owned by autogroup:admin alone, as that tag is.
---     It owns no tag.
+--   * tag:murmur-prober is the console's lens component. It owns itself,
+--     beside autogroup:admin. The operator's pick R-MURMUR-20261118-aq
+--     (Linear TIN-7811 87049ff8) has seats mint its single-use keys with
+--     an OAuth client that holds tag:murmur-prober and tag:murmur-console.
+--     Tailscale lets such a client apply a subset of its tags only when one
+--     of its tags owns each requested tag (kb/1068, "Apply a tag from
+--     another tag"), so the tag owns itself. Only a holder of
+--     tag:murmur-prober can apply it; no other tag gains anything. It owns
+--     no other tag.
 --   * tag:murmur-console is the console's tailnet Service. The operator
 --     mints it, so it is owned like tag:murmur-api, by tag:k8s-operator
 --     plus the admins. It owns no tag.
@@ -198,7 +204,9 @@ let tagOwners
         , mapValue =
           [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
         }
-      , { mapKey = C.tag.murmur_prober, mapValue = [ C.autogroup.admin ] }
+      , { mapKey = C.tag.murmur_prober
+        , mapValue = [ C.tag.murmur_prober, C.autogroup.admin ]
+        }
       , { mapKey = C.tag.murmur_console
         , mapValue =
           [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
