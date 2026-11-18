@@ -2782,8 +2782,11 @@ class PolicyContractTest(unittest.TestCase):
         )
         self.assertEqual(owners[self.MURMUR_CONSOLE], owners[self.MURMUR_API])
         for tag in (self.MURMUR_PROBER, self.MURMUR_CONSOLE):
-            self.assertFalse([t for t, who in owners.items() if tag in who], tag)
+            # tag:murmur-prober owns itself and nothing else (TIN-7811 87049ff8).
+            owned = [t for t, who in owners.items() if tag in who and t != tag]
+            self.assertFalse(owned, tag)
             self.assertNotIn(tag, self.policy["hosts"])
+        self.assertNotIn(self.MURMUR_CONSOLE, owners[self.MURMUR_CONSOLE])
 
     def test_murmur_console_inbound_is_exactly_one_grant_from_neo(self) -> None:
         self.assertEqual(
