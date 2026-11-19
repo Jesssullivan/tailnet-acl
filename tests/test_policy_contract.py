@@ -662,7 +662,7 @@ class PolicyContractTest(unittest.TestCase):
                     "tinyland-petting-zoo-mini", "tag:dollhouse", "tag:dev", "tag:switch",
                 ],
                 "deny": ["root", "jess", "jsullivan2", "admin"],
-            }, *self.APP_EDGE_SSH_TESTS, *self.MURMUR_API_SSH_TESTS, *self.MURMUR_TAGS_SSH_TESTS],
+            }, *self.APP_EDGE_SSH_TESTS, *self.MURMUR_API_SSH_TESTS, *self.MURMUR_TAGS_SSH_TESTS, *self.PENGUINCAM_SSH_TESTS],
         )
         for entry in self.policy["sshTests"]:
             self.assertTrue(all(entry[key] for key in entry), entry)
@@ -1666,6 +1666,7 @@ class PolicyContractTest(unittest.TestCase):
                 *self.APP_EDGE_POLICY_TESTS,
                 *self.MURMUR_API_POLICY_TESTS,
                 *self.MURMUR_TAGS_POLICY_TESTS,
+                *self.PENGUINCAM_POLICY_TESTS,
                 *self.NODE_EDGE_POLICY_TESTS,
                 *self.CADE_MEMORY_WRITER_POLICY_TESTS,
                 self.GF_POOL_CELL_EGRESS_POLICY_TEST,
@@ -2866,6 +2867,41 @@ class PolicyContractTest(unittest.TestCase):
         "users": ["penguincam"],
     }
 
+    PENGUINCAM_POLICY_TESTS = [
+        {
+            "src": src,
+            "proto": "tcp",
+            "accept": ["tag:penguincam-dev:22", "tag:penguincam-prod:22"],
+            "deny": [
+                f"{tag}:{port}"
+                for tag in ("tag:penguincam-dev", "tag:penguincam-prod")
+                for port in (80, 443, 8443)
+            ],
+        }
+        for src in ("tinyland-neo", "jess@sulliwood.org", "jsullivan2@gmail.com", "tinyland-sting")
+    ]
+    PENGUINCAM_SSH_TESTS = [
+        {
+            "src": src,
+            "dst": [
+                "tinyland-honey", "tinyland-bumble", "tinyland-sting",
+                "tinyland-petting-zoo-mini", "tag:dollhouse", "tag:dev", "tag:switch", other,
+            ],
+            "deny": ["root", "jess", "jsullivan2", "admin"],
+        }
+        for src, other in (
+            ("tag:penguincam-dev", "tag:penguincam-prod"),
+            ("tag:penguincam-prod", "tag:penguincam-dev"),
+        )
+    ] + [
+        {
+            "src": src,
+            "dst": ["tag:penguincam-dev", "tag:penguincam-prod"],
+            "deny": ["root", "jess", "jsullivan2", "admin"],
+        }
+        for src in ("jess@sulliwood.org", "jsullivan2@gmail.com", "tinyland-neo", "tinyland-sting")
+    ]
+
     def test_penguincam_tags_own_themselves_beside_the_admins_and_own_nothing_else(self) -> None:
         owners = self.policy["tagOwners"]
         for tag in self.PENGUINCAM_TAGS:
@@ -2904,6 +2940,10 @@ class PolicyContractTest(unittest.TestCase):
             for section in ("routes", "services"):
                 for tags in approvers.get(section, {}).values():
                     self.assertNotIn(tag, tags)
+
+    def test_ssh_tests_pin_penguincam_denials(self) -> None:
+        for entry in self.PENGUINCAM_SSH_TESTS:
+            self.assertIn(entry, self.policy["sshTests"])
 
     def test_penguincam_policy_tests_accept_only_tcp_22_from_the_four_sources(self) -> None:
         accepted = {

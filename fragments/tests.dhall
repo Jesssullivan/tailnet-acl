@@ -1215,6 +1215,22 @@ let sshTests
           ]
         , deny = sshUsers
         }
+      , { src = C.user.jess_sulliwood
+        , dst = [ C.tag.murmur_prober, C.tag.murmur_console ]
+        , deny = sshUsers
+        }
+      , { src = C.user.jsullivan2_gmail
+        , dst = [ C.tag.murmur_prober, C.tag.murmur_console ]
+        , deny = sshUsers
+        }
+      , { src = "tinyland-neo"
+        , dst = [ C.tag.murmur_prober, C.tag.murmur_console ]
+        , deny = sshUsers
+        }
+      , { src = "tinyland-sting"
+        , dst = [ C.tag.murmur_prober, C.tag.murmur_console ]
+        , deny = sshUsers
+        }
       , { src = C.tag.penguincam_dev
         , dst =
           [ "tinyland-honey"
@@ -1255,22 +1271,6 @@ let sshTests
         }
       , { src = "tinyland-sting"
         , dst = [ C.tag.penguincam_dev, C.tag.penguincam_prod ]
-        , deny = sshUsers
-        }
-      , { src = C.user.jess_sulliwood
-        , dst = [ C.tag.murmur_prober, C.tag.murmur_console ]
-        , deny = sshUsers
-        }
-      , { src = C.user.jsullivan2_gmail
-        , dst = [ C.tag.murmur_prober, C.tag.murmur_console ]
-        , deny = sshUsers
-        }
-      , { src = "tinyland-neo"
-        , dst = [ C.tag.murmur_prober, C.tag.murmur_console ]
-        , deny = sshUsers
-        }
-      , { src = "tinyland-sting"
-        , dst = [ C.tag.murmur_prober, C.tag.murmur_console ]
         , deny = sshUsers
         }
       ]
