@@ -12,6 +12,11 @@
 -- tagged source ("An SSH access rule from a tagged device cannot be in
 -- check mode", tailscale.com/kb/1337/policy-syntax), so prod uses accept.
 -- Its grant opens tcp:22 on tag:icebox-prod, and SSH needs no other port.
+--
+-- penguincam (Linear TIN-8188): Jess's two user identities get Tailscale SSH
+-- to tag:penguincam-dev and tag:penguincam-prod as the user penguincam only,
+-- with accept. Neo is a host alias, which an SSH source cannot name, so neo
+-- reaches the nodes as one of those users' devices.
 let T = ../types/ACL.dhall
 
 let C = ../constants.dhall
@@ -88,6 +93,11 @@ let ssh
         , src = [ C.tag.icebox_member ]
         , dst = [ C.tag.icebox_prod ]
         , users = [ C.autogroup.nonroot ]
+        }
+      , { action = "accept"
+        , src = [ C.user.jess_sulliwood, C.user.jsullivan2_gmail ]
+        , dst = [ C.tag.penguincam_dev, C.tag.penguincam_prod ]
+        , users = [ "penguincam" ]
         }
       ]
 

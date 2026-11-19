@@ -192,6 +192,17 @@
 -- does not reach PZM. Nothing names the pool tag as a destination. It has
 -- no nodeAttr, SSH rule or autoApprover.
 --
+-- tag:penguincam-dev and tag:penguincam-prod (Linear TIN-8188). Two rows for
+-- the Murmur camera node. Both tags are listed in fragments/core.dhall.
+--   * Jess's two user identities and neo reach both tags on ping and tcp:22.
+--     Their Tailscale SSH rule, for the user penguincam only, is in
+--     fragments/ssh.dhall.
+--   * sting reaches both tags on tcp:22 only. It has no ping row and no
+--     Tailscale SSH rule.
+-- Nothing names either tag as a source, so the tags have no outbound tailnet
+-- reach. Neither tag has a nodeAttr, autoApprover or host alias. Pinned by
+-- tests/test_policy_contract.py and by policy tests in fragments/tests.dhall.
+--
 -- icebox (Linear TIN-7812; Jess's rulings IB-1 and IB-3 to IB-7, comments
 -- b0d7c34e and ba40e1a6; folds Jesssullivan/tailnet-acl#65, TIN-7811,
 -- R-ICEBOX-20261030-a). Seven rows at the end of the list. They are the
@@ -346,6 +357,14 @@ let grants
       , G.net [ "tinyland-sting" ] [ C.tag.app_edge ] [ "tcp:22" ]
       , G.net [ "tinyland-sting" ] [ C.tag.murmur_api ] [ "tcp:8443" ]
       , G.net [ "tinyland-neo" ] [ C.tag.murmur_console ] [ "tcp:80" ]
+      , G.net
+          [ C.user.jess_sulliwood, C.user.jsullivan2_gmail, "tinyland-neo" ]
+          [ C.tag.penguincam_dev, C.tag.penguincam_prod ]
+          [ "icmp:*", "tcp:22" ]
+      , G.net
+          [ "tinyland-sting" ]
+          [ C.tag.penguincam_dev, C.tag.penguincam_prod ]
+          [ "tcp:22" ]
       , G.cap [ C.tag.dollhouse ] [ C.tag.dollhouse ] [ G.Cap.Relay ]
       , G.cap [ C.tag.interim_build ] [ C.tag.honey_relay ] [ G.Cap.Relay ]
       , G.net
