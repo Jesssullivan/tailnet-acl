@@ -64,6 +64,14 @@
 --     plus the admins. It owns no tag.
 -- Their grants live in fragments/grants.dhall.
 --
+-- tag:penguincam-dev and tag:penguincam-prod (Linear TIN-8188). The Murmur
+-- camera node's device tags. The Murmur tenant's OAuth client holds both and
+-- mints the node's single-use key. Tailscale lets a client apply a tag only
+-- when one of its own tags owns it, so each tag owns itself beside
+-- autogroup:admin, as tag:murmur-prober does. Only a holder of a tag can apply
+-- that tag; neither tag owns any other tag. Their grants are in
+-- fragments/grants.dhall and their Tailscale SSH rule in fragments/ssh.dhall.
+--
 -- tag:softproxy (GO-02 step 1, Linear TIN-7729; xoxd-ai/softproxy rulings
 -- SP-1 and SP-25): Softproxy's own userspace tailscaled node on honey,
 -- joined with one single-use auth key the operator mints. Owned by
@@ -210,6 +218,12 @@ let tagOwners
       , { mapKey = C.tag.murmur_console
         , mapValue =
           [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
+        }
+      , { mapKey = C.tag.penguincam_dev
+        , mapValue = [ C.tag.penguincam_dev, C.autogroup.admin ]
+        }
+      , { mapKey = C.tag.penguincam_prod
+        , mapValue = [ C.tag.penguincam_prod, C.autogroup.admin ]
         }
       , { mapKey = C.tag.gf_reapi_cell_egress
         , mapValue =

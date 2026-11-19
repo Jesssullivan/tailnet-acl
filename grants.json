@@ -138,6 +138,14 @@
 	"dst": ["tag:murmur-console"],
 	"ip": ["tcp:80"]
 }, {
+	"src": ["jess@sulliwood.org", "jsullivan2@gmail.com", "tinyland-neo"],
+	"dst": ["tag:penguincam-dev", "tag:penguincam-prod"],
+	"ip": ["icmp:*", "tcp:22"]
+}, {
+	"src": ["tinyland-sting"],
+	"dst": ["tag:penguincam-dev", "tag:penguincam-prod"],
+	"ip": ["tcp:22"]
+}, {
 	"src": ["tag:dollhouse"],
 	"dst": ["tag:dollhouse"],
 	"app": {"tailscale.com/cap/relay": [{}]}

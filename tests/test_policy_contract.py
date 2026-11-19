@@ -874,6 +874,7 @@ class PolicyContractTest(unittest.TestCase):
                 "tag:tag-authority", "tag:gftb-idp", "tag:tofu-state", "tag:infra-idp",
                 "tag:interim-build", "tag:honey-relay", "tag:mx-relay", "tag:sip-relay",
                 "tag:app-edge", "tag:murmur-api", "tag:murmur-prober", "tag:murmur-console",
+                "tag:penguincam-dev", "tag:penguincam-prod",
                 "tag:gf-reapi-cell-egress", "tag:gf-reapi-linux-worker",
                 "tag:gf-reapi-rocm-worker", "tag:gf-pool-cell-egress",
                 "tag:printstack", "tag:softproxy",
@@ -2840,6 +2841,83 @@ class PolicyContractTest(unittest.TestCase):
     def test_ssh_tests_deny_tailscale_ssh_to_and_from_murmur_tags(self) -> None:
         for entry in self.MURMUR_TAGS_SSH_TESTS:
             self.assertIn(entry, self.policy["sshTests"])
+
+    # tag:penguincam-dev and tag:penguincam-prod (Linear TIN-8188). The Murmur
+    # camera node's device tags. Each owns itself beside autogroup:admin so the
+    # tenant OAuth client that holds it can apply it. Two grants in, nothing
+    # out, and one Tailscale SSH rule for the user penguincam only.
+    PENGUINCAM_TAGS = ("tag:penguincam-dev", "tag:penguincam-prod")
+    PENGUINCAM_GRANTS = [
+        {
+            "src": ["jess@sulliwood.org", "jsullivan2@gmail.com", "tinyland-neo"],
+            "dst": ["tag:penguincam-dev", "tag:penguincam-prod"],
+            "ip": ["icmp:*", "tcp:22"],
+        },
+        {
+            "src": ["tinyland-sting"],
+            "dst": ["tag:penguincam-dev", "tag:penguincam-prod"],
+            "ip": ["tcp:22"],
+        },
+    ]
+    PENGUINCAM_SSH_RULE = {
+        "action": "accept",
+        "src": ["jess@sulliwood.org", "jsullivan2@gmail.com"],
+        "dst": ["tag:penguincam-dev", "tag:penguincam-prod"],
+        "users": ["penguincam"],
+    }
+
+    def test_penguincam_tags_own_themselves_beside_the_admins_and_own_nothing_else(self) -> None:
+        owners = self.policy["tagOwners"]
+        for tag in self.PENGUINCAM_TAGS:
+            self.assertEqual(owners[tag], [tag, "autogroup:admin"])
+            self.assertEqual([t for t, who in owners.items() if tag in who and t != tag], [], tag)
+            self.assertNotIn(tag, self.policy["hosts"])
+
+    def test_penguincam_inbound_is_exactly_the_two_grants(self) -> None:
+        for tag in self.PENGUINCAM_TAGS:
+            self.assertEqual(
+                [r for r in self.policy["grants"] if any(self._names_tag(tag, d) for d in r["dst"])],
+                self.PENGUINCAM_GRANTS,
+            )
+            for row in self.policy["acls"]:
+                self.assertFalse(any(self._names_tag(tag, d) for d in row["dst"]), row)
+
+    def test_penguincam_tags_are_never_a_source(self) -> None:
+        for tag in self.PENGUINCAM_TAGS:
+            for surface in ("acls", "grants", "ssh"):
+                for rule in self.policy[surface]:
+                    self.assertFalse(any(self._names_tag(tag, s) for s in rule["src"]), rule)
+
+    def test_penguincam_ssh_is_one_rule_for_the_user_penguincam(self) -> None:
+        rows = [
+            r for r in self.policy["ssh"]
+            if any(self._names_tag(t, d) for t in self.PENGUINCAM_TAGS for d in r["dst"])
+        ]
+        self.assertEqual(rows, [self.PENGUINCAM_SSH_RULE])
+
+    def test_penguincam_tags_have_no_node_attr_or_auto_approver(self) -> None:
+        approvers = self.policy["autoApprovers"]
+        for tag in self.PENGUINCAM_TAGS:
+            for row in self.policy["nodeAttrs"]:
+                self.assertNotIn(tag, row["target"], row)
+            self.assertNotIn(tag, approvers["exitNode"])
+            for section in ("routes", "services"):
+                for tags in approvers.get(section, {}).values():
+                    self.assertNotIn(tag, tags)
+
+    def test_penguincam_policy_tests_accept_only_tcp_22_from_the_four_sources(self) -> None:
+        accepted = {
+            (entry["src"], target)
+            for entry in self.policy["tests"]
+            for target in entry["accept"]
+            if any(self._names_tag(t, target) for t in self.PENGUINCAM_TAGS)
+        }
+        want = {
+            (src, f"{tag}:22")
+            for src in ("tinyland-neo", "tinyland-sting", "jess@sulliwood.org", "jsullivan2@gmail.com")
+            for tag in self.PENGUINCAM_TAGS
+        }
+        self.assertEqual(accepted, want)
 
     # icebox (Linear TIN-7812; Jess's rulings IB-1 and IB-3 to IB-7 in
     # comments b0d7c34e and ba40e1a6; folds Jesssullivan/tailnet-acl#65,

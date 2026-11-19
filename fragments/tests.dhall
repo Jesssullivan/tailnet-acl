@@ -123,6 +123,13 @@
 -- pins that neither tag holds a Tailscale SSH right as a source, and that
 -- no seat or admin source gets Tailscale SSH to either tag.
 --
+-- tag:penguincam-dev and tag:penguincam-prod (Linear TIN-8188). Neo, sting and
+-- Jess's two user identities reach both tags on tcp:22 and not on 80, 443 or
+-- 8443. Neither tag is a source in any row, so neither reaches anything.
+-- sshTests pins that neither tag holds a Tailscale SSH right as a source and
+-- that no listed user gets Tailscale SSH to a tag as root, jess, jsullivan2
+-- or admin, since the one rule admits only the user penguincam.
+--
 -- icebox (Linear TIN-7812; folds #65, TIN-7811). Jess, a dev and prod
 -- member, reaches every port on tag:icebox-dev, tag:icebox-prod on 22 and
 -- 443 but not 80, and the console on 443 but not 22. Neo reaches the
@@ -220,6 +227,15 @@ let murmurConsoleSeatDeny =
 
 let murmurConsoleDeny =
       [ "${C.tag.murmur_console}:80", "${C.tag.murmur_console}:443" ]
+
+let penguincamSeatDeny =
+      [ "${C.tag.penguincam_dev}:80"
+      , "${C.tag.penguincam_dev}:443"
+      , "${C.tag.penguincam_dev}:8443"
+      , "${C.tag.penguincam_prod}:80"
+      , "${C.tag.penguincam_prod}:443"
+      , "${C.tag.penguincam_prod}:8443"
+      ]
 
 let sshUsers = [ "root", "jess", "jsullivan2", "admin" ]
 
@@ -969,6 +985,30 @@ let tests
         , accept = [ "${C.tag.softproxy}:443" ]
         , deny = murmurConsoleDeny
         }
+      , { src = "tinyland-neo"
+        , proto = "tcp"
+        , accept =
+          [ "${C.tag.penguincam_dev}:22", "${C.tag.penguincam_prod}:22" ]
+        , deny = penguincamSeatDeny
+        }
+      , { src = C.user.jess_sulliwood
+        , proto = "tcp"
+        , accept =
+          [ "${C.tag.penguincam_dev}:22", "${C.tag.penguincam_prod}:22" ]
+        , deny = penguincamSeatDeny
+        }
+      , { src = C.user.jsullivan2_gmail
+        , proto = "tcp"
+        , accept =
+          [ "${C.tag.penguincam_dev}:22", "${C.tag.penguincam_prod}:22" ]
+        , deny = penguincamSeatDeny
+        }
+      , { src = "tinyland-sting"
+        , proto = "tcp"
+        , accept =
+          [ "${C.tag.penguincam_dev}:22", "${C.tag.penguincam_prod}:22" ]
+        , deny = penguincamSeatDeny
+        }
       , { src = C.tag.k8s
         , proto = "tcp"
         , accept = [ "${C.tag.k8s}:443" ]
@@ -1173,6 +1213,48 @@ let sshTests
           , C.tag.dev
           , C.tag.switch
           ]
+        , deny = sshUsers
+        }
+      , { src = C.tag.penguincam_dev
+        , dst =
+          [ "tinyland-honey"
+          , "tinyland-bumble"
+          , "tinyland-sting"
+          , "tinyland-petting-zoo-mini"
+          , C.tag.dollhouse
+          , C.tag.dev
+          , C.tag.switch
+          , C.tag.penguincam_prod
+          ]
+        , deny = sshUsers
+        }
+      , { src = C.tag.penguincam_prod
+        , dst =
+          [ "tinyland-honey"
+          , "tinyland-bumble"
+          , "tinyland-sting"
+          , "tinyland-petting-zoo-mini"
+          , C.tag.dollhouse
+          , C.tag.dev
+          , C.tag.switch
+          , C.tag.penguincam_dev
+          ]
+        , deny = sshUsers
+        }
+      , { src = C.user.jess_sulliwood
+        , dst = [ C.tag.penguincam_dev, C.tag.penguincam_prod ]
+        , deny = sshUsers
+        }
+      , { src = C.user.jsullivan2_gmail
+        , dst = [ C.tag.penguincam_dev, C.tag.penguincam_prod ]
+        , deny = sshUsers
+        }
+      , { src = "tinyland-neo"
+        , dst = [ C.tag.penguincam_dev, C.tag.penguincam_prod ]
+        , deny = sshUsers
+        }
+      , { src = "tinyland-sting"
+        , dst = [ C.tag.penguincam_dev, C.tag.penguincam_prod ]
         , deny = sshUsers
         }
       , { src = C.user.jess_sulliwood
