@@ -167,6 +167,17 @@
 -- tag:gf-pool-cell-egress, the pool cell's egress proxy (Linear TIN-8468).
 -- It reaches petting-zoo-mini on 8981 and not on 22, 443 or 9100. It does
 -- not reach either gf-rbe worker tag on 8981.
+--
+-- tag:gf-developer (Linear TIN-8469), one operator-exposed Service. Neo,
+-- sting, petting-zoo-mini and the two user identities of
+-- group:dollhouse-admins reach it on 443 and not on 22, 80 or 8443.
+-- Honey, tag:k8s, tag:k8s-operator and tag:dev do not reach it on 443,
+-- 80 or 22. tag:dev reaches every port on tag:k8s, so its row shows the
+-- device does not share reach with the operator's default tag. Each of
+-- those rows accepts a flow the policy already grants, since a row needs a
+-- non-empty accept. The device has no flow out, so it has no row of its
+-- own. sshTests pins that it holds no Tailscale SSH right as a source, and
+-- that no seat or admin source gets Tailscale SSH to it.
 let T = ../types/ACL.dhall
 
 let C = ../constants.dhall
@@ -235,6 +246,18 @@ let penguincamSeatDeny =
       , "${C.tag.penguincam_prod}:80"
       , "${C.tag.penguincam_prod}:443"
       , "${C.tag.penguincam_prod}:8443"
+      ]
+
+let gfDeveloperSeatDeny =
+      [ "${C.tag.gf_developer}:22"
+      , "${C.tag.gf_developer}:80"
+      , "${C.tag.gf_developer}:8443"
+      ]
+
+let gfDeveloperDeny =
+      [ "${C.tag.gf_developer}:443"
+      , "${C.tag.gf_developer}:80"
+      , "${C.tag.gf_developer}:22"
       ]
 
 let sshUsers = [ "root", "jess", "jsullivan2", "admin" ]
@@ -1009,6 +1032,51 @@ let tests
           [ "${C.tag.penguincam_dev}:22", "${C.tag.penguincam_prod}:22" ]
         , deny = penguincamSeatDeny
         }
+      , { src = C.user.jess_sulliwood
+        , proto = "tcp"
+        , accept = [ "${C.tag.gf_developer}:443" ]
+        , deny = gfDeveloperSeatDeny
+        }
+      , { src = C.user.jsullivan2_gmail
+        , proto = "tcp"
+        , accept = [ "${C.tag.gf_developer}:443" ]
+        , deny = gfDeveloperSeatDeny
+        }
+      , { src = "tinyland-neo"
+        , proto = "tcp"
+        , accept = [ "${C.tag.gf_developer}:443" ]
+        , deny = gfDeveloperSeatDeny
+        }
+      , { src = "tinyland-sting"
+        , proto = "tcp"
+        , accept = [ "${C.tag.gf_developer}:443" ]
+        , deny = gfDeveloperSeatDeny
+        }
+      , { src = "tinyland-petting-zoo-mini"
+        , proto = "tcp"
+        , accept = [ "${C.tag.gf_developer}:443" ]
+        , deny = gfDeveloperSeatDeny
+        }
+      , { src = "tinyland-honey"
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy_edge}:9" ]
+        , deny = gfDeveloperDeny
+        }
+      , { src = C.tag.k8s
+        , proto = "tcp"
+        , accept = [ "${C.tag.k8s}:443" ]
+        , deny = gfDeveloperDeny
+        }
+      , { src = C.tag.k8s_operator
+        , proto = "tcp"
+        , accept = [ "${C.tag.k8s}:443" ]
+        , deny = gfDeveloperDeny
+        }
+      , { src = C.tag.dev
+        , proto = "tcp"
+        , accept = [ "${C.tag.dev}:22" ]
+        , deny = gfDeveloperDeny
+        }
       , { src = C.tag.k8s
         , proto = "tcp"
         , accept = [ "${C.tag.k8s}:443" ]
@@ -1271,6 +1339,35 @@ let sshTests
         }
       , { src = "tinyland-sting"
         , dst = [ C.tag.penguincam_dev, C.tag.penguincam_prod ]
+        , deny = sshUsers
+        }
+      , { src = C.tag.gf_developer
+        , dst =
+          [ "tinyland-honey"
+          , "tinyland-bumble"
+          , "tinyland-sting"
+          , "tinyland-petting-zoo-mini"
+          , C.tag.dollhouse
+          , C.tag.dev
+          , C.tag.switch
+          ]
+        , deny = sshUsers
+        }
+      , { src = C.user.jess_sulliwood
+        , dst = [ C.tag.gf_developer ]
+        , deny = sshUsers
+        }
+      , { src = C.user.jsullivan2_gmail
+        , dst = [ C.tag.gf_developer ]
+        , deny = sshUsers
+        }
+      , { src = "tinyland-neo", dst = [ C.tag.gf_developer ], deny = sshUsers }
+      , { src = "tinyland-sting"
+        , dst = [ C.tag.gf_developer ]
+        , deny = sshUsers
+        }
+      , { src = "tinyland-petting-zoo-mini"
+        , dst = [ C.tag.gf_developer ]
         , deny = sshUsers
         }
       ]

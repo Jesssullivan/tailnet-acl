@@ -261,6 +261,10 @@
 	"dst": ["tag:softproxy"],
 	"ip": ["tcp:443"]
 }, {
+	"src": ["group:dollhouse-admins", "tinyland-neo", "tinyland-sting", "tinyland-petting-zoo-mini"],
+	"dst": ["tag:gf-developer"],
+	"ip": ["tcp:443"]
+}, {
 	"src": ["tinyland-neo"],
 	"dst": ["tag:annotate-edge"],
 	"ip": ["tcp:443"]
