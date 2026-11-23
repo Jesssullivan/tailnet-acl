@@ -203,6 +203,17 @@
 -- reach. Neither tag has a nodeAttr, autoApprover or host alias. Pinned by
 -- tests/test_policy_contract.py and by policy tests in fragments/tests.dhall.
 --
+-- tag:gf-developer, the GloriousFlywheel cell's developer surface on honey,
+-- one operator-exposed Kubernetes Service (Linear TIN-8469). One row:
+-- group:dollhouse-admins, neo, sting and petting-zoo-mini reach it on
+-- tcp:443 and no other port. These are the tag:softproxy-edge sources.
+-- Neo, sting and petting-zoo-mini are tagged devices that no group
+-- matches, so they are named by host. The row follows the softproxy rows.
+-- Nothing names the tag as a source, so the device has no outbound
+-- tailnet reach. The tag has no SSH rule, nodeAttr, autoApprover or host
+-- alias. Pinned by tests/test_policy_contract.py and by policy tests in
+-- fragments/tests.dhall.
+--
 -- icebox (Linear TIN-7812; Jess's rulings IB-1 and IB-3 to IB-7, comments
 -- b0d7c34e and ba40e1a6; folds Jesssullivan/tailnet-acl#65, TIN-7811,
 -- R-ICEBOX-20261030-a). Seven rows at the end of the list. They are the
@@ -486,6 +497,14 @@ let grants
           [ "tcp:443" ]
       , G.net [ "tinyland-honey" ] [ C.tag.softproxy_edge ] [ "tcp:9" ]
       , G.net [ C.tag.softproxy_upstream ] [ C.tag.softproxy ] [ "tcp:443" ]
+      , G.net
+          [ C.group.dollhouse_admins
+          , "tinyland-neo"
+          , "tinyland-sting"
+          , "tinyland-petting-zoo-mini"
+          ]
+          [ C.tag.gf_developer ]
+          [ "tcp:443" ]
       , G.net [ "tinyland-neo" ] [ C.tag.annotate_edge ] [ "tcp:443" ]
       , G.net [ C.tag.annotate_upstream ] [ C.tag.annotate ] [ "tcp:443" ]
       , G.net

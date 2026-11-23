@@ -129,6 +129,15 @@
 -- tag:k8s-operator itself is not broadened. Its grant lives in
 -- fragments/grants.dhall.
 --
+-- tag:gf-developer (Linear TIN-8469). It marks the tailnet device of one
+-- Kubernetes Service, the GloriousFlywheel cell's developer surface on
+-- honey, which the honey Tailscale operator exposes on tcp 443. No other
+-- device carries it. It is a tag of its own so that reach to it is not
+-- shared with every device on tag:k8s. The operator mints it, so it is
+-- owned like tag:murmur-api, by tag:k8s-operator plus the admins. It owns
+-- no tag, and tag:k8s-operator itself is not broadened. Its one grant
+-- lives in fragments/grants.dhall.
+--
 -- icebox (Linear TIN-7812, Jess's rulings IB-1 and IB-3 to IB-7 in comments
 -- b0d7c34e and ba40e1a6; folds Jesssullivan/tailnet-acl#65, TIN-7811;
 -- xoxd-ai/icebox is owned by the PZM icebox seat under
@@ -238,6 +247,10 @@ let tagOwners
           [ C.tag.tag_authority, C.autogroup.admin, C.group.dollhouse_admins ]
         }
       , { mapKey = C.tag.gf_pool_cell_egress
+        , mapValue =
+          [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
+        }
+      , { mapKey = C.tag.gf_developer
         , mapValue =
           [ C.tag.k8s_operator, C.autogroup.admin, C.group.dollhouse_admins ]
         }
