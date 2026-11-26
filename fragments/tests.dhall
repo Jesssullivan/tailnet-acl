@@ -178,6 +178,17 @@
 -- non-empty accept. The device has no flow out, so it has no row of its
 -- own. sshTests pins that it holds no Tailscale SSH right as a source, and
 -- that no seat or admin source gets Tailscale SSH to it.
+--
+-- tag:stage-edge (Linear TIN-8604), the stage.xoxd.ai Service. Neo,
+-- sting, petting-zoo-mini and the two user identities of
+-- group:dollhouse-admins reach it on 443 and not on 22, 80 or 8443.
+-- Honey, tag:k8s, tag:k8s-operator and tag:dev do not reach it on 443,
+-- 80 or 22. tag:dev reaches every port on tag:k8s, so its row shows the
+-- device does not share reach with the operator's default tag. Each of
+-- those rows accepts a flow the policy already grants, since a row needs a
+-- non-empty accept. The device has no flow out, so it has no row of its
+-- own. sshTests pins that it holds no Tailscale SSH right as a source, and
+-- that no seat or admin source gets Tailscale SSH to it.
 let T = ../types/ACL.dhall
 
 let C = ../constants.dhall
@@ -258,6 +269,18 @@ let gfDeveloperDeny =
       [ "${C.tag.gf_developer}:443"
       , "${C.tag.gf_developer}:80"
       , "${C.tag.gf_developer}:22"
+      ]
+
+let stageEdgeSeatDeny =
+      [ "${C.tag.stage_edge}:22"
+      , "${C.tag.stage_edge}:80"
+      , "${C.tag.stage_edge}:8443"
+      ]
+
+let stageEdgeDeny =
+      [ "${C.tag.stage_edge}:443"
+      , "${C.tag.stage_edge}:80"
+      , "${C.tag.stage_edge}:22"
       ]
 
 let sshUsers = [ "root", "jess", "jsullivan2", "admin" ]
@@ -1077,6 +1100,51 @@ let tests
         , accept = [ "${C.tag.dev}:22" ]
         , deny = gfDeveloperDeny
         }
+      , { src = C.user.jess_sulliwood
+        , proto = "tcp"
+        , accept = [ "${C.tag.stage_edge}:443" ]
+        , deny = stageEdgeSeatDeny
+        }
+      , { src = C.user.jsullivan2_gmail
+        , proto = "tcp"
+        , accept = [ "${C.tag.stage_edge}:443" ]
+        , deny = stageEdgeSeatDeny
+        }
+      , { src = "tinyland-neo"
+        , proto = "tcp"
+        , accept = [ "${C.tag.stage_edge}:443" ]
+        , deny = stageEdgeSeatDeny
+        }
+      , { src = "tinyland-sting"
+        , proto = "tcp"
+        , accept = [ "${C.tag.stage_edge}:443" ]
+        , deny = stageEdgeSeatDeny
+        }
+      , { src = "tinyland-petting-zoo-mini"
+        , proto = "tcp"
+        , accept = [ "${C.tag.stage_edge}:443" ]
+        , deny = stageEdgeSeatDeny
+        }
+      , { src = "tinyland-honey"
+        , proto = "tcp"
+        , accept = [ "${C.tag.softproxy_edge}:9" ]
+        , deny = stageEdgeDeny
+        }
+      , { src = C.tag.k8s
+        , proto = "tcp"
+        , accept = [ "${C.tag.k8s}:443" ]
+        , deny = stageEdgeDeny
+        }
+      , { src = C.tag.k8s_operator
+        , proto = "tcp"
+        , accept = [ "${C.tag.k8s}:443" ]
+        , deny = stageEdgeDeny
+        }
+      , { src = C.tag.dev
+        , proto = "tcp"
+        , accept = [ "${C.tag.dev}:22" ]
+        , deny = stageEdgeDeny
+        }
       , { src = C.tag.k8s
         , proto = "tcp"
         , accept = [ "${C.tag.k8s}:443" ]
@@ -1368,6 +1436,32 @@ let sshTests
         }
       , { src = "tinyland-petting-zoo-mini"
         , dst = [ C.tag.gf_developer ]
+        , deny = sshUsers
+        }
+      , { src = C.tag.stage_edge
+        , dst =
+          [ "tinyland-honey"
+          , "tinyland-bumble"
+          , "tinyland-sting"
+          , "tinyland-petting-zoo-mini"
+          , C.tag.dollhouse
+          , C.tag.dev
+          , C.tag.switch
+          ]
+        , deny = sshUsers
+        }
+      , { src = C.user.jess_sulliwood
+        , dst = [ C.tag.stage_edge ]
+        , deny = sshUsers
+        }
+      , { src = C.user.jsullivan2_gmail
+        , dst = [ C.tag.stage_edge ]
+        , deny = sshUsers
+        }
+      , { src = "tinyland-neo", dst = [ C.tag.stage_edge ], deny = sshUsers }
+      , { src = "tinyland-sting", dst = [ C.tag.stage_edge ], deny = sshUsers }
+      , { src = "tinyland-petting-zoo-mini"
+        , dst = [ C.tag.stage_edge ]
         , deny = sshUsers
         }
       ]

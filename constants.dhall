@@ -71,6 +71,7 @@ let tag =
       , gf_reapi_rocm_worker = "tag:gf-reapi-rocm-worker"
       , gf_pool_cell_egress = "tag:gf-pool-cell-egress"
       , gf_developer = "tag:gf-developer"
+      , stage_edge = "tag:stage-edge"
       , printstack = "tag:printstack"
       , softproxy = "tag:softproxy"
       , softproxy_edge = "tag:softproxy-edge"

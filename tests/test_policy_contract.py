@@ -663,7 +663,7 @@ class PolicyContractTest(unittest.TestCase):
                 ],
                 "deny": ["root", "jess", "jsullivan2", "admin"],
             }, *self.APP_EDGE_SSH_TESTS, *self.MURMUR_API_SSH_TESTS, *self.MURMUR_TAGS_SSH_TESTS, *self.PENGUINCAM_SSH_TESTS,
-               *self.GF_DEVELOPER_SSH_TESTS],
+               *self.GF_DEVELOPER_SSH_TESTS, *self.STAGE_EDGE_SSH_TESTS],
         )
         for entry in self.policy["sshTests"]:
             self.assertTrue(all(entry[key] for key in entry), entry)
@@ -813,6 +813,7 @@ class PolicyContractTest(unittest.TestCase):
             # SPR-337 (TIN-7765 84053e0c) adds the softproxy source row, and
             # the cade-infra#139 gate seat route adds the edge row (TIN-7125).
             # TIN-8469 adds the tag:gf-developer row on the same sources.
+            # TIN-8604 adds the tag:stage-edge row on the same sources.
             [
                 self.LOKI_WRITER_GRANT,
                 loki_writer_service_grant,
@@ -820,6 +821,7 @@ class PolicyContractTest(unittest.TestCase):
                 self.SOFTPROXY_GRANT,
                 self.SOFTPROXY_EDGE_GRANT,
                 *self.GF_DEVELOPER_GRANTS,
+                *self.STAGE_EDGE_GRANTS,
             ],
         )
         # TIN-8468 (R816, R819) adds one destination row: the pool cell's
@@ -880,6 +882,7 @@ class PolicyContractTest(unittest.TestCase):
                 "tag:penguincam-dev", "tag:penguincam-prod",
                 "tag:gf-reapi-cell-egress", "tag:gf-reapi-linux-worker",
                 "tag:gf-reapi-rocm-worker", "tag:gf-pool-cell-egress", "tag:gf-developer",
+                "tag:stage-edge",
                 "tag:printstack", "tag:softproxy",
                 "tag:softproxy-edge", "tag:softproxy-upstream",
                 "tag:cade-hermes-front", "tag:cade-hermes-upstream", "tag:cade-memory-writer",
@@ -1671,6 +1674,7 @@ class PolicyContractTest(unittest.TestCase):
                 *self.MURMUR_TAGS_POLICY_TESTS,
                 *self.PENGUINCAM_POLICY_TESTS,
                 *self.GF_DEVELOPER_POLICY_TESTS,
+                *self.STAGE_EDGE_POLICY_TESTS,
                 *self.NODE_EDGE_POLICY_TESTS,
                 *self.CADE_MEMORY_WRITER_POLICY_TESTS,
                 self.GF_POOL_CELL_EGRESS_POLICY_TEST,
@@ -3069,6 +3073,114 @@ class PolicyContractTest(unittest.TestCase):
 
     def test_ssh_tests_deny_tailscale_ssh_to_gf_developer(self) -> None:
         for entry in self.GF_DEVELOPER_SSH_TESTS:
+            self.assertIn(entry, self.policy["sshTests"])
+
+    # tag:stage-edge, the tailnet-only staging site stage.xoxd.ai, one
+    # Kubernetes Service the honey Tailscale operator exposes on tcp 443
+    # behind its own tailnet proxy (Linear TIN-8604). The operator mints the
+    # tag, so it is owned like tag:murmur-api. One grant in, from the
+    # tag:softproxy-edge sources, on tcp:443, nothing out.
+    STAGE_EDGE = "tag:stage-edge"
+    STAGE_EDGE_SOURCES = (
+        "jess@sulliwood.org", "jsullivan2@gmail.com",
+        "tinyland-neo", "tinyland-sting", "tinyland-petting-zoo-mini",
+    )
+    STAGE_EDGE_GRANTS = [
+        {
+            "src": [
+                "group:dollhouse-admins", "tinyland-neo", "tinyland-sting",
+                "tinyland-petting-zoo-mini",
+            ],
+            "dst": ["tag:stage-edge"],
+            "ip": ["tcp:443"],
+        },
+    ]
+    STAGE_EDGE_DENY = ["tag:stage-edge:443", "tag:stage-edge:80", "tag:stage-edge:22"]
+    STAGE_EDGE_POLICY_TESTS = [
+        {
+            "src": src,
+            "proto": "tcp",
+            "accept": ["tag:stage-edge:443"],
+            "deny": ["tag:stage-edge:22", "tag:stage-edge:80", "tag:stage-edge:8443"],
+        }
+        for src in STAGE_EDGE_SOURCES
+    ] + [
+        {"src": src, "proto": "tcp", "accept": [accept], "deny": deny}
+        # A comprehension in a class body sees class names only in its first clause.
+        for deny, outsiders in ((STAGE_EDGE_DENY, (
+            ("tinyland-honey", "tag:softproxy-edge:9"),
+            ("tag:k8s", "tag:k8s:443"),
+            ("tag:k8s-operator", "tag:k8s:443"),
+            ("tag:dev", "tag:dev:22"),
+        )),)
+        for src, accept in outsiders
+    ]
+    STAGE_EDGE_SSH_TESTS = [
+        {
+            "src": "tag:stage-edge",
+            "dst": [
+                "tinyland-honey", "tinyland-bumble", "tinyland-sting",
+                "tinyland-petting-zoo-mini", "tag:dollhouse", "tag:dev", "tag:switch",
+            ],
+            "deny": ["root", "jess", "jsullivan2", "admin"],
+        },
+    ] + [
+        {"src": src, "dst": ["tag:stage-edge"], "deny": ["root", "jess", "jsullivan2", "admin"]}
+        for src in STAGE_EDGE_SOURCES
+    ]
+
+    def test_stage_edge_is_owned_like_murmur_api_and_owns_no_tag(self) -> None:
+        owners = self.policy["tagOwners"]
+        self.assertEqual(
+            owners[self.STAGE_EDGE],
+            ["tag:k8s-operator", "autogroup:admin", "group:dollhouse-admins"],
+        )
+        self.assertEqual(owners[self.STAGE_EDGE], owners["tag:murmur-api"])
+        self.assertFalse([tag for tag, who in owners.items() if self.STAGE_EDGE in who])
+        self.assertNotIn(self.STAGE_EDGE, self.policy["hosts"])
+
+    def test_stage_edge_inbound_is_exactly_one_grant_on_443(self) -> None:
+        self.assertEqual(
+            [r for r in self.policy["grants"] if any(self._names_tag(self.STAGE_EDGE, d) for d in r["dst"])],
+            self.STAGE_EDGE_GRANTS,
+        )
+        for row in self.policy["acls"]:
+            self.assertFalse(any(self._names_tag(self.STAGE_EDGE, d) for d in row["dst"]), row)
+
+    def test_stage_edge_sources_match_the_softproxy_edge_row(self) -> None:
+        edge = [r for r in self.policy["grants"] if r["dst"] == ["tag:softproxy-edge"] and r["ip"] == ["tcp:443"]]
+        self.assertEqual([r["src"] for r in edge], [self.STAGE_EDGE_GRANTS[0]["src"]])
+
+    def test_stage_edge_is_never_a_source(self) -> None:
+        for surface in ("acls", "grants", "ssh"):
+            for rule in self.policy[surface]:
+                self.assertFalse(any(self._names_tag(self.STAGE_EDGE, s) for s in rule["src"]), rule)
+
+    def test_stage_edge_has_no_ssh_rule_node_attr_or_auto_approver(self) -> None:
+        for rule in self.policy["ssh"]:
+            self.assertFalse(any(self._names_tag(self.STAGE_EDGE, d) for d in rule["dst"]), rule)
+        for row in self.policy["nodeAttrs"]:
+            self.assertNotIn(self.STAGE_EDGE, row["target"], row)
+        approvers = self.policy["autoApprovers"]
+        self.assertNotIn(self.STAGE_EDGE, approvers["exitNode"])
+        for section in ("routes", "services"):
+            for tags in approvers.get(section, {}).values():
+                self.assertNotIn(self.STAGE_EDGE, tags)
+
+    def test_stage_edge_policy_tests_accept_only_the_sources_on_443(self) -> None:
+        accepted = {
+            (entry["src"], target)
+            for entry in self.policy["tests"]
+            for target in entry["accept"]
+            if self._names_tag(self.STAGE_EDGE, target)
+        }
+        self.assertEqual(accepted, {(src, "tag:stage-edge:443") for src in self.STAGE_EDGE_SOURCES})
+        for src in ("tinyland-honey", "tag:k8s", "tag:k8s-operator", "tag:dev"):
+            denies = [d for t in self.policy["tests"] if t["src"] == src for d in t["deny"]]
+            self.assertIn("tag:stage-edge:443", denies, src)
+
+    def test_ssh_tests_deny_tailscale_ssh_to_stage_edge(self) -> None:
+        for entry in self.STAGE_EDGE_SSH_TESTS:
             self.assertIn(entry, self.policy["sshTests"])
 
     # icebox (Linear TIN-7812; Jess's rulings IB-1 and IB-3 to IB-7 in
